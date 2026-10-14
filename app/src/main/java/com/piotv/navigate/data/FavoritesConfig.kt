@@ -27,21 +27,34 @@ import java.io.File
  * Der Prozess-Singleton sorgt dafür, dass die Einstellungen (gleicher Prozess)
  * und die Leiste denselben Stand sehen.
  */
-class FavoritesConfig private constructor(context: Context) {
-
-    private val appContext = context.applicationContext
-
+class FavoritesConfig internal constructor(
     /** Quelle der Wahrheit: app-intern, kein FUSE. */
-    private val internalFile = File(appContext.filesDir, FILE_NAME)
-
+    private val internalFile: File,
     /** Import-Pfad für `adb push`; `null`, wenn das Gerät keinen hat. */
-    private val importFile: File? =
-        appContext.getExternalFilesDir(null)?.let { File(it, FILE_NAME) }
+    private val importFile: File?,
+    /**
+     * Uhr für die Import-Drossel — injiziert, damit der Import ohne Warten
+     * prüfbar ist (FavoritesConfigTest). Im Betrieb ist das
+     * [SystemClock.elapsedRealtime].
+     */
+    private val elapsedRealtime: () -> Long,
+) {
 
     private var cached: ConfigCodec.Config = ConfigCodec.default()
     private var cachedModifiedAt = Long.MIN_VALUE
     private var lastImportAt = Long.MIN_VALUE
-    private var lastImportCheckAt = Long.MIN_VALUE
+
+    /**
+     * Laufzeituhr des letzten Nachsehens am Import-Pfad.
+     *
+     * Der Startwert ist **nicht** `Long.MIN_VALUE`: `now - Long.MIN_VALUE` läuft
+     * über und wird negativ, die Bedingung „innerhalb des Intervalls" wäre damit
+     * immer wahr — der Import hätte nie stattgefunden. Genau das war bis 0.4 der
+     * Fall (gefunden von FavoritesConfigTest, siehe CHANGELOG). Ein negativer
+     * Wert in der Größe des Intervalls heißt „lange her" und kann nicht
+     * überlaufen.
+     */
+    private var lastImportCheckAt = -IMPORT_CHECK_INTERVAL_MS
 
     /** Die Datei, die Navigate liest und schreibt (app-intern). */
     val file: File get() = internalFile
@@ -112,7 +125,7 @@ class FavoritesConfig private constructor(context: Context) {
      */
     private fun importIfNewer(): Boolean {
         val source = importFile ?: return false
-        val now = SystemClock.elapsedRealtime()
+        val now = elapsedRealtime()
         if (now - lastImportCheckAt < IMPORT_CHECK_INTERVAL_MS) return false
         lastImportCheckAt = now
 
@@ -161,14 +174,28 @@ class FavoritesConfig private constructor(context: Context) {
          * interne Speicher vermeiden soll —, und seltener würde ein `adb push`
          * gefühlt nicht ankommen.
          */
-        private const val IMPORT_CHECK_INTERVAL_MS = 5_000L
+        internal const val IMPORT_CHECK_INTERVAL_MS = 5_000L
 
         @Volatile
         private var instance: FavoritesConfig? = null
 
         fun get(context: Context): FavoritesConfig =
             instance ?: synchronized(this) {
-                instance ?: FavoritesConfig(context.applicationContext).also { instance = it }
+                instance ?: create(context).also { instance = it }
             }
+
+        /**
+         * Der Produktivpfad: interner Speicher plus Import-Pfad plus die Uhr des
+         * Systems. Getrennt von [get], damit der Konstruktor für Tests frei
+         * bleibt (FavoritesConfigTest) — ohne Context, ohne Gerät.
+         */
+        private fun create(context: Context): FavoritesConfig {
+            val appContext = context.applicationContext
+            return FavoritesConfig(
+                internalFile = File(appContext.filesDir, FILE_NAME),
+                importFile = appContext.getExternalFilesDir(null)?.let { File(it, FILE_NAME) },
+                elapsedRealtime = SystemClock::elapsedRealtime,
+            )
+        }
     }
 }

@@ -10,7 +10,13 @@
     <!-- Navigate-Einstellungen -->
     <string name="settings_title">Navigate-Einstellungen</string>
     <string name="settings_hint">OK: Favorit an/aus · ◀ ▶: Position in der Zeile</string>
-    <string name="settings_counter">Favoriten: %1$d von %2$d</string>
+    <!-- Plural statt String mit %d: bei einem Favoriten stand vorher „Favoriten:
+         1 von 6" (lint: PluralsCandidate). Die Zahl entscheidet die Form, nicht
+         der Text. -->
+    <plurals name="settings_counter">
+        <item quantity="one">Favorit: %1$d von %2$d</item>
+        <item quantity="other">Favoriten: %1$d von %2$d</item>
+    </plurals>
     <string name="settings_path_label">Konfigurationsdatei: %1$s</string>
     <string name="settings_import_path_label">Import (adb push): %1$s</string>
     <string name="settings_favorite_marker">★ %1$d</string>
@@ -19,9 +25,18 @@
          lange Sätze liest dort niemand zu Ende. -->
     <string name="toast_favorite_added">Zu Favoriten hinzugefügt</string>
     <string name="toast_favorite_removed">Aus Favoriten entfernt</string>
-    <string name="toast_favorites_full">Maximal %1$d Favoriten</string>
+    <!-- Plural, wie oben: „Maximal 1 Favoriten" war falsch (lint: PluralsCandidate). -->
+    <plurals name="toast_favorites_full">
+        <item quantity="one">Maximal %1$d Favorit</item>
+        <item quantity="other">Maximal %1$d Favoriten</item>
+    </plurals>
     <string name="toast_launch_failed">App lässt sich nicht starten</string>
     <string name="toast_settings_failed">Einstellungen nicht gefunden</string>
 
+    <!-- Rückfall-Beschreibung für die Symbol-ImageViews in den Layouts. Sie wird
+         zur Laufzeit durch den App-Namen ersetzt (AppGridAdapter,
+         DockController, SettingsAdapter) — der XML-Wert gilt nur, solange eine
+         recycelte Zelle noch nichts gebunden hat. Ohne ihn meldete lint
+         dreimal „Missing contentDescription" und die Ressource wäre ungenutzt. -->
     <string name="cd_app_icon">App-Symbol</string>
 </resources>

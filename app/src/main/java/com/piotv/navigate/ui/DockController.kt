@@ -44,7 +44,9 @@ class DockController(
         onOpenSettings: () -> Unit,
         onSettingsLongPress: () -> Unit,
     ): Boolean {
-        val newSignature = favorites.joinToString(",") { it.packageName } + "@" + dockIconSizePx
+        // Der Schlüssel steht in [DockSignature] (reine Funktion, getestet):
+        // Favoriten in ihrer Reihenfolge plus Symbolgröße.
+        val newSignature = DockSignature.of(favorites.map { it.packageName }, dockIconSizePx)
         if (newSignature == signature) return false
         signature = newSignature
 

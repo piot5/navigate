@@ -12,7 +12,6 @@ import android.graphics.drawable.Drawable
 import android.util.LruCache
 import com.piotv.navigate.data.AppEntry
 import com.piotv.navigate.util.Background
-import kotlin.math.min
 
 /**
  * Liefert App-Symbole: Speicher-Cache → Platten-Cache → Ressourcen der App.
@@ -170,29 +169,21 @@ class IconLoader private constructor(context: Context) {
      * Seitenverhältnistreu einpassen und zentrieren. Quadratische Symbole (der
      * Normalfall) füllen die Fläche exakt; ein 16:9-Banner wird eingepasst
      * statt verzerrt.
+     *
+     * Die Rechnung steht in [IconGeometry] — reine Funktion, ohne Gerät geprüft
+     * (IconGeometryTest). Hier wird sie nur auf die Zeichenfläche angewendet.
      */
     private fun drawFitted(canvas: Canvas, drawable: Drawable, sizePx: Int) {
-        val intrinsicWidth = drawable.intrinsicWidth
-        val intrinsicHeight = drawable.intrinsicHeight
-        if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
-            // Adaptive und vektorielle Symbole melden keine Größe — die sollen
-            // die Fläche füllen.
-            drawable.setBounds(0, 0, sizePx, sizePx)
-        } else {
-            val scale = min(sizePx.toFloat() / intrinsicWidth, sizePx.toFloat() / intrinsicHeight)
-            val width = (intrinsicWidth * scale).toInt().coerceAtLeast(1)
-            val height = (intrinsicHeight * scale).toInt().coerceAtLeast(1)
-            val left = (sizePx - width) / 2
-            val top = (sizePx - height) / 2
-            drawable.setBounds(left, top, left + width, top + height)
-        }
+        val fit = IconGeometry.fit(drawable.intrinsicWidth, drawable.intrinsicHeight, sizePx)
+        drawable.setBounds(fit.left, fit.top, fit.left + fit.width, fit.top + fit.height)
         drawable.draw(canvas)
     }
 
-    /** Abgerundete Ecken wie Android-Symbole (22 %) — einheitlicher Look für
-     *  alte wie neue Symbole, ein Zeichenvorgang pro Symbol. */
+    /** Abgerundete Ecken wie Android-Symbole (22 %, siehe [IconGeometry]) —
+     *  einheitlicher Look für alte wie neue Symbole, ein Zeichenvorgang pro
+     *  Symbol. */
     private fun applyRoundMask(canvas: Canvas, sizePx: Int) {
-        val radius = sizePx * CORNER_RADIUS_RATIO
+        val radius = IconGeometry.cornerRadius(sizePx)
         maskRect.set(0f, 0f, sizePx.toFloat(), sizePx.toFloat())
         maskPath.reset()
         maskPath.addRoundRect(maskRect, radius, radius, Path.Direction.CW)
@@ -201,7 +192,6 @@ class IconLoader private constructor(context: Context) {
 
     companion object {
         private const val MAX_BYTES = 8 * 1024 * 1024
-        private const val CORNER_RADIUS_RATIO = 0.22f
 
         @Volatile
         private var instance: IconLoader? = null

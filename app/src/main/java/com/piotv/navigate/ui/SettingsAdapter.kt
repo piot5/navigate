@@ -56,6 +56,10 @@ class SettingsAdapter(
 
         val entry = items[position]
         holder.label.text = entry.label
+        // Der Screenreader liest sonst nur „App-Symbol" (der XML-Rückfall) für
+        // jede Zeile. Raster und Dock setzten das schon, die Einstellungen
+        // fehlten — von lint als Missing contentDescription gemeldet.
+        holder.icon.contentDescription = entry.label
 
         val order = favorites.indexOf(entry.packageName)
         holder.marker.text = if (order >= 0) {

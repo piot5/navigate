@@ -95,7 +95,13 @@ class SettingsActivity : Activity() {
         val current = config.current()
         val isFavorite = entry.packageName in current.favorites
         if (!isFavorite && FavoritesCodec.isFull(current.favorites, current.maxFavorites)) {
-            shortToast(getString(R.string.toast_favorites_full, current.maxFavorites))
+            shortToast(
+                resources.getQuantityString(
+                    R.plurals.toast_favorites_full,
+                    current.maxFavorites,
+                    current.maxFavorites,
+                )
+            )
             return
         }
         config.update { it.copy(favorites = FavoritesCodec.toggle(it.favorites, entry.packageName)) }
@@ -132,8 +138,12 @@ class SettingsActivity : Activity() {
 
     private fun updateCounter() {
         val current = config.current()
-        counter.text = getString(
-            R.string.settings_counter,
+        // Plural statt String: die Zahl entscheidet zwischen „Favorit" und
+        // „Favoriten" (lint: PluralsCandidate). Die erste Zahl ist die Menge
+        // für die Form, danach kommen die beiden Platzhalter.
+        counter.text = resources.getQuantityString(
+            R.plurals.settings_counter,
+            current.favorites.size,
             current.favorites.size,
             current.maxFavorites,
         )

@@ -78,10 +78,6 @@ class LauncherActivity : Activity() {
     /** Ein HOME-Intent ist eingetroffen und wird in [onResume] konsumiert. */
     private var homeIntentPending = false
 
-    /** Seit das Dock zuletzt gezeigt wurde eine App gestartet? Für die
-     *  Heuristik ohne Nutzungszugriff (siehe [ModeDecider]). */
-    private var launchedSinceDock = false
-
     /** Wir kommen gerade aus einer von uns selbst gestarteten fremden Activity
      *  (Einstellungen) zurück — das ist kein "App beendet". */
     private var launchedInternally = false
@@ -158,7 +154,15 @@ class LauncherActivity : Activity() {
         // nach einem HOME-Druck ließ sich Netflix nicht mehr bedienen.
         // (Ein finish() hilft hier nicht: das System startet die Home-Activity
         // sofort neu — gemessen, der Task wechselte dabei von t2667 auf t2668.)
-        if (intent.hasCategory(Intent.CATEGORY_HOME) && dockOnScreen) {
+        //
+        // Die Regel selbst steht in [HomeKeyPolicy] und ist damit ohne Gerät
+        // prüfbar (HomeKeyPolicyTest) — hier bleibt nur die Verdrahtung.
+        if (
+            HomeKeyPolicy.dismissesDock(
+                intentIsHome = intent.hasCategory(Intent.CATEGORY_HOME),
+                dockOnScreen = dockOnScreen,
+            )
+        ) {
             dismissDock()
             return
         }
@@ -185,14 +189,21 @@ class LauncherActivity : Activity() {
         // die Favoriten wirklich geändert haben.
         buildDock()
 
-        if (homeIntentPending) {
-            homeIntentPending = false
-        } else if (!launchedInternally && mode == LauncherMode.DOCK) {
-            // Ohne HOME-Druck wieder oben: die App davor ist beendet, es läuft
-            // also nichts mehr → Home-Seite.
+        // Der HOME-Intent ist hier konsumiert: der Aufbau ist erledigt.
+        //
+        // Die Regel steht in [HomeKeyPolicy] (ohne Gerät prüfbar): ohne
+        // HOME-Druck und ohne eigenen Ausflug in die Einstellungen wieder oben,
+        // während die Zeile steht → die App davor ist beendet.
+        val fallbackToGrid = HomeKeyPolicy.fallsBackToGrid(
+            homeIntentPending = homeIntentPending,
+            launchedInternally = launchedInternally,
+            mode = mode,
+        )
+        homeIntentPending = false
+        launchedInternally = false
+        if (fallbackToGrid) {
             applyMode(LauncherMode.GRID)
         }
-        launchedInternally = false
 
         if (mode == LauncherMode.GRID) {
             refreshApps(force = false)
@@ -221,11 +232,19 @@ class LauncherActivity : Activity() {
         refreshApps(force = true)
     }
 
+    /**
+     * Bei Speicherdruck die Symbole wegwerfen, bevor das System den Prozess
+     * dafür tötet — sie sind in Millisekunden wieder da (Platten-Cache).
+     *
+     * `TRIM_MEMORY_RUNNING_CRITICAL` ist ab API 34 als veraltet markiert (das
+     * System meldet es auf neueren Geräten nicht mehr), aber minSdk ist 23: auf
+     * älteren Geräten ist es genau der Wert, auf den es ankommt. Die
+     * Unterdrückung gilt dem Compiler-Hinweis, nicht dem Verhalten.
+     */
+    @Suppress("DEPRECATION")
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
-            // Symbole wegwerfen, bevor das System den Prozess dafür tötet. Sie
-            // sind in Millisekunden wieder da.
             iconLoader.evictAll()
         }
     }
@@ -273,7 +292,6 @@ class LauncherActivity : Activity() {
         // wenn die App nicht im Raster steht (z. B. System-App).
         val intent = packageManager.getLaunchIntentForPackage(packageName) ?: return false
         return try {
-            launchedSinceDock = true
             prefs.appRunning = true
             startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             true
@@ -288,8 +306,12 @@ class LauncherActivity : Activity() {
 
     private fun initialMode(intent: Intent?): LauncherMode {
         // Aus der TV-Apps-Zeile gestartet (LEANBACK_LAUNCHER) will der Nutzer den
-        // Launcher sehen — nicht die Zeile über der gerade laufenden App.
-        if (intent != null && !intent.hasCategory(Intent.CATEGORY_HOME)) return LauncherMode.GRID
+        // Launcher sehen — nicht die Zeile über der gerade laufenden App. Die
+        // Entscheidung dazu steht in [HomeKeyPolicy]; die teure
+        // Vordergrund-Abfrage ([decideMode]) entfällt auf diesem Weg.
+        if (HomeKeyPolicy.mustShowGrid(intent?.hasCategory(Intent.CATEGORY_HOME))) {
+            return LauncherMode.GRID
+        }
         return decideMode()
     }
 
@@ -344,7 +366,6 @@ class LauncherActivity : Activity() {
         dockOnScreen = false
         applyClockVisibility()
         if (prefs.appRunning) prefs.appRunning = false
-        launchedSinceDock = false
         buildDock()
         focusGrid()
         startClock()
@@ -357,7 +378,6 @@ class LauncherActivity : Activity() {
         clock.visibility = View.GONE
         dock.visibility = View.VISIBLE
         stopClock()
-        launchedSinceDock = false
         buildDock()
         focusDock(force = false)
     }
@@ -524,7 +544,6 @@ class LauncherActivity : Activity() {
     // ------------------------------------------------------------------
 
     private fun launch(entry: AppEntry) {
-        launchedSinceDock = true
         dockOnScreen = false
         prefs.appRunning = true
         prefs.lastLaunchedPackage = entry.packageName
@@ -552,7 +571,14 @@ class LauncherActivity : Activity() {
         val current = config.current()
         val isFavorite = entry.packageName in current.favorites
         if (!isFavorite && FavoritesCodec.isFull(current.favorites, current.maxFavorites)) {
-            shortToast(getString(R.string.toast_favorites_full, current.maxFavorites))
+            // Plural: bei max_favorites=1 hieß es vorher „Maximal 1 Favoriten".
+            shortToast(
+                resources.getQuantityString(
+                    R.plurals.toast_favorites_full,
+                    current.maxFavorites,
+                    current.maxFavorites,
+                )
+            )
             return
         }
         config.update { it.copy(favorites = FavoritesCodec.toggle(it.favorites, entry.packageName)) }

@@ -2,6 +2,7 @@ package com.piotv.navigate.data
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
@@ -117,43 +118,68 @@ class AppRepository private constructor(context: Context) {
     }
 
     private fun queryApps(): List<AppEntry> {
-        val own = appContext.packageName
-        val byPackage = HashMap<String, AppEntry>(64)
-        // Reihenfolge ist Absicht: wer zuerst kommt, gewinnt. Apps mit beiden
-        // Kategorien (Netflix, Disney+, YouTube, Stremio ...) landen dadurch
-        // über ihren LAUNCHER-Eintrag — denselben, den der Hersteller-Launcher
+        // Reihenfolge ist Absicht: wer zuerst kommt, gewinnt — siehe
+        // [AppCatalog.select]. LAUNCHER zuerst, damit Apps mit beiden
+        // Kategorien (Netflix, Disney+, YouTube, Stremio ...) über ihren
+        // LAUNCHER-Eintrag erscheinen, denselben, den der Hersteller-Launcher
         // benutzt.
-        collect(Intent.CATEGORY_LAUNCHER, own, byPackage)
-        collect(Intent.CATEGORY_LEANBACK_LAUNCHER, own, byPackage)
-        if (byPackage.isEmpty()) return emptyList()
-        val collator = Collator.getInstance()
-        return byPackage.values.sortedWith(compareBy(collator) { it.label })
+        val candidates = ArrayList<AppCatalog.Candidate>(64)
+        val applicationInfos = HashMap<String, ApplicationInfo>(64)
+        collect(Intent.CATEGORY_LAUNCHER, candidates, applicationInfos)
+        collect(Intent.CATEGORY_LEANBACK_LAUNCHER, candidates, applicationInfos)
+
+        // Die Regeln (deaktiviert, eigener Launcher, erster gewinnt, leere
+        // Beschriftung, Sortierung) stehen in AppCatalog — reines Kotlin und
+        // damit ohne Gerät geprüft (AppCatalogTest).
+        return AppCatalog.select(
+            candidates = candidates,
+            ownPackage = appContext.packageName,
+            labelOrder = labelOrder(),
+        ).mapNotNull { candidate ->
+            val application = applicationInfos[candidate.packageName] ?: return@mapNotNull null
+            AppEntry(
+                packageName = candidate.packageName,
+                activityName = candidate.activityName,
+                label = candidate.label,
+                appInfo = application,
+            )
+        }
     }
 
-    private fun collect(category: String, own: String, out: MutableMap<String, AppEntry>) {
+    /**
+     * Sortierung wie der System-Launcher: sprachabhängig über `Collator`, nicht
+     * nach Zeichencode (sonst stünde „Ä" hinter „Z").
+     */
+    private fun labelOrder(): Comparator<String> {
+        val collator = Collator.getInstance()
+        return Comparator { first, second -> collator.compare(first, second) }
+    }
+
+    private fun collect(
+        category: String,
+        out: MutableList<AppCatalog.Candidate>,
+        infos: MutableMap<String, ApplicationInfo>,
+    ) {
         val intent = Intent(Intent.ACTION_MAIN).addCategory(category)
         val resolved: List<ResolveInfo> = try {
             packageManager.queryIntentActivities(intent, 0)
         } catch (e: Exception) {
             return
         }
-        // Der eigene Eintrag (Release wie Debug-Build) gehört nicht ins eigene
-        // Raster: sonst startet der Launcher sich selbst.
-        val ownBase = own.removeSuffix(DEBUG_SUFFIX)
         for (info in resolved) {
             val activity = info.activityInfo ?: continue
             val application = activity.applicationInfo ?: continue
             val packageName = application.packageName ?: continue
-            if (packageName == ownBase || packageName == ownBase + DEBUG_SUFFIX) continue
-            if (!application.enabled) continue
-            if (out.containsKey(packageName)) continue
-            val label = info.loadLabel(packageManager).toString().trim()
-            out[packageName] = AppEntry(
-                packageName = packageName,
-                activityName = activity.name,
-                label = label.ifEmpty { packageName },
-                appInfo = application,
+            out.add(
+                AppCatalog.Candidate(
+                    packageName = packageName,
+                    activityName = activity.name,
+                    label = info.loadLabel(packageManager).toString().trim(),
+                    enabled = application.enabled,
+                )
             )
+            // Erster Eintrag je Paket: passt zur Auswahl in AppCatalog.
+            if (!infos.containsKey(packageName)) infos[packageName] = application
         }
     }
 
@@ -193,8 +219,6 @@ class AppRepository private constructor(context: Context) {
     }
 
     companion object {
-        private const val DEBUG_SUFFIX = ".debug"
-
         /**
          * Sicherheitsnetz gegen verpasste Änderungen: älter als 30 s → neu laden.
          * Kostet eine PackageManager-Abfrage im Hintergrund und macht den
