@@ -42,6 +42,8 @@
     <application
         android:allowBackup="false"
         android:banner="@drawable/banner"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
@@ -59,7 +61,16 @@
              excludeFromRecents: der Launcher gehört nicht in "Zuletzt benutzt".
              stateNotNeeded: das System darf die Activity jederzeit neu starten.
              configChanges: TV-Geräte melden uiMode/density-Änderungen; ohne
-             diese Liste würde die Activity neu erzeugt (= sichtbares Flackern). -->
+             diese Liste würde die Activity neu erzeugt (= sichtbares Flackern).
+
+             screenOrientation=landscape mit tools:ignore="DiscouragedApi":
+             ab Android 16 ignorieren Systeme die feste Ausrichtung ohnehin
+             (lint: DiscouragedApi). Auf dem Zielgerät ist das folgenlos — ein
+             Fernseher kennt nur eine Ausrichtung. Für den Handy-Testfall bleibt
+             die feste Ausrichtung trotzdem sinnvoll: das Dock ist 9 × 96dp breit
+             und wäre im Hochformat abgeschnitten.
+             android:label fehlt hier absichtlich: sie wäre identisch mit der
+             App-Beschriftung (lint: RedundantLabel). -->
         <activity
             android:name=".LauncherActivity"
             android:alwaysRetainTaskState="true"
@@ -69,10 +80,10 @@
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
             android:launchMode="singleTask"
-            android:label="@string/app_name"
             android:screenOrientation="landscape"
             android:stateNotNeeded="true"
-            android:theme="@style/Theme.Navigate">
+            android:theme="@style/Theme.Navigate"
+            tools:ignore="DiscouragedApi">
 
             <!-- HOME: damit ist Navigate eine Launcher-App.
                  LEANBACK_LAUNCHER: damit sie zusätzlich in der TV-Apps-Liste
@@ -107,7 +118,8 @@
             android:exported="false"
             android:label="@string/settings_title"
             android:screenOrientation="landscape"
-            android:theme="@style/Theme.Navigate.Settings" />
+            android:theme="@style/Theme.Navigate.Settings"
+            tools:ignore="DiscouragedApi" />
     </application>
 
 </manifest>

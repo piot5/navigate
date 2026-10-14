@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Das Gegenstück zu res/xml/data_extraction_rules.xml für Android 11 und
+     älter (minSdk 23). `allowBackup=false` schaltet Sicherungen dort ohnehin ab;
+     diese Datei sagt dasselbe ausdrücklich und erfüllt damit die lint-Prüfung
+     DataExtractionRules, die sonst anmerkt, dass dataExtractionRules erst ab
+     Android 12 gilt. -->
+<full-backup-content>
+    <exclude domain="root" path="." />
+</full-backup-content>

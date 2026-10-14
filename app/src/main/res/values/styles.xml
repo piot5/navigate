@@ -1,13 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Translucentes Theme ist die Grundlage des ganzen Designs:
          Fenster OHNE eigenen opaken Hintergrund. Im DOCK-Modus wird das
          Fenster zusätzlich auf "nur untere Zeile" verkleinert, dadurch bleibt
          die laufende App sichtbar und wird nur pausiert (nicht gestoppt) —
          Video-Ton läuft weiter. Im GRID-Modus malt das Layout selbst eine
-         opake Fläche über das gesamte Fenster. -->
-    <style name="Theme.Navigate" parent="@android:style/Theme.Material.NoActionBar">
+         opake Fläche über das gesamte Fenster.
+
+         tools:ignore="TranslucentOrientation": die feste Ausrichtung
+         (landscape, siehe Manifest) zusammen mit einem translucenten Theme ist
+         seit Android 8 offiziell nicht unterstützt — die Plattform kann nur
+         eine der beiden Ausrichtungen erfüllen, wenn die Activity darunter eine
+         andere verlangt. Auf dem Zielgerät (Fernseher, immer landscape) kann
+         dieser Fall nicht eintreten; er kann es auf einem Handy im Hochformat
+         — dort ist Navigate ausdrücklich nur Testgerät (README). Die Alternative
+         wäre, die feste Ausrichtung wegzulassen: dann wäre das Dock (9 × 96dp)
+         im Hochformat abgeschnitten, also der sichtbare Teil kaputt statt eines
+         theoretischen Risikos. Entscheidung: Ausrichtung behalten, Risiko hier
+         benannt. -->
+    <style name="Theme.Navigate" parent="@android:style/Theme.Material.NoActionBar" tools:ignore="TranslucentOrientation">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowNoTitle">true</item>

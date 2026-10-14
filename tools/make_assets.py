@@ -84,6 +84,10 @@ def make_vectors() -> None:
         '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'
         '    <background android:drawable="@color/ic_launcher_background" />\n'
         '    <foreground android:drawable="@drawable/ic_launcher_foreground" />\n'
+        '    <!-- Monochrom-Ebene (Android 13+): das System tönt sie selbst.\n'
+        '         Die Glyphe ist einfarbig und taugt deshalb direkt als Maske.\n'
+        '         Ohne diesen Eintrag meldet lint MonochromeLauncherIcon. -->\n'
+        '    <monochrome android:drawable="@drawable/ic_launcher_foreground" />\n'
         '</adaptive-icon>\n'
     )
     write(os.path.join(RES, "mipmap-anydpi-v26", "ic_launcher.xml"), adaptive)

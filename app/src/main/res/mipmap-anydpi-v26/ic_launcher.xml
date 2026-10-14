@@ -3,4 +3,8 @@
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background" />
     <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <!-- Monochrom-Ebene (Android 13+): das System tönt sie selbst.
+         Die Glyphe ist einfarbig und taugt deshalb direkt als Maske.
+         Ohne diesen Eintrag meldet lint MonochromeLauncherIcon. -->
+    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
 </adaptive-icon>

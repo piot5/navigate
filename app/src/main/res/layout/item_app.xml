@@ -14,6 +14,7 @@
         android:id="@+id/app_icon"
         android:layout_width="@dimen/grid_icon"
         android:layout_height="@dimen/grid_icon"
+        android:contentDescription="@string/cd_app_icon"
         android:duplicateParentState="true" />
 
     <TextView
