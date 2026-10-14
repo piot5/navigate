@@ -1,8 +1,11 @@
 # Navigate — CI
 #
-# Was hier läuft, ist genau das, was lokal auch läuft: Unit-Tests und der
-# Release-Build mit R8. Kein Instrumented-Test, weil Navigate keine
+# Was hier läuft, ist genau das, was lokal auch läuft: Unit-Tests, Coverage-Gate,
+# Lint und der Release-Build mit R8. Kein Instrumented-Test, weil Navigate keine
 # AndroidX-Test-Abhängigkeit hat (und keine haben soll — siehe app/build.gradle.kts).
+#
+# Die Reihenfolge ist Absicht: erst die schnellen Gates (Tests, Coverage, Lint),
+# dann der teure Release-Build, dann das Doku-Gate — es braucht das APK.
 #
 # Signing: ohne die Secrets NAVIGATE_KEYSTORE_PASSWORD / NAVIGATE_KEY_PASSWORD
 # bleibt das Release-APK unsigniert (das Buildfile warnt dann nur, es bricht
@@ -34,11 +37,26 @@ jobs:
       - name: Android SDK
         uses: android-actions/setup-android@v3
 
+      # Abhängigkeiten und Build-Ausgaben über Läufe hinweg behalten: sonst lädt
+      # jeder Lauf Kotlin- und AGP-Artefakte neu (in 0.4 nachgemessen: der
+      # Release-Build allein braucht auf schwacher Hardware ~15 min).
+      - name: Gradle-Cache
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Unit-Tests
         run: sh ./gradlew --no-daemon :app:testDebugUnitTest
 
+      - name: Coverage (Gate + Bericht)
+        run: sh ./gradlew --no-daemon :app:unitTestCoverageReport :app:unitTestCoverageVerification
+
+      - name: Lint (Warnungen sind Fehler)
+        run: sh ./gradlew --no-daemon :app:lintDebug
+
       - name: Release-APK (R8, unsigniert ohne Secrets)
         run: sh ./gradlew --no-daemon :app:assembleRelease
+
+      - name: Doku-Gate (Messwerte gegen das APK)
+        run: bash tools/check_docs_drift.sh
 
       - name: Testbericht
         if: always()
@@ -46,6 +64,20 @@ jobs:
         with:
           name: testbericht
           path: app/build/reports/tests/testDebugUnitTest/
+
+      - name: Coverage-Bericht
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: app/build/reports/jacoco/unitTestCoverageReport/
+
+      - name: Lint-Bericht
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-bericht
+          path: app/build/reports/lint-results-debug.html
 
       - name: APK
         uses: actions/upload-artifact@v4
