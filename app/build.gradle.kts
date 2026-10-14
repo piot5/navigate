@@ -46,8 +46,30 @@ android {
         warningsAsErrors = true
         abortOnError = true
         checkReleaseBuilds = true
-        // Nur die eine Warnung, deren Ursache eine dokumentierte Entscheidung ist.
-        disable += "OldTargetApi"
+        // Vier Abschaltungen, und alle vier prüfen nicht den Code, sondern eine
+        // Entscheidung, die hier bewusst so getroffen wurde:
+        //
+        //   OldTargetApi               targetSdk 34 statt 36 (Begründung zwei
+        //                              Zeilen darüber: Edge-to-Edge auf TV)
+        //   AndroidGradlePluginVersion
+        //   GradleDependency           „eine neuere Version ist verfügbar"
+        //   NewerVersionAvailable
+        //
+        // Die letzten drei brauchen **Netz**, um die Versionsliste zu holen —
+        // lokal mit `--offline` schweigen sie, in der CI schlagen sie zu. Genau
+        // das ist passiert: der erste CI-Lauf dieses Repos scheiterte an
+        // „A newer version of Gradle than 8.14.3 is available: 8.14.6", nicht an
+        // einer Code-Stelle. Wrapper (mit sha256) und AGP/Kotlin sind hier
+        // absichtlich gepinnt; eine Warnung, die bei jeder Veröffentlichung
+        // stromaufwärts rot wird, ist kein Qualitätssignal, sondern Rauschen.
+        disable.addAll(
+            listOf(
+                "OldTargetApi",
+                "AndroidGradlePluginVersion",
+                "GradleDependency",
+                "NewerVersionAvailable",
+            )
+        )
     }
 
     /**

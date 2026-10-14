@@ -8,6 +8,37 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 > Die Version wird in `app/build.gradle.kts` gepflegt (`versionCode`/`versionName`),
 > nicht hier.
 
+## Unreleased
+
+Nach dem ersten echten CI-Lauf (das Projekt hatte bis dahin kein Remote) — keine
+Änderung am Verhalten der App.
+
+### Behoben
+
+- **Die CI scheiterte in der Stufe „Android SDK".** `android-actions/setup-android@v3`
+  ruft `sdkmanager tools` auf, und das Paket „tools" gibt es im SDK-Repository
+  nicht mehr (ersetzt durch cmdline-tools). Der Schritt stand seit 0.3 in der
+  Datei und war nie gelaufen. Jetzt wird nur geprüft, was fehlt — das
+  Runner-Image bringt SDK, Lizenzen und cmdline-tools mit.
+- **Lint schlug in der CI fehl, obwohl es lokal grün war.** Ursache ist keine
+  Code-Stelle, sondern eine netzabhängige Prüfung: `AndroidGradlePluginVersion`
+  meldete „A newer version of Gradle than 8.14.3 is available: 8.14.6". Lokal
+  lief Lint mit `--offline` und schwieg deshalb. Die drei Versions-Prüfungen
+  (`AndroidGradlePluginVersion`, `GradleDependency`, `NewerVersionAvailable`)
+  sind jetzt abgeschaltet: Wrapper (mit sha256) und AGP/Kotlin sind hier
+  absichtlich gepinnt, und eine Warnung, die bei jeder Veröffentlichung
+  stromaufwärts rot wird, ist kein Qualitätssignal. Lehre für den lokalen Lauf:
+  das Lint-Gate mindestens einmal **online** prüfen, sonst prüft man eine andere
+  Menge als die CI.
+
+### Geändert
+
+- **`.gitignore` vervollständigt**: Kotlin-/AGP-Ausgaben (`.kotlin/`, `captures/`,
+  `*.dex`, `*.class`, `*.hprof`), Signing-Material auch einzeln (`*.jks`,
+  `*.keystore`), Editor- und Betriebssystem-Reste, Logs.
+  `gradle/wrapper/gradle-wrapper.jar` bleibt bewusst versioniert (deshalb kein
+  `*.jar` in der Datei).
+
 ## 0.4
 
 Kein neues Bedienverhalten: diese Fassung schließt Prüflücken (Lint, Coverage,
