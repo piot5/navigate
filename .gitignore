@@ -1,13 +1,50 @@
+# --- Build-Ausgaben ---------------------------------------------------------
+# Alles, was Gradle/AGP erzeugt. Wird nie versioniert: es ist reproduzierbar
+# (siehe README „Bauen") und auf einem schwachen Gerät mehrere hundert MB groß.
 build/
 .gradle/
-local.properties
-*.iml
-.idea/
+.kotlin/
+captures/
+.cxx/
 *.apk
 *.aab
+*.ap_
+*.dex
+*.class
+*.hprof
 
-# Signing-Material: niemals ins Repo (wie KeyTab)
+# --- Lokale Konfiguration ---------------------------------------------------
+# Enthält den SDK-Pfad der jeweiligen Maschine (sdk.dir) — pro Rechner anders.
+local.properties
+
+# --- Signing-Material: niemals ins Repo (wie KeyTab) ------------------------
+# Der Release-Keystore und seine Passwörter liegen nur lokal bzw. als
+# CI-Secret. app/build.gradle.kts liest sie aus der Umgebung oder aus
+# keystore/keystore.properties und bricht ohne sie nicht ab — es bleibt dann
+# beim unsignierten APK.
 keystore/
+*.jks
+*.keystore
+
+# --- IDE und Editor ---------------------------------------------------------
+*.iml
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Protokolle und Wegwerf-Dateien -----------------------------------------
 build_*.log
+*.log
 __pycache__/
+*.pyc
 *.bak
+*.orig
+*.rej
+
+# --- Betriebssystem ---------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# Hinweis: gradle/wrapper/gradle-wrapper.jar bleibt absichtlich versioniert —
+# ohne ihn läuft ./gradlew nicht. Deshalb hier kein "*.jar".
