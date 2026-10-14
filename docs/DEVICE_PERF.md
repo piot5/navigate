@@ -18,14 +18,38 @@ auf dem Zielgerät gemessen, nicht geschätzt.
 
 | | |
 |---|---|
-| Release-APK | **71 KB** (36 Dateien) |
-| davon `classes.dex` | 61 KB |
-| Debug-APK (ohne R8) | 868 KB (888.854 B, Stand 0.2/0.3) |
+| Release-APK | **75 KB** (76.430 B, 37 Dateien) |
+| davon `classes.dex` | **69.284 B** (68 KB) — die einzige Dex-Datei |
+| Debug-APK (ohne R8) | 890.792 B (870 KB) |
 | Abhängigkeiten | keine außer `kotlin-stdlib` (von R8 beschnitten) |
 
 Der Vergleich Debug → Release ist der ganze Performance-Plan in einer Zeile:
 R8 entfernt die ungenutzte Kotlin-Stdlib, `shrinkResources` die ungenutzten
 Ressourcen. Weniger Dex heißt kürzere Kaltstartzeit.
+
+## Messwerte, maschinenlesbar
+
+Dieser Block ist die Quelle der Wahrheit für
+[`tools/check_docs_drift.sh`](../tools/check_docs_drift.sh): das Skript liest die
+Werte hier, vergleicht sie mit dem gebauten Release-APK und bricht bei einer
+Abweichung ab. Die Prosa in dieser Datei und in README.md muss dieselben Zahlen
+nennen — sonst driften die Dokumente auseinander und der Leser glaubt der
+falschen. (Genau das war in 0.3 der Fall: 73.686 B dokumentiert, 73.679 B
+gebaut.)
+
+```
+release_apk_bytes=76430
+release_dex_bytes=69284
+release_dex_files=1
+apk_files=37
+unit_tests=93
+```
+
+Warum die APK-Größe reproduzierbar ist: die VCS-Info-Datei
+(`META-INF/version-control-info.textproto`) wird seit 0.4 nicht mehr mitgepackt
+(`vcsInfo.include = false`). Sie enthielt den Git-Zustand des Builds und
+variierte zwischen 42 B („NO_VALID_GIT_FOUND") und 120 B (Commit-Hash) — eine
+dokumentierte Byte-Zahl wäre damit nicht nachprüfbar gewesen.
 
 ## Startzeit
 
@@ -193,20 +217,65 @@ ein `onPause` der Activity. Ein Lebenszyklus-Flag (`isResumed`) ist dort
 deshalb wertlos — die erste Fassung des zweiten HOME-Drucks scheiterte genau
 daran (nachgemessen mit einer Diagnoseausgabe in `onPause`/`onNewIntent`).
 
-## Nachmessen (0.3 ist gebaut, aber nicht auf dem Gerät gemessen)
+## Nachmessen (0.4 ist gebaut, aber nicht auf dem Gerät gemessen)
 
-Stand 0.3, hier im Projekt gebaut und geprüft — **nicht** auf dem Chromecast:
+Stand 0.4, hier im Projekt gebaut und geprüft — **nicht** auf dem Chromecast:
 
-| | 0.1 (gemessen auf dem Gerät) | 0.2 (lokal gebaut) | 0.3 (lokal gebaut) |
-|---|---|---|---|
-| Release-APK | 71.321 B | 73.721 B | **73.686 B** |
-| `classes.dex` | 61 KB | 65.664 B (65 KB) | **65.608 B** (64 KB) |
-| Dateien im APK | 36 | 36 | 36 |
-| Unit-Tests | 23 `@Test` (README behauptete 25) | 40 | **47** |
+| | 0.1 (gemessen auf dem Gerät) | 0.2 (lokal gebaut) | 0.3 (lokal gebaut) | 0.4 (lokal gebaut) |
+|---|---|---|---|---|
+| Release-APK | 71.321 B | 73.721 B | 73.686 B | **76.430 B** |
+| `classes.dex` | 61 KB | 65.664 B (65 KB) | 65.608 B (64 KB) | **69.284 B** (68 KB) |
+| Dateien im APK | 36 | 36 | 36 | **37** |
+| Unit-Tests | 23 `@Test` (README behauptete 25) | 40 | 47 | **93** |
+| Lint-Warnungen | nicht geprüft | nicht geprüft | 15 | **0** |
+| Coverage (Zeilen / Zweige) | nicht gemessen | nicht gemessen | nicht gemessen | **18,3 % / 25,4 %** |
 
 0.3 ist **35 B kleiner** als 0.2, weil toter Code entfernt wurde
 (`ForegroundProbe.hasUsageAccess()` und ein ungenutzter String) — kein
 Laufzeitverhalten geändert, aber R8 hat weniger zu behalten.
+
+0.4 ist **2.744 B größer** als 0.3, und die Dex-Datei wächst um **3.676 B**: vier
+neue Klassen samt Tests (HOME-Regeln, App-Auswahl, Symbol-Einpassung,
+Dock-Schlüssel) und zwei neue Ressourcen-Dateien (Backup-Regeln für Android 11
+und älter). Gegenläufig wirkt der weggefallene VCS-Eintrag (120 B) — genau der
+Grund, warum die Zahl jetzt nachprüfbar ist. Ein 76-KB-APK bleibt für das
+Zielgerät irrelevant klein; die Größe wird hier weitergeführt, weil sie der
+billigste Frühwarn-Indikator für eine gewachsene Abhängigkeit ist.
+
+### Lint und Coverage (die zwei neuen Gates)
+
+```bash
+sh gradlew :app:lintDebug                    # 0 Warnungen, warningsAsErrors = true
+sh gradlew :app:unitTestCoverageReport       # HTML + XML unter build/reports/jacoco/
+sh gradlew :app:unitTestCoverageVerification # Gate: 16 % Zeilen / 22 % Zweige
+bash tools/check_docs_drift.sh               # der Block oben gegen das gebaute APK
+```
+
+Die Coverage-Zahl braucht eine Einordnung, sonst ist sie irreführend: **18,3 %
+Zeilen** klingt nach wenig, ist aber das Verhältnis über *alle* Klassen — und die
+Klassen, die ein Gerät brauchen (Activity, Adapter, Loader, Repository, Probe:
+rund 700 der 987 Zeilen), stehen darin und liegen bei 0 %. Jede Klasse, die ohne
+Gerät prüfbar ist, ist **vollständig** abgedeckt:
+
+| Klasse | Zeilen | Coverage |
+|---|---|---|
+| `ModeDecider` | 3 | 100 % |
+| `HomeKeyPolicy` | 3 | 100 % |
+| `ConfigCodec` (+ `Config`) | 61 | 100 % |
+| `FavoritesCodec` | 14 | 100 % |
+| `FavoritesConfig` | 55 | 92,7 % (ohne `get(context)`) |
+| `AppCatalog` (+ `Candidate`) | 14 | 100 % |
+| `UsageEventFolder` | 10 | 100 % |
+| `GridColumns` | 2 | 100 % |
+| `IconGeometry` (+ `Fit`) | 10 | 100 % |
+| `IconCacheKeys` | 4 | 100 % |
+| `DockSignature` | 1 | 100 % |
+
+Die Gesamtquote ist damit ein **Regressions**schutz, kein Qualitätsziel: neue
+Logik ohne Test senkt sie und lässt den Build scheitern. Wer die Zahl wirklich
+heben will, braucht Robolectric oder instrumentierte Tests — beides wäre eine
+neue Abhängigkeit, und das ist in diesem Projekt eine bewusste Entscheidung
+(siehe app/build.gradle.kts).
 
 Die Dex-Datei bleibt eine einzige und winzig — das ist die Voraussetzung dafür,
 dass ein Startup-Profile/DEX-Layout überhaupt etwas bringen könnte

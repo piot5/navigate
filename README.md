@@ -12,18 +12,21 @@ HOME-Taste drücken
 
 | | |
 |---|---|
-| **Release-APK** | 72 KB / 73.686 B (davon 64 KB `classes.dex`) — eine einzige Dex-Datei |
+| **Release-APK** | 75 KB / 76.430 B (davon 68 KB / 69.284 B `classes.dex`) — eine einzige Dex-Datei |
+| **Unit-Tests** | 93, ohne Gerät lauffähig · Coverage-Gate 16 % Zeilen / 22 % Zweige |
 | **Startzeit** | 128 ms (`am start -W`, Prozess läuft bereits — der Normalfall) |
 | **Speicher** | ~56 MB PSS nach vollem Rasteraufbau (1,4-GB-Gerät) |
 | **Abhängigkeiten zur Laufzeit** | keine — nur Android-Framework + Kotlin-Stdlib |
 | **Berechtigungen** | `QUERY_ALL_PACKAGES`, `PACKAGE_USAGE_STATS` (App-Op) |
 
-> APK-Größe und Dex-Zahl sind mit **0.3** lokal gebaut und gemessen. Startzeit
-> und Speicher stammen aus der Messreihe mit **0.1** auf dem Gerät
-> (docs/DEVICE_PERF.md) — 0.2 und 0.3 ändern genau die Pfade, die diese Werte
-> bestimmen (Vordergrund-Abfrage, Konfigurationsdatei, Symbol-Cache), sind aber
-> noch nicht auf dem Fernseher nachgemessen. Der Abschnitt „Nachmessen" in
-> derselben Datei nennt die Befehle dafür.
+> APK-Größe, Dex-Größe und Testzahl werden von
+> [`tools/check_docs_drift.sh`](tools/check_docs_drift.sh) gegen das gebaute APK
+> geprüft — sie können deshalb nicht still veralten. Startzeit und Speicher
+> stammen aus der Messreihe mit **0.1** auf dem Gerät (docs/DEVICE_PERF.md) —
+> 0.2, 0.3 und 0.4 ändern genau die Pfade, die diese Werte bestimmen
+> (Vordergrund-Abfrage, Konfigurationsdatei, Symbol-Cache), sind aber noch nicht
+> auf dem Fernseher nachgemessen. Der Abschnitt „Nachmessen" in derselben Datei
+> nennt die Befehle dafür.
 
 ## Funktionen
 
@@ -76,18 +79,29 @@ bash build_navigate.sh release    # Release-APK (R8, signiert wenn keystore/ vor
 Voraussetzungen: JDK 17, Android SDK mit Plattform 36 und Build-Tools
 (`local.properties` → `sdk.dir`). Gradle kommt über den Wrapper (8.14.3).
 
-CI (`.github/workflows/ci.yml`) läuft auf jedem Push dieselben zwei Schritte —
-Unit-Tests und Release-Build — und legt das APK als Artefakt ab. Das Projekt
-liegt unter `git`; `keystore/`, `local.properties` und alle Build-Ordner sind
-per `.gitignore` ausgenommen.
-
-Unit-Tests (47 Stück, reine Logik ohne Gerät — Entscheidungslogik,
-Konfigurationsparser, Favoritenliste, Ereignis-Faltung, Cache-Schlüssel,
-Raster-Spalten):
+Vier Prüfungen, alle auch in der CI (`.github/workflows/ci.yml`):
 
 ```bash
-sh gradlew :app:testDebugUnitTest
+sh gradlew :app:testDebugUnitTest              # 93 Unit-Tests (ohne Gerät)
+sh gradlew :app:unitTestCoverageVerification   # Coverage-Gate (Bericht: unitTestCoverageReport)
+sh gradlew :app:lintDebug                      # Lint — Warnungen sind Fehler
+bash tools/check_docs_drift.sh                 # Messwerte der Doku ↔ gebautes APK
 ```
+
+Die CI läuft auf jedem Push dieselben Schritte (plus Release-Build) und legt
+Testbericht, Coverage-Bericht, Lint-Bericht und APK als Artefakte ab. Ein Tag
+`v*` löst zusätzlich `.github/workflows/release.yml` aus: dieselben Gates, danach
+ein GitHub-Release mit dem APK — signiert, wenn das Secret
+`NAVIGATE_KEYSTORE_BASE64` gesetzt ist. Das Projekt liegt unter `git`;
+`keystore/`, `local.properties` und alle Build-Ordner sind per `.gitignore`
+ausgenommen.
+
+Die 93 Tests laufen **ohne Gerät**: HOME-Regeln (`HomeKeyPolicy`), App-Auswahl
+(`AppCatalog`), Entscheidungslogik, Konfigurationsparser **und** -datei,
+Favoritenliste, Ereignis-Faltung, Symbol-Einpassung, Cache-Schlüssel,
+Raster-Spalten. Diese Klassen liegen bei 100 % Zeilen-Coverage; die Gesamtquote
+(18,3 % Zeilen / 25,4 % Zweige) enthält auch die Android-Klassen und steht mit
+Begründung in [docs/DEVICE_PERF.md](docs/DEVICE_PERF.md).
 
 ## Installieren und als Home-App einrichten
 
@@ -172,9 +186,11 @@ app/src/main/java/com/piotv/navigate/
   LauncherActivity.kt        Orchestrierung: Modus, Fenster, Aktionen
   LauncherMode.kt            GRID | DOCK
   ModeDecider.kt             reine Entscheidungslogik (getestet)
+  HomeKeyPolicy.kt           HOME-Regeln: zweiter Druck, Rückfall, Startart (getestet)
   ForegroundSnapshot.kt      Datenträger zwischen Messung und Entscheidung
   data/AppRepository.kt      App-Liste (zwei Kategorien), Prozess-Singleton
   data/AppEntry.kt           ein startbarer Eintrag
+  data/AppCatalog.kt         Auswahl und Reihenfolge der App-Liste (getestet)
   data/ConfigCodec.kt        Parser/Serializer der Konfigurationsdatei (getestet)
   data/FavoritesConfig.kt    die Datei selbst, mit Änderungserkennung
   data/FavoritesCodec.kt     Favoritenliste: an/aus/verschieben (getestet)
@@ -183,12 +199,15 @@ app/src/main/java/com/piotv/navigate/
   fg/UsageEventFolder.kt     Ereignisse zum Vordergrund-Zustand falten (getestet)
   ui/AppGridView.kt          GridView + Fernbedienungs-Korrekturen
   ui/GridColumns.kt          Spaltenzahl des Rasters (getestet)
+  ui/IconGeometry.kt         Einpassung der Symbole in die Zelle (getestet)
   ui/AppGridAdapter.kt       Rasterzellen (mit Textmodus)
   ui/DockController.kt       Aufbau der unteren Zeile
+  ui/DockSignature.kt        Cache-Schlüssel der Zeile (getestet)
   ui/IconLoader.kt           Symbole: Speicher-Cache → Platte → Ressourcen
   ui/IconDiskCache.kt        WebP-Symbole im internen Speicher (+ Schlüssel, getestet)
   ui/SettingsActivity.kt     Navigate-Einstellungen (Favoriten)
 tools/make_assets.py         Icon-Vektoren + TV-Banner generieren
+tools/check_docs_drift.sh    Doku-Gate: dokumentierte Messwerte ↔ gebautes APK
 docs/                        ARCHITECTURE · CONFIG · INSTALL · DEVICE_PERF
 ```
 

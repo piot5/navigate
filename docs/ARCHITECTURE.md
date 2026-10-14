@@ -165,6 +165,30 @@ nicht: das System startet sie sofort neu (gemessen — der Task wechselte von
 bestehenden Task der App nach vorn, die App wird fortgesetzt und bekommt den
 Tastaturfokus zurück.
 
+## Was ohne Gerät prüfbar ist (und was nicht)
+
+Die Architektur trennt zwei Sorten Code, und das ist keine Stilfrage, sondern
+eine Prüffrage:
+
+| | Beispiele | Prüfbar |
+|---|---|---|
+| **reine Regeln**, kein Android-Typ | `ModeDecider`, `HomeKeyPolicy`, `AppCatalog`, `ConfigCodec`, `FavoritesCodec`, `GridColumns`, `IconGeometry`, `DockSignature`, `UsageEventFolder` | Unit-Test ohne Gerät — 93 Tests, 100 % Zeilen-Coverage |
+| **Android-Verdrahtung** | `LauncherActivity`, die Adapter, `IconLoader`, `ForegroundProbe`, `AppRepository` | nur auf einem Gerät; hier zählt die Messung ([DEVICE_PERF.md](DEVICE_PERF.md)) |
+
+Der Grund ist die Fehlerhistorie: die drei teuersten Fehler dieses Projekts waren
+**Regeln**, keine Android-Eigenheiten — die Sackgasse nach dem ersten HOME-Druck,
+der nicht erkannte zweite HOME-Druck und die fehlenden Leanback-Apps. Solche
+Regeln stehen deshalb in einem `object` ohne Android-Import und sind in
+Millisekunden prüfbar statt in einem 15-Minuten-Build plus Fernseher. Die
+Activity hält nur noch den Zustand (`dockOnScreen`, `homeIntentPending`,
+`launchedInternally`) und fragt die Regel.
+
+Drei Gates halten das auf Dauer: Lint (`warningsAsErrors`), das Coverage-Gate
+(`unitTestCoverageVerification`) und das Doku-Gate
+(`tools/check_docs_drift.sh`) — alle drei laufen in der CI. Was sie messen und
+warum die Gesamt-Coverage trotzdem niedrig aussieht, steht in
+[DEVICE_PERF.md](DEVICE_PERF.md), Abschnitt „Lint und Coverage".
+
 ## Das Zeitbudget eines HOME-Drucks
 
 Die 128 ms aus [DEVICE_PERF.md](DEVICE_PERF.md) sind keine Plattformkonstante —

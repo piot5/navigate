@@ -23,6 +23,12 @@ Zeitstempel als beim letzten Import. Danach liegt der Stand intern; eine alte,
 einmal gepushte Datei überschreibt also keine Änderung aus den
 Navigate-Einstellungen.
 
+> Bis 0.3 hat dieser Weg **nie** funktioniert: der Merker der Drossel stand auf
+> `Long.MIN_VALUE`, `now - Long.MIN_VALUE` läuft über und wird negativ, die
+> Drossel griff damit immer. Gefunden hat das in 0.4 der neu geschriebene Test
+> `FavoritesConfigTest.eine neuere Import-Datei wird uebernommen` (siehe
+> [CHANGELOG](../CHANGELOG.md)).
+
 Bearbeitet wird die Datei normalerweise über **Navigate** in der unteren Zeile
 (oder über den Import-Pfad). Die interne Datei ist ohne Root nicht beschreibbar
 — das ist der Preis dafür, dass sie auf dem HOME-Pfad kostenlos ist.

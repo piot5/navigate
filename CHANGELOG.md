@@ -8,7 +8,90 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 > Die Version wird in `app/build.gradle.kts` gepflegt (`versionCode`/`versionName`),
 > nicht hier.
 
-## 0.3
+## 0.4
+
+Kein neues Bedienverhalten: diese Fassung schließt Prüflücken (Lint, Coverage,
+Doku), repariert den Import der Konfigurationsdatei und macht die dokumentierten
+Messwerte prüfbar. Auf dem Gerät **nicht** nachgemessen — die Werte für Startzeit
+und Speicher stammen weiter aus 0.1.
+
+### Behoben
+
+- **Der Import der Konfigurationsdatei (`adb push`) fand nie statt.** Der Merker
+  der Drossel stand auf `Long.MIN_VALUE`; `now - Long.MIN_VALUE` läuft über und
+  wird negativ, die Bedingung „innerhalb des Intervalls" war damit **immer** wahr
+  — der Import-Pfad wurde nie erreicht. Gefunden hat das der Test, der in 0.4
+  neu geschrieben wurde (`FavoritesConfigTest.eine neuere Import-Datei wird
+  uebernommen`), also genau die Prüfung, die es vorher nicht gab. Betroffen war
+  nur der in docs/CONFIG.md beschriebene Weg; die interne Datei und die
+  Navigate-Einstellungen waren nie betroffen.
+- **Die Symbole in den Navigate-Einstellungen hatten keine Bildbeschreibung** —
+  ein Screenreader las für jede Zeile „App-Symbol". Raster und Dock setzten den
+  App-Namen schon, die Einstellungen fehlten.
+- **„Maximal 1 Favoriten"** und „Favoriten: 1 von 6" — beide Texte sind jetzt
+  Plurals (`<plurals>`), die Zahl entscheidet die Form.
+
+### Hinzugefügt
+
+- **Lint als Gate** (`warningsAsErrors = true` in app/build.gradle.kts): der
+  Build bricht an jeder Warnung, lokal wie in der CI. Die 15 Warnungen aus 0.3
+  sind abgearbeitet statt unterdrückt — behoben (Plurals, Overdraw,
+  RedundantLabel, zwei ungenutzte Ressourcen, fehlende `contentDescription`,
+  Monochrom-Ebene des Icons, Backup-Regeln für Android 11 und älter) oder an der
+  Fundstelle mit Begründung unterdrückt (`TranslucentOrientation`,
+  `DiscouragedApi`). `lint` meldet jetzt „No issues found."
+- **Coverage der Unit-Tests** über das in Gradle eingebaute JaCoCo:
+  `unitTestCoverageReport` schreibt HTML und XML, `unitTestCoverageVerification`
+  ist das Gate (16 % Zeilen / 22 % Zweige). Gemessen in 0.4: **18,3 % Zeilen /
+  25,4 % Zweige** über alle Klassen; ohne die Android-Klassen wären es ~100 % —
+  jede ohne Gerät prüfbare Klasse ist vollständig abgedeckt.
+- **Doku-Gate** (`tools/check_docs_drift.sh`): prüft die dokumentierten Messwerte
+  gegen das gebaute APK (APK-Bytes, Dex-Bytes, Dex-Dateien, Dateizahl,
+  Testzahl). Es hat sich beim ersten Lauf selbst bewiesen — die in 0.3
+  dokumentierten 73.686 B stimmten nicht mit dem Nachbau (73.679 B).
+- **Release-Workflow** (`.github/workflows/release.yml`): auf einem Tag `v*`
+  laufen Tests, Coverage, Lint und Doku-Gate, danach entsteht ein GitHub-Release
+  mit dem APK. Signiert, wenn `NAVIGATE_KEYSTORE_BASE64` gesetzt ist.
+- **46 neue Unit-Tests** (47 → **93**) und vier neue, ohne Gerät prüfbare
+  Bausteine: `HomeKeyPolicy` (die HOME-Regeln — genau die Fälle, die auf dem
+  Gerät schiefgingen), `AppCatalog` (Auswahl und Reihenfolge der App-Liste,
+  inklusive des Fehlers „Prime Video/WOW/ARD fehlen"), `IconGeometry`
+  (Einpassung der Symbole) und `DockSignature` (Cache-Schlüssel der Zeile).
+- **Gradle-Cache in der CI** — der Release-Build allein braucht auf schwacher
+  Hardware ~15 min, ohne Cache lädt jeder Lauf die Abhängigkeiten neu.
+
+### Geändert
+
+- **`FavoritesConfig` ist ohne Gerät prüfbar**: der Konstruktor bekommt zwei
+  Dateien und eine Uhr statt eines `Context`; der Produktivpfad liegt in
+  `get(context)`. Damit ist die Datei-Semantik (kaputter Inhalt, Import-Regeln,
+  Drossel) testbar geworden — und hat den Fehler oben gefunden.
+- **`AppRepository`** enthält nur noch die PackageManager-Abfragen; die Regeln
+  (deaktivierte Apps, eigener Launcher in beiden Varianten, erster Eintrag
+  gewinnt, leere Beschriftung, Sortierung) stehen in `AppCatalog`.
+- **`LauncherActivity`** enthält nur noch die Verdrahtung der HOME-Regeln; die
+  Regeln selbst stehen in `HomeKeyPolicy`. Ebenso wanderten die Symbol-Einpassung
+  nach `IconGeometry` und der Dock-Cache-Schlüssel nach `DockSignature`.
+- **Die VCS-Info-Datei wird nicht mehr mitgepackt** (`vcsInfo.include = false`,
+  pro Build-Typ — auf oberster Ebene gibt es den Schalter nicht). Sie enthielt den
+  Git-Zustand und machte die APK-Größe nicht reproduzierbar: genau die Ursache
+  der 7-B-Abweichung in 0.3 (73.686 B dokumentiert, 73.679 B gebaut; in 0.4
+  gemessen: 42 B „NO_VALID_GIT_FOUND" gegen 120 B mit Commit-Hash). Das Release-APK
+  ist dadurch 120 B kleiner, und die dokumentierte Größe ist nachbaubar.
+- **Toter Zustand entfernt:** `LauncherActivity.launchedSinceDock` wurde an fünf
+  Stellen geschrieben und nie gelesen — dieselbe Art Fund wie
+  `ForegroundProbe.hasUsageAccess()` in 0.3.
+- `versionCode` 4, `versionName` „0.4"; `targetSdk` bleibt 34 (Begründung im
+  Buildfile).
+
+### Bekannt / offen
+
+- Unverändert aus 0.3: die App hinter der Zeile wird gestoppt (Theme-Format
+  `TRANSPARENT`), der Rückweg von der Zeile ist eine Taste, ohne Nutzungszugriff
+  entscheidet eine Heuristik, und **0.4 ist auf dem Gerät nicht nachgemessen**.
+- Die Gesamt-Coverage bleibt niedrig (18,3 %), weil die Android-Klassen im
+  Nenner stehen. Wer sie heben will, braucht Robolectric oder instrumentierte
+  Tests — beides bewusst nicht in diesem Projekt (keine zusätzliche Abhängigkeit).
 
 Kein Laufzeitverhalten geändert: diese Fassung räumt auf, schließt eine
 Testlücke und stellt die Doku richtig. Auf dem Gerät **nicht** nachgemessen —
