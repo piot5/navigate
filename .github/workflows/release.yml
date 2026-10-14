@@ -31,13 +31,27 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
+      # Siehe ci.yml: das SDK ist im Runner-Image enthalten; der frühere
+      # `android-actions/setup-android@v3`-Schritt scheitert an `sdkmanager tools`.
+      - name: Android SDK prüfen
+        run: |
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK"
+          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$SDK/cmdline-tools" -maxdepth 3 -name sdkmanager -type f | head -1)
+          fi
+          echo "sdkmanager=$SDKMANAGER"
+          if [ ! -d "$SDK/platforms/android-36" ]; then
+            yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+            "$SDKMANAGER" "platforms;android-36"
+          fi
+          ls -d "$SDK/platforms"/* || true
 
       - name: Gradle-Cache
         uses: gradle/actions/setup-gradle@v4

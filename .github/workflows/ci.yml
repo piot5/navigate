@@ -29,13 +29,31 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
+      # Die Runner-Images bringen das Android-SDK mit (ANDROID_HOME gesetzt,
+      # Lizenzen akzeptiert). Der Schritt `android-actions/setup-android@v3`,
+      # der bis 0.4 hier stand, scheitert auf den aktuellen Images: er ruft
+      # `sdkmanager tools` auf, und das Paket „tools" existiert im Repository
+      # nicht mehr (ersetzt durch cmdline-tools) — genau daran ist der erste
+      # CI-Lauf dieses Repos gescheitert. Jetzt wird nur geprüft, was fehlt.
+      - name: Android SDK prüfen
+        run: |
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK"
+          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$SDK/cmdline-tools" -maxdepth 3 -name sdkmanager -type f | head -1)
+          fi
+          echo "sdkmanager=$SDKMANAGER"
+          if [ ! -d "$SDK/platforms/android-36" ]; then
+            yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+            "$SDKMANAGER" "platforms;android-36"
+          fi
+          ls -d "$SDK/platforms"/* || true
 
       # Abhängigkeiten und Build-Ausgaben über Läufe hinweg behalten: sonst lädt
       # jeder Lauf Kotlin- und AGP-Artefakte neu (in 0.4 nachgemessen: der
