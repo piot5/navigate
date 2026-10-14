@@ -1,8 +1,16 @@
 import java.util.Properties
+import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
+import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
+import org.gradle.testing.jacoco.tasks.JacocoReport
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    // jacoco ist in Gradle eingebaut — kein zusätzliches Plugin-Repository, kein
+    // Download zur Konfigurationszeit. Der einzige Zweck ist die Coverage-Messung
+    // der Unit-Tests (unitTestCoverageReport); die Klasse selbst kommt ohne
+    // Laufzeit-Abhängigkeit aus, deshalb bleibt app/build.gradle.kts schlank.
+    id("jacoco")
 }
 
 android {
@@ -18,12 +26,50 @@ android {
         // was auf TV (keine Systembars) nur Risiko ohne Nutzen bringt. Das
         // Zielgerät (Chromecast HD) läuft auf API 34.
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.3"
+        versionCode = 4
+        versionName = "0.4"
     }
 
+    /**
+     * Lint ist ab 0.4 ein Gate, kein Bericht: `warningsAsErrors` lässt den Build
+     * an jeder Warnung scheitern (lokal wie in CI, siehe .github/workflows/ci.yml).
+     *
+     * Warum das überhaupt möglich ist: die 15 Warnungen aus 0.3 sind abgearbeitet
+     * statt unterdrückt — entweder behoben (Plurals, Overdraw, RedundantLabel,
+     * ungenutzte Ressourcen, contentDescription) oder an der Fundstelle mit
+     * Begründung unterdrückt (TranslucentOrientation, DiscouragedApi). Übrig
+     * bleibt `OldTargetApi`, und der wird hier bewusst abgeschaltet: die
+     * Begründung für targetSdk 34 steht zwei Zeilen weiter oben und gilt
+     * unverändert.
+     */
+    lint {
+        warningsAsErrors = true
+        abortOnError = true
+        checkReleaseBuilds = true
+        // Nur die eine Warnung, deren Ursache eine dokumentierte Entscheidung ist.
+        disable += "OldTargetApi"
+    }
+
+    /**
+     * Die VCS-Info-Datei (META-INF/version-control-info.textproto) wird nicht
+     * mitgepackt. Sie enthält den Git-Zustand des Builds — damit ist die
+     * APK-Größe **nicht** reproduzierbar (0.3 dokumentierte 73.686 B, der
+     * Nachbau ergab 73.679 B: dieselbe Quelle, anderer Git-Zustand; in 0.4
+     * gemessen: 42 B „NO_VALID_GIT_FOUND" gegen 120 B mit Commit-Hash). Die
+     * Größe ist in diesem Projekt ein Messwert (README, docs/DEVICE_PERF.md),
+     * und ein Messwert, der sich beim Nachbauen ändert, ist keiner. Das
+     * Doku-Gate (tools/check_docs_drift.sh) kann so byte-genau prüfen.
+     *
+     * Der Schalter sitzt pro Build-Typ (`vcsInfo.include`); auf `android` gibt
+     * es ihn nicht — geprüft: „Unresolved reference: vcsInfo" auf oberster
+     * Ebene, und AGP meldet selbst: „This feature is now enabled in the DSL per
+     * build type with vcsInfo.include = true".
+     */
     buildTypes {
         release {
+            vcsInfo {
+                include = false
+            }
             // Der ganze Performance-Plan hängt daran: R8 entfernt den ungenutzten
             // Teil der Kotlin-Stdlib, shrinkResources die ungenutzten Ressourcen.
             // Ergebnis: kleines Dex → kurze Kaltstartzeit auf dem Chromecast.
@@ -66,6 +112,11 @@ android {
         }
         debug {
             isMinifyEnabled = false
+            // Auch im Debug-Build: die Debug-APK-Größe steht in
+            // docs/DEVICE_PERF.md und soll nachbaubar sein.
+            vcsInfo {
+                include = false
+            }
             // Side-by-side mit dem Release-Build: das Debug-Paket ist
             // com.piotv.navigate.debug und damit eine *zweite* Home-Kandidatin.
             applicationIdSuffix = ".debug"
@@ -94,4 +145,90 @@ dependencies {
     // Alles, was der Launcher braucht (GridView, LauncherApps, UsageStats,
     // LruCache, SharedPreferences), ist im Framework vorhanden.
     testImplementation("junit:junit:4.13.2")
+}
+
+// ---------------------------------------------------------------------------
+// Coverage der Unit-Tests
+// ---------------------------------------------------------------------------
+//
+// Warum überhaupt: 0.3 hatte 47 Tests und keine Zahl dazu — „viel" ist keine
+// Aussage. Die Zahl, die hier entsteht, ist der Nenner für jede weitere
+// Diskussion über Testlücken, und das Gate verhindert, dass neue ungetestete
+// Logik unbemerkt dazukommt.
+//
+// Gemessen wird nur, was ohne Gerät läuft (testDebugUnitTest). Die
+// Android-Klassen (Activity, Adapter, Loader) sind bewusst **nicht** Teil der
+// Erwartung — sie brauchen ein Gerät, nicht ein Coverage-Werkzeug.
+
+jacoco {
+    // Gepinnt: die Version aus Gradle kann sich mit dem Wrapper ändern, und ein
+    // wandernder Schwellwert wäre genau die Art stiller Drift, die das
+    // Doku-Gate in tools/check_docs_drift.sh verbietet.
+    toolVersion = "0.8.12"
+}
+
+tasks.withType<Test>().configureEach {
+    extensions.configure<JacocoTaskExtension> {
+        // Android-Unit-Tests laden einen Teil der Klassen aus dem Stub-Jar, das
+        // keinen Quellort hat. Ohne diese Option bricht die Instrumentierung mit
+        // „Cannot process instrumented class" ab.
+        isIncludeNoLocationClasses = true
+        excludes = listOf("jdk.internal.*")
+    }
+}
+
+// Klassen und Quellen sind für Bericht und Gate dieselben — einmal definiert.
+val coverageClasses = fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
+    exclude("**/R.class", "**/R$*.class", "**/BuildConfig.class")
+}
+val coverageExec = layout.buildDirectory.file("jacoco/testDebugUnitTest.exec")
+
+tasks.register<JacocoReport>("unitTestCoverageReport") {
+    group = "verification"
+    description = "Coverage der Unit-Tests als HTML (build/reports/jacoco/unitTestCoverageReport)."
+    dependsOn("testDebugUnitTest")
+    classDirectories.setFrom(coverageClasses)
+    sourceDirectories.setFrom(files("src/main/java"))
+    executionData.setFrom(coverageExec)
+    reports {
+        html.required.set(true)
+        xml.required.set(true)
+        csv.required.set(false)
+    }
+}
+
+/**
+ * Das Gate. Die Schwellen liegen unter dem gemessenen Stand (0.4: 18,3 % Zeilen
+ * / 25,4 % Zweige) — nicht, weil mehr erlaubt sein soll, sondern damit eine
+ * Umbenennung oder ein verschobener Zweig nicht sofort rot wird.
+ *
+ * Was die Zahl **nicht** sagt: im Nenner stehen auch die Klassen, die ohne
+ * Gerät gar nicht laufen können (Activity, Adapter, Loader, Repository — rund
+ * 700 der 987 Zeilen). Ohne sie wäre die Quote nahe 100 %: alle Klassen, die
+ * ohne Gerät prüfbar sind (ModeDecider, HomeKeyPolicy, AppCatalog, ConfigCodec,
+ * FavoritesConfig, GridColumns, IconGeometry, DockSignature …), sind vollständig
+ * abgedeckt. Das Gate ist deshalb ein **Regressions**schutz: neue Logik ohne
+ * Test senkt die Quote und lässt den Build scheitern.
+ */
+tasks.register<JacocoCoverageVerification>("unitTestCoverageVerification") {
+    group = "verification"
+    description = "Bricht ab, wenn die Unit-Test-Coverage unter die Schwellen fällt."
+    dependsOn("testDebugUnitTest")
+    classDirectories.setFrom(coverageClasses)
+    sourceDirectories.setFrom(files("src/main/java"))
+    executionData.setFrom(coverageExec)
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = "0.16".toBigDecimal()
+            }
+            limit {
+                counter = "BRANCH"
+                value = "COVEREDRATIO"
+                minimum = "0.22".toBigDecimal()
+            }
+        }
+    }
 }
