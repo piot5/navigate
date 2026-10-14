@@ -1,0 +1,13 @@
+build/
+.gradle/
+local.properties
+*.iml
+.idea/
+*.apk
+*.aab
+
+# Signing-Material: niemals ins Repo (wie KeyTab)
+keystore/
+build_*.log
+__pycache__/
+*.bak

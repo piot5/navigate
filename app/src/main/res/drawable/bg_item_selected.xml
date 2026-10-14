@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Markierung der gewählten Zeile in einer ListView (listSelector).
+     Bewusst ohne Zustands-Selector: die ListView zeichnet den listSelector nur,
+     solange sie selbst den Fokus hat — genau das gewünschte Verhalten. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/item_focus_fill" />
+    <corners android:radius="12dp" />
+    <stroke
+        android:width="2dp"
+        android:color="@color/item_focus_stroke" />
+</shape>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Eine Raster-Zelle. GridView setzt für die ausgewählte Zelle state_selected
+     auf DIESES Layout — die Kinder erben den Zustand über
+     duplicateParentState, deshalb färbt sich das Label mit. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_grid_item"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="@dimen/grid_cell_padding">
+
+    <ImageView
+        android:id="@+id/app_icon"
+        android:layout_width="@dimen/grid_icon"
+        android:layout_height="@dimen/grid_icon"
+        android:duplicateParentState="true" />
+
+    <TextView
+        android:id="@+id/app_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:duplicateParentState="true"
+        android:ellipsize="end"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:textColor="@color/app_label"
+        android:textSize="@dimen/grid_label_text_size" />
+</LinearLayout>

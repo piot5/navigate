@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Eine Zeile in den Navigate-Einstellungen.
+     Der Fokus kommt von der ListView (listSelector), der Text wird über
+     duplicateParentState mitgezogen. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/settings_row_height"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="@dimen/grid_cell_padding"
+    android:paddingEnd="@dimen/grid_cell_padding">
+
+    <ImageView
+        android:id="@+id/setting_icon"
+        android:layout_width="@dimen/setting_icon"
+        android:layout_height="@dimen/setting_icon"
+        android:duplicateParentState="true" />
+
+    <TextView
+        android:id="@+id/setting_label"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_weight="1"
+        android:duplicateParentState="true"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/app_label"
+        android:textSize="@dimen/setting_label_size" />
+
+    <TextView
+        android:id="@+id/setting_marker"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:minWidth="56dp"
+        android:textColor="@color/item_focus_stroke"
+        android:textSize="@dimen/setting_label_size" />
+
+</LinearLayout>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Navigate-Einstellungen: eine Liste, mehr braucht es nicht.
+     Absichtlich deckend (eigenes Theme) — hier soll nichts durchscheinen. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_home"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/settings_padding_h"
+    android:paddingTop="@dimen/settings_padding_top"
+    android:paddingEnd="@dimen/settings_padding_h"
+    android:paddingBottom="@dimen/settings_padding_h">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/settings_title"
+        android:textColor="@color/text_focus"
+        android:textSize="@dimen/settings_title_size" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/settings_hint"
+        android:textColor="@color/text_primary"
+        android:textSize="@dimen/settings_hint_size" />
+
+    <TextView
+        android:id="@+id/settings_counter"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textColor="@color/item_focus_stroke"
+        android:textSize="@dimen/settings_hint_size" />
+
+    <TextView
+        android:id="@+id/settings_path"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:ellipsize="middle"
+        android:maxLines="1"
+        android:textColor="@color/text_dim"
+        android:textSize="@dimen/settings_path_size" />
+
+    <!-- Der Weg für `adb push`: die interne Datei kann ADB ohne Root nicht
+         schreiben, der externe Pfad wird beim nächsten Zugriff übernommen. -->
+    <TextView
+        android:id="@+id/settings_import_path"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="middle"
+        android:maxLines="1"
+        android:textColor="@color/text_dim"
+        android:textSize="@dimen/settings_path_size" />
+
+    <ListView
+        android:id="@+id/settings_list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="12dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:divider="@null"
+        android:focusable="true"
+        android:listSelector="@drawable/bg_item_selected"
+        android:scrollbars="none" />
+
+</LinearLayout>

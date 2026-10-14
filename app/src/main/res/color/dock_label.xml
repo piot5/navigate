@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Label-Farbe im Dock: echte Fokus-Zustände (die Elemente sind fokussierbar). -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true" android:color="@color/text_focus" />
+    <item android:color="@color/text_primary" />
+</selector>

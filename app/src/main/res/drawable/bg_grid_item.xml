@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fokus-Markierung für Raster-Zellen.
+     GridView setzt die ausgewählte Zelle auf state_selected (nicht focused),
+     deshalb ist state_selected der Auslöser. AppGridView spiegelt den
+     GridView-Fokus zusätzlich in diesen Zustand (siehe AppGridView.onFocusChanged),
+     damit die Markierung verschwindet, wenn der Fokus ins Dock wandert. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_selected="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/item_focus_fill" />
+            <corners android:radius="12dp" />
+            <stroke
+                android:width="2dp"
+                android:color="@color/item_focus_stroke" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+</selector>

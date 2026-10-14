@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Navigate</string>
+
+    <!-- Dock -->
+    <string name="dock_home">Home</string>
+    <string name="dock_settings">Einstellungen</string>
+    <string name="dock_navigate_settings">Navigate</string>
+
+    <!-- Navigate-Einstellungen -->
+    <string name="settings_title">Navigate-Einstellungen</string>
+    <string name="settings_hint">OK: Favorit an/aus · ◀ ▶: Position in der Zeile</string>
+    <string name="settings_counter">Favoriten: %1$d von %2$d</string>
+    <string name="settings_path_label">Konfigurationsdatei: %1$s</string>
+    <string name="settings_import_path_label">Import (adb push): %1$s</string>
+    <string name="settings_favorite_marker">★ %1$d</string>
+
+    <!-- Rückmeldungen. Kurz gehalten: ein Toast ist auf TV 1,5 s sichtbar,
+         lange Sätze liest dort niemand zu Ende. -->
+    <string name="toast_favorite_added">Zu Favoriten hinzugefügt</string>
+    <string name="toast_favorite_removed">Aus Favoriten entfernt</string>
+    <string name="toast_favorites_full">Maximal %1$d Favoriten</string>
+    <string name="toast_launch_failed">App lässt sich nicht starten</string>
+    <string name="toast_settings_failed">Einstellungen nicht gefunden</string>
+
+    <string name="cd_app_icon">App-Symbol</string>
+</resources>

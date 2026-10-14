@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- QUERY_ALL_PACKAGES: Navigate muss ALLE startbaren Apps finden — das ist
+         die Kernfunktion eines Launchers, nicht ein Nebeneffekt.
+
+         Warum es ohne nicht geht (auf dem Zielgerät gemessen):
+         - LauncherApps.getActivityList() kennt nur CATEGORY_LAUNCHER und
+           verschweigt damit jede leanback-only App: Prime Video
+           (com.amazon.amazonvideo.livingroom), WOW (com.wbd.stream) und
+           ARD (de.swr.avp.ard.tv) tragen NUR CATEGORY_LEANBACK_LAUNCHER.
+         - Die Package-Visibility-Regeln ab Android 11 haben KEINE Ausnahme für
+           die Home-App (developer.android.com/training/package-visibility/automatic
+           listet sie erschöpfend) — eine LEANBACK-Abfrage über den
+           PackageManager wäre also unvollständig.
+         Starten wäre auch ohne die Berechtigung möglich, FINDEN nicht. -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <!-- Bewusst die einzige weitere Berechtigung. Sie wird NICHT zur Laufzeit
+         erfragt (das kann ein Launcher nicht), sondern über
+         Einstellungen → Apps → Spezieller Zugriff → Nutzungszugriff
+         oder per `adb shell appops set com.piotv.navigate GET_USAGE_STATS allow`.
+         Ohne sie arbeitet Navigate mit einer Heuristik (siehe README,
+         "Erkennung: läuft eine App?"). -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
+
+    <!-- Kein Touchscreen nötig (Fernbedienung), TV ist Zielplattform, aber nicht
+         Pflicht: so läuft Navigate auch auf einem Tablet/Handy zum Testen. -->
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+
+    <application
+        android:allowBackup="false"
+        android:banner="@drawable/banner"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Navigate">
+
+        <!-- Eine einzige Activity, zwei Fenster-Modi:
+             GRID = Home-Seite mit allen Apps (opaker Vollbild-Hintergrund),
+             DOCK = nur die untere Zeile (translucentes Fenster, die laufende
+             App bleibt dahinter sichtbar). Warum ein Fenster und nicht zwei
+             Activities: die HOME-Auflösung des Systems wird bei zwei
+             Home-Activities mehrdeutig (Chooser statt Direktstart).
+
+             launchMode=singleTask: jeder HOME-Druck kommt als onNewIntent an,
+             es wird nie eine zweite Instanz gebaut.
+             excludeFromRecents: der Launcher gehört nicht in "Zuletzt benutzt".
+             stateNotNeeded: das System darf die Activity jederzeit neu starten.
+             configChanges: TV-Geräte melden uiMode/density-Änderungen; ohne
+             diese Liste würde die Activity neu erzeugt (= sichtbares Flackern). -->
+        <activity
+            android:name=".LauncherActivity"
+            android:alwaysRetainTaskState="true"
+            android:banner="@drawable/banner"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|density|fontScale|locale|layoutDirection"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:launchMode="singleTask"
+            android:label="@string/app_name"
+            android:screenOrientation="landscape"
+            android:stateNotNeeded="true"
+            android:theme="@style/Theme.Navigate">
+
+            <!-- HOME: damit ist Navigate eine Launcher-App.
+                 LEANBACK_LAUNCHER: damit sie zusätzlich in der TV-Apps-Liste
+                 auftaucht (z. B. um nach dem Deaktivieren wieder hinein zu
+                 kommen, ohne die Einstellungen zu bemühen).
+
+                 priority=10 ist kein Zierwert: auf dem Chromecast (Google TV)
+                 trägt com.google.android.tungsten.setupwraith/.RecoveryActivity
+                 einen HOME-Filter mit priority=1 und gewinnt damit die
+                 Auflösung des HOME-Intents, obwohl Navigate die HOME-Rolle
+                 hält (gemessen am 2026-10-14 auf dem Zielgerät). Ein höherer
+                 Wert ist der einzige Weg, das ohne Deaktivieren einer
+                 System-App zu lösen. -->
+            <intent-filter android:priority="10">
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Navigate-Einstellungen (Favoritenzeile). Bewusst KEIN
+             Home-Kandidat und ohne LEANBACK_LAUNCHER: sie werden aus der
+             unteren Zeile geöffnet, nicht aus der TV-Apps-Liste. -->
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="@string/settings_title"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.Navigate.Settings" />
+    </application>
+
+</manifest>
