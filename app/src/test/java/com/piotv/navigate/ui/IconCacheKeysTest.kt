@@ -23,8 +23,8 @@ class IconCacheKeysTest {
 
     @Test
     fun `verschiedene Groessen ergeben verschiedene Dateien`() {
-        // Dock (104 px) und Raster (128 px) zeigen dasselbe Symbol in zwei
-        // Größen — zwei Dateien, sonst würde eine davon hochskaliert.
+        // Eine geänderte Rastergröße (andere Dichte) soll eine eigene Datei
+        // bekommen — sonst würde eine der beiden hochskaliert.
         assertNotEquals(
             IconCacheKeys.fileName("com.netflix.ninja", 104),
             IconCacheKeys.fileName("com.netflix.ninja", 128),

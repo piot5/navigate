@@ -36,9 +36,6 @@ class AppRepository private constructor(context: Context) {
     private var cached: List<AppEntry> = emptyList()
 
     @Volatile
-    private var cachedByPackage: Map<String, AppEntry> = emptyMap()
-
-    @Volatile
     private var lastLoadAt = 0L
 
     private var loadedOnce = false
@@ -47,15 +44,6 @@ class AppRepository private constructor(context: Context) {
 
     /** Letzter Stand. Vor dem ersten Laden leer — das Raster zeigt dann kurz nichts. */
     val apps: List<AppEntry> get() = cached
-
-    /**
-     * Paketname → Eintrag, zum Nachschlagen.
-     *
-     * Die Favoritenzeile besteht aus Paketnamen; sie braucht die Einträge bei
-     * jedem Aufbau. Ohne diesen Index entstünde dabei jedes Mal ein neues
-     * HashMap über alle Apps — auf dem HOME-Pfad die falsche Art von Arbeit.
-     */
-    val byPackageName: Map<String, AppEntry> get() = cachedByPackage
 
     init {
         registerLauncherCallback()
@@ -103,10 +91,6 @@ class AppRepository private constructor(context: Context) {
         val callbacks: List<(List<AppEntry>) -> Unit>
         synchronized(lock) {
             cached = fresh
-            // Der Index entsteht hier, einmal pro Ladung. Die Favoritenzeile
-            // schlägt bei jedem HOME-Druck nach; ein `associateBy` über alle
-            // Apps wäre dort jedes Mal ein neues HashMap für nichts.
-            cachedByPackage = fresh.associateBy { it.packageName }
             loadedOnce = true
             dirty = false
             inFlight = false

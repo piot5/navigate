@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Label-Farbe im Raster: GridView markiert die ausgewählte Zelle mit
-     state_selected, nicht mit state_focused. -->
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_selected="true" android:color="@color/text_focus" />
-    <item android:color="@color/text_primary" />
-</selector>

@@ -3,7 +3,7 @@
      GridView setzt die ausgewählte Zelle auf state_selected (nicht focused),
      deshalb ist state_selected der Auslöser. AppGridView spiegelt den
      GridView-Fokus zusätzlich in diesen Zustand (siehe AppGridView.onFocusChanged),
-     damit die Markierung verschwindet, wenn der Fokus ins Dock wandert. -->
+     damit die Markierung verschwindet, wenn das Fenster den Fokus verliert. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_selected="true">
         <shape android:shape="rectangle">

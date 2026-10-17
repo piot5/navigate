@@ -19,16 +19,25 @@
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
 
-    <!-- Bewusst die einzige weitere Berechtigung. Sie wird NICHT zur Laufzeit
-         erfragt (das kann ein Launcher nicht), sondern über
-         Einstellungen → Apps → Spezieller Zugriff → Nutzungszugriff
-         oder per `adb shell appops set com.piotv.navigate GET_USAGE_STATS allow`.
-         Ohne sie arbeitet Navigate mit einer Heuristik (siehe README,
-         "Erkennung: läuft eine App?"). -->
+    <!-- Optional, und ausdrücklich nur dafür: „HOME oder BACK auf der Home-Seite
+         → zurück in die letzte App“. Mit dem App-Op ist die Antwort exakt
+         (`UsageStatsManager.queryEvents`), ohne ihn greift der Merker der
+         zuletzt über Navigate gestarteten App.
+         Er wird NICHT zur Laufzeit erfragt (das kann ein Launcher nicht),
+         sondern per
+         `adb shell appops set com.piotv.navigate GET_USAGE_STATS allow`
+         (siehe docs/INSTALL.md). Fehlt er, startet Navigate trotzdem. -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
+    <!-- Kontextmenü (langes OK auf einer App):
+         - REQUEST_DELETE_PACKAGES zeigt den System-Dialog zum Deinstallieren
+           (ein Launcher darf nicht selbst deinstallieren),
+         - KILL_BACKGROUND_PROCESSES erlaubt das Schließen von Apps, die im
+           Hintergrund stehen. Beides sind normale Berechtigungen ohne Dialog. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
 
     <!-- Kein Touchscreen nötig (Fernbedienung), TV ist Zielplattform, aber nicht
          Pflicht: so läuft Navigate auch auf einem Tablet/Handy zum Testen. -->
@@ -49,12 +58,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Navigate">
 
-        <!-- Eine einzige Activity, zwei Fenster-Modi:
-             GRID = Home-Seite mit allen Apps (opaker Vollbild-Hintergrund),
-             DOCK = nur die untere Zeile (translucentes Fenster, die laufende
-             App bleibt dahinter sichtbar). Warum ein Fenster und nicht zwei
-             Activities: die HOME-Auflösung des Systems wird bei zwei
-             Home-Activities mehrdeutig (Chooser statt Direktstart).
+        <!-- Eine einzige Activity, ein Zustand: die Home-Seite mit allen Apps im
+             Raster. Bis 0.5 gab es zusätzlich einen zweiten Zustand (nur die
+             untere Zeile über der laufenden App) — mit zwei HOME-Activities wäre
+             die Auflösung des Systems mehrdeutig (Chooser statt Direktstart),
+             deshalb war es eine Activity mit zwei Fenstergrößen; seit 0.6 ist es
+             eine Activity mit einem Inhalt.
 
              launchMode=singleTask: jeder HOME-Druck kommt als onNewIntent an,
              es wird nie eine zweite Instanz gebaut.
@@ -66,9 +75,7 @@
              screenOrientation=landscape mit tools:ignore="DiscouragedApi":
              ab Android 16 ignorieren Systeme die feste Ausrichtung ohnehin
              (lint: DiscouragedApi). Auf dem Zielgerät ist das folgenlos — ein
-             Fernseher kennt nur eine Ausrichtung. Für den Handy-Testfall bleibt
-             die feste Ausrichtung trotzdem sinnvoll: das Dock ist 9 × 96dp breit
-             und wäre im Hochformat abgeschnitten.
+             Fernseher kennt nur eine Ausrichtung.
              android:label fehlt hier absichtlich: sie wäre identisch mit der
              App-Beschriftung (lint: RedundantLabel). -->
         <activity
@@ -109,17 +116,35 @@
             </intent-filter>
         </activity>
 
-        <!-- Navigate-Einstellungen (Favoritenzeile). Bewusst KEIN
-             Home-Kandidat und ohne LEANBACK_LAUNCHER: sie werden aus der
-             unteren Zeile geöffnet, nicht aus der TV-Apps-Liste. -->
+        <!-- Die Einstellungen. Keine HOME-Activity, kein Intent-Filter: sie wird
+             ausschließlich aus der Home-Seite gestartet (langes OK auf „…“) und
+             ist damit keine zweite Mehrdeutigkeit bei der HOME-Auflösung.
+             exported=false, weil niemand sonst sie starten können muss. -->
         <activity
             android:name=".ui.SettingsActivity"
             android:excludeFromRecents="true"
             android:exported="false"
             android:label="@string/settings_title"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.Navigate.Settings"
-            tools:ignore="DiscouragedApi" />
+            android:theme="@style/Theme.Navigate" />
+
+        <!-- Der Zugangsschlüssel zum „Now Playing“-Feld (siehe NowPlayingListener):
+             `MediaSessionManager.getActiveSessions` verlangt einen eingetragenen
+             Benachrichtigungs-Listener. Der Dienst liest **keine**
+             Benachrichtigungen — der eingetragene Komponentenname ist der
+             Ausweis. Freigabe (einmalig, docs/INSTALL.md Schritt 5b):
+               adb shell cmd notification allow_listener com.piotv.navigate/.NowPlayingListener
+
+             exported=true ist Pflicht (das System bindet den Dienst), und
+             BIND_NOTIFICATION_LISTENER_SERVICE lässt sonst niemanden hinein. -->
+        <service
+            android:name=".NowPlayingListener"
+            android:exported="true"
+            android:label="@string/now_playing_listener_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

@@ -1,151 +1,144 @@
 package com.piotv.navigate.ui
 
 import android.app.Activity
-import android.content.Intent
 import android.os.Bundle
 import android.view.KeyEvent
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
+import android.widget.BaseAdapter
 import android.widget.ListView
 import android.widget.TextView
 import com.piotv.navigate.R
-import com.piotv.navigate.data.AppEntry
-import com.piotv.navigate.data.AppRepository
-import com.piotv.navigate.data.FavoritesCodec
-import com.piotv.navigate.data.FavoritesConfig
-import com.piotv.navigate.util.shortToast
+import com.piotv.navigate.data.NavigateSettings
+import com.piotv.navigate.data.NowPlaying
+import com.piotv.navigate.data.SettingsStore
 
 /**
- * Navigate-Einstellungen — in dieser Ausbaustufe genau eine Aufgabe: die
- * Favoritenzeile.
+ * Die Navigate-Einstellungen — mit der Fernbedienung bedient, ohne Dialoge.
  *
- * Bedienung mit der Fernbedienung, ohne Dialoge:
- *   ▲ ▼     Zeile wählen
- *   OK      Favorit an/aus
- *   ◀ ▶     Favorit in der Zeile verschieben
- *   ◀/BACK  zurück
+ * ```
+ * ▲ ▼   Zeile wählen
+ * OK    umschalten
+ * ◀/BACK  zurück
+ * ```
  *
- * Jede Änderung geht sofort in die Konfigurationsdatei (siehe docs/CONFIG.md) —
- * ein "Speichern"-Knopf wäre auf einer Fernbedienung nur eine zusätzliche
+ * Warum eine **eigene Activity**: die Einstellungen sind kein Zustand der
+ * Home-Seite, und ein Dialog über ihr würde beim nächsten HOME-Druck weggewischt.
+ * Warum das trotzdem keine zweite HOME-Activity ist: die Mehrdeutigkeit, die zwei
+ * HOME-Filter erzeugen (Auswahldialog statt Direktstart), gilt nur für den
+ * HOME-Intent — diese Activity hat keinen Intent-Filter und wird ausschließlich
+ * aus der Home-Seite gestartet (langes OK auf „…“).
+ *
+ * Jede Änderung geht **sofort** in die Datei (siehe docs/CONFIG.md) — ein
+ * „Speichern“-Knopf wäre auf einer Fernbedienung nur eine zusätzliche
  * Fehlerquelle.
  */
 class SettingsActivity : Activity() {
 
     private lateinit var list: ListView
-    private lateinit var counter: TextView
-    private lateinit var pathView: TextView
-    private lateinit var importPathView: TextView
+    private lateinit var warning: TextView
 
-    private lateinit var config: FavoritesConfig
-    private lateinit var repository: AppRepository
-    private lateinit var iconLoader: IconLoader
-
-    private var adapter: SettingsAdapter? = null
-    private var apps: List<AppEntry> = emptyList()
+    private lateinit var store: SettingsStore
+    private lateinit var nowPlaying: NowPlaying
+    private lateinit var adapter: SettingsAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
-        config = FavoritesConfig.get(this)
-        repository = AppRepository.get(this)
-        iconLoader = IconLoader.get(this)
+        store = SettingsStore.get(this)
+        nowPlaying = NowPlaying(this)
 
         list = findViewById(R.id.settings_list)
-        counter = findViewById(R.id.settings_counter)
-        pathView = findViewById(R.id.settings_path)
-        importPathView = findViewById(R.id.settings_import_path)
+        warning = findViewById(R.id.settings_warning)
 
-        pathView.text = getString(R.string.settings_path_label, config.path)
-        // Der Import-Pfad steht nur da, wo es einen gibt (nicht jedes Gerät hat
-        // externen Speicher). Er ist der Weg für `adb push`; die interne Datei
-        // kann ADB ohne Root nicht schreiben.
-        val importPath = config.importPath
-        if (importPath == null) {
-            importPathView.visibility = View.GONE
-        } else {
-            importPathView.text = getString(R.string.settings_import_path_label, importPath)
-        }
-
-        list.setOnItemClickListener { _, _, position, _ ->
-            apps.getOrNull(position)?.let(::toggleFavorite)
-        }
+        adapter = SettingsAdapter()
+        list.adapter = adapter
+        list.setOnItemClickListener { _, _, position, _ -> toggle(position) }
         list.setOnKeyListener { _, keyCode, event -> onListKey(keyCode, event) }
 
-        loadApps()
+        // Die Datei steht im Kopf der Seite, nicht in der Doku: sie ist die
+        // Antwort auf „warum ist die Einstellung auf dem anderen Gerät anders“.
+        findViewById<TextView>(R.id.settings_path).text =
+            getString(R.string.settings_path_label, store.file.absolutePath)
+        val importPath = findViewById<TextView>(R.id.settings_import_path)
+        val import = store.importPath
+        if (import == null) {
+            // Nicht jedes Gerät hat externen Speicher — dann gibt es keinen Weg
+            // für `adb push` und auch nichts anzukündigen.
+            importPath.visibility = View.GONE
+        } else {
+            importPath.text = getString(R.string.settings_import_path_label, import)
+        }
+
+        apply()
     }
 
     override fun onResume() {
         super.onResume()
         list.requestFocus()
+        // Kann sich von außen geändert haben (`adb push`).
+        store.reloadIfChanged()
+        apply()
     }
 
-    private fun loadApps() {
-        repository.refresh(force = false) { loaded ->
-            apps = loaded
-            val newAdapter = SettingsAdapter(this, iconLoader, resources.getDimensionPixelSize(R.dimen.setting_icon))
-            newAdapter.submit(loaded, config.current().favorites)
-            list.adapter = newAdapter
-            adapter = newAdapter
-            updateCounter()
-            list.requestFocus()
-        }
-    }
-
-    private fun toggleFavorite(entry: AppEntry) {
-        val current = config.current()
-        val isFavorite = entry.packageName in current.favorites
-        if (!isFavorite && FavoritesCodec.isFull(current.favorites, current.maxFavorites)) {
-            shortToast(
-                resources.getQuantityString(
-                    R.plurals.toast_favorites_full,
-                    current.maxFavorites,
-                    current.maxFavorites,
-                )
-            )
-            return
-        }
-        config.update { it.copy(favorites = FavoritesCodec.toggle(it.favorites, entry.packageName)) }
-        refreshMarkers()
-        shortToast(
-            if (isFavorite) R.string.toast_favorite_removed else R.string.toast_favorite_added
-        )
-    }
-
+    /** ◀ wirkt wie BACK — auf einer Fernbedienung ist das der erwartete Weg. */
     private fun onListKey(keyCode: Int, event: KeyEvent): Boolean {
-        if (event.action != KeyEvent.ACTION_DOWN) return false
-        val offset = when (keyCode) {
-            KeyEvent.KEYCODE_DPAD_LEFT -> -1
-            KeyEvent.KEYCODE_DPAD_RIGHT -> 1
-            else -> return false
+        if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT && event.action == KeyEvent.ACTION_DOWN) {
+            finish()
+            return true
         }
-        val entry = apps.getOrNull(list.selectedItemPosition) ?: return false
-        val current = config.current()
-        // Nur Favoriten haben eine Position in der Zeile.
-        if (entry.packageName !in current.favorites) return false
-        val moved = FavoritesCodec.move(current.favorites, entry.packageName, offset)
-        if (moved != current.favorites) {
-            config.update { it.copy(favorites = moved) }
-            refreshMarkers()
-        }
-        // Tastendruck bleibt hier: die Liste soll den Fokus nicht weggeben.
-        return true
+        return false
     }
 
-    private fun refreshMarkers() {
-        adapter?.updateFavorites(config.current().favorites)
-        updateCounter()
+    /** Umschalten. Heute gibt es genau eine Zeile — Position 0. */
+    private fun toggle(position: Int) {
+        if (position != 0) return
+        val current = store.current()
+        store.save(current.copy(nowPlaying = !current.nowPlaying))
+        apply()
     }
 
-    private fun updateCounter() {
-        val current = config.current()
-        // Plural statt String: die Zahl entscheidet zwischen „Favorit" und
-        // „Favoriten" (lint: PluralsCandidate). Die erste Zahl ist die Menge
-        // für die Form, danach kommen die beiden Platzhalter.
-        counter.text = resources.getQuantityString(
-            R.plurals.settings_counter,
-            current.favorites.size,
-            current.favorites.size,
-            current.maxFavorites,
-        )
+    /**
+     * Zeigt den Stand — und, falls nötig, **warum** das Feld leer bleiben wird.
+     * Eine Einstellung, die man einschalten kann und die dann nichts tut, wäre
+     * die unangenehmste Sorte Einstellung.
+     */
+    private fun apply() {
+        val settings = store.current()
+        adapter.submit(settings)
+        warning.visibility =
+            if (settings.nowPlaying && !nowPlaying.hasAccess()) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * Die Liste hat genau einen Eintrag (die Einstellung), der Adapter ist
+     * trotzdem einer: die zweite Einstellung ist damit eine Zeile, kein Umbau.
+     */
+    private class SettingsAdapter : BaseAdapter() {
+
+        private var settings = NavigateSettings()
+
+        fun submit(value: NavigateSettings) {
+            if (settings == value) return
+            settings = value
+            notifyDataSetChanged()
+        }
+
+        override fun getCount(): Int = 1
+
+        override fun getItem(position: Int): Any = settings
+
+        override fun getItemId(position: Int): Long = 0L
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+            val view = convertView ?: LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_setting, parent, false)
+            view.findViewById<TextView>(R.id.setting_label).setText(R.string.settings_now_playing)
+            view.findViewById<TextView>(R.id.setting_state)
+                .setText(if (settings.nowPlaying) R.string.settings_on else R.string.settings_off)
+            return view
+        }
     }
 }

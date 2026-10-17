@@ -1,66 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources>
 
-    <!-- Translucentes Theme ist die Grundlage des ganzen Designs:
-         Fenster OHNE eigenen opaken Hintergrund. Im DOCK-Modus wird das
-         Fenster zusätzlich auf "nur untere Zeile" verkleinert, dadurch bleibt
-         die laufende App sichtbar und wird nur pausiert (nicht gestoppt) —
-         Video-Ton läuft weiter. Im GRID-Modus malt das Layout selbst eine
-         opake Fläche über das gesamte Fenster.
+    <!-- Bewusst das gewöhnlichste Theme, das es gibt: opak, ohne Translucenz,
+         ohne eigene Fenster-Animationen, ohne Fenstergrößen-Tricks.
 
-         tools:ignore="TranslucentOrientation": die feste Ausrichtung
-         (landscape, siehe Manifest) zusammen mit einem translucenten Theme ist
-         seit Android 8 offiziell nicht unterstützt — die Plattform kann nur
-         eine der beiden Ausrichtungen erfüllen, wenn die Activity darunter eine
-         andere verlangt. Auf dem Zielgerät (Fernseher, immer landscape) kann
-         dieser Fall nicht eintreten; er kann es auf einem Handy im Hochformat
-         — dort ist Navigate ausdrücklich nur Testgerät (README). Die Alternative
-         wäre, die feste Ausrichtung wegzulassen: dann wäre das Dock (9 × 96dp)
-         im Hochformat abgeschnitten, also der sichtbare Teil kaputt statt eines
-         theoretischen Risikos. Entscheidung: Ausrichtung behalten, Risiko hier
-         benannt. -->
-    <style name="Theme.Navigate" parent="@android:style/Theme.Material.NoActionBar" tools:ignore="TranslucentOrientation">
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowContentOverlay">@null</item>
-        <item name="android:windowIsFloating">false</item>
-        <item name="android:backgroundDimEnabled">false</item>
-        <item name="android:windowShowWallpaper">false</item>
-        <!-- Kein Starting-Window: es wäre opak und würde beim HOME-Druck
-             schwarz aufblitzen, bevor der erste Frame da ist. -->
-        <item name="android:windowDisablePreview">true</item>
-        <item name="android:windowActivityTransitions">false</item>
-        <item name="android:windowAnimationStyle">@style/Animation.Navigate</item>
-        <item name="android:colorBackgroundCacheHint">@null</item>
-    </style>
+         Warum so streng: Bis 0.6 war das Theme translucide (damit beim
+         HOME-Druck kein schwarzer Blitz kommt) und setzte alle
+         Fenster-Animationen auf @null. Auf dem Zielgerät war das Fenster danach
+         gezeichnet, fokussiert und **bedienbar** — aber nicht sichtbar; nur bei
+         einem Klick blitzte es kurz auf. Ein translucentes Fenster lässt die App
+         darunter am Leben (nur pausiert); jede auf diesem Fernseher sichtbare
+         App hat ein opakes Fenster, bei dem die App darunter gestoppt wird. Der
+         Neubau nimmt genau das: ein opakes Theme, sonst nichts.
 
-    <!-- Navigate-Einstellungen: deckend, eigener Task-Ausschluss. Kein
-         translucentes Theme wie Theme.Navigate, weil hier nichts durchscheinen
-         soll. -->
-    <style name="Theme.Navigate.Settings" parent="@android:style/Theme.Material.NoActionBar">
+         `windowBackground` ist derselbe Farbton wie die Home-Seite — das
+         Starting-Window ist damit ein dunkles Rechteck statt eines weißen oder
+         schwarzen Blitzes, und `windowDisablePreview` (eine Sonderbehandlung)
+         wird nicht gebraucht. -->
+    <style name="Theme.Navigate" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/bg_home</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowContentOverlay">@null</item>
-        <item name="android:windowAnimationStyle">@style/Animation.Navigate</item>
-    </style>
-
-    <!-- Alle Fenster-Übergänge aus. Ein HOME-Druck muss den ersten Frame
-         zeigen, nicht eine Animation abspielen — auf dem Chromecast kostet
-         jede Transition sichtbar Zeit. -->
-    <style name="Animation.Navigate" parent="@android:style/Animation.Activity">
-        <item name="android:activityOpenEnterAnimation">@null</item>
-        <item name="android:activityOpenExitAnimation">@null</item>
-        <item name="android:activityCloseEnterAnimation">@null</item>
-        <item name="android:activityCloseExitAnimation">@null</item>
-        <item name="android:taskOpenEnterAnimation">@null</item>
-        <item name="android:taskOpenExitAnimation">@null</item>
-        <item name="android:taskCloseEnterAnimation">@null</item>
-        <item name="android:taskCloseExitAnimation">@null</item>
-        <item name="android:taskToFrontEnterAnimation">@null</item>
-        <item name="android:taskToFrontExitAnimation">@null</item>
-        <item name="android:taskToBackEnterAnimation">@null</item>
-        <item name="android:taskToBackExitAnimation">@null</item>
+        <item name="android:colorBackground">@color/bg_home</item>
     </style>
 
 </resources>

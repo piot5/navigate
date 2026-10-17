@@ -2,41 +2,53 @@
 <resources>
     <string name="app_name">Navigate</string>
 
-    <!-- Dock -->
-    <string name="dock_home">Home</string>
-    <string name="dock_settings">Einstellungen</string>
-    <string name="dock_navigate_settings">Navigate</string>
+    <!-- Der „…“-Knopf am Ende der ersten Zeile. Die Glyphe steht hier und nicht
+         im Layout: ein hartcodierter Text wäre eine lint-Warnung, und Warnungen
+         sind in diesem Projekt Fehler. -->
+    <string name="more_glyph">•••</string>
+    <string name="more_label">Mehr anzeigen</string>
+    <string name="less_label">Weniger anzeigen</string>
 
-    <!-- Navigate-Einstellungen -->
-    <string name="settings_title">Navigate-Einstellungen</string>
-    <string name="settings_hint">OK: Favorit an/aus · ◀ ▶: Position in der Zeile</string>
-    <!-- Plural statt String mit %d: bei einem Favoriten stand vorher „Favoriten:
-         1 von 6" (lint: PluralsCandidate). Die Zahl entscheidet die Form, nicht
-         der Text. -->
-    <plurals name="settings_counter">
-        <item quantity="one">Favorit: %1$d von %2$d</item>
-        <item quantity="other">Favoriten: %1$d von %2$d</item>
-    </plurals>
-    <string name="settings_path_label">Konfigurationsdatei: %1$s</string>
-    <string name="settings_import_path_label">Import (adb push): %1$s</string>
-    <string name="settings_favorite_marker">★ %1$d</string>
+    <!-- Kontextmenü (langes OK auf einer App) -->
+    <string name="menu_move_forward">Position nach vorne</string>
+    <string name="menu_move_backward">Position nach hinten</string>
+    <string name="menu_uninstall">App deinstallieren</string>
+    <string name="menu_close">App schließen</string>
+    <string name="menu_close_all">Alle Apps schließen</string>
 
     <!-- Rückmeldungen. Kurz gehalten: ein Toast ist auf TV 1,5 s sichtbar,
          lange Sätze liest dort niemand zu Ende. -->
-    <string name="toast_favorite_added">Zu Favoriten hinzugefügt</string>
-    <string name="toast_favorite_removed">Aus Favoriten entfernt</string>
-    <!-- Plural, wie oben: „Maximal 1 Favoriten" war falsch (lint: PluralsCandidate). -->
-    <plurals name="toast_favorites_full">
-        <item quantity="one">Maximal %1$d Favorit</item>
-        <item quantity="other">Maximal %1$d Favoriten</item>
-    </plurals>
     <string name="toast_launch_failed">App lässt sich nicht starten</string>
-    <string name="toast_settings_failed">Einstellungen nicht gefunden</string>
+    <string name="toast_order_moved">Eine Position nach vorne</string>
+    <string name="toast_order_first">Steht schon ganz vorne</string>
+    <string name="toast_order_back">Eine Position nach hinten</string>
+    <string name="toast_order_last">Steht schon ganz hinten</string>
+    <string name="toast_uninstall_failed">Deinstallieren nicht möglich</string>
+    <string name="toast_closed_all">Hintergrund-Apps geschlossen</string>
 
-    <!-- Rückfall-Beschreibung für die Symbol-ImageViews in den Layouts. Sie wird
-         zur Laufzeit durch den App-Namen ersetzt (AppGridAdapter,
-         DockController, SettingsAdapter) — der XML-Wert gilt nur, solange eine
-         recycelte Zelle noch nichts gebunden hat. Ohne ihn meldete lint
-         dreimal „Missing contentDescription" und die Ressource wäre ungenutzt. -->
+    <!-- Die Navigate-Einstellungen — erreichbar über langes OK auf „…“. -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_hint">OK schaltet um · ▲ ▼ wählt · ◀ oder BACK zurück</string>
+    <string name="settings_now_playing">Now Playing anzeigen</string>
+    <string name="settings_on">An</string>
+    <string name="settings_off">Aus</string>
+    <!-- Ehrlich statt still: eine Einstellung, die eingeschaltet ist und dann
+         nichts tut, wäre die unangenehmste Sorte Einstellung. -->
+    <string name="settings_no_access">Kein Benachrichtigungszugriff — das Feld bleibt leer</string>
+    <string name="settings_path_label">Datei: %1$s</string>
+    <string name="settings_import_path_label">Import (adb push): %1$s</string>
+
+    <!-- Der Dienst, der den Blick in die Media-Sessions erlaubt. Sein Text steht
+         in Androids Liste der Benachrichtigungszugriffe — deshalb ein eigener
+         Text und nicht der App-Name. -->
+    <string name="now_playing_listener_label">Navigate — Now Playing</string>
+
+    <!-- Rückfall-Beschreibung des Cover-Bildes im „Now Playing“-Block. Sie wird
+         zur Laufzeit durch die Zeile ersetzt (LauncherActivity). -->
+    <string name="cd_now_playing_art">Cover</string>
+
+    <!-- Rückfall-Beschreibung für die Symbol-ImageView im Raster. Sie wird zur
+         Laufzeit durch den App-Namen ersetzt (AppAdapter) — der XML-Wert gilt
+         nur, solange eine recycelte Zelle noch nichts gebunden hat. -->
     <string name="cd_app_icon">App-Symbol</string>
 </resources>

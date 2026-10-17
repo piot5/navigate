@@ -1,37 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dock: feste Höhe, weil das Grid genau diesen Betrag als unteren Rand
-         bekommt (sonst liegt die letzte App-Reihe hinter dem Dock). -->
-    <dimen name="dock_height">116dp</dimen>
-    <dimen name="dock_margin_h">24dp</dimen>
-    <dimen name="dock_margin_bottom">20dp</dimen>
-    <dimen name="dock_item_width">96dp</dimen>
-    <dimen name="dock_icon">52dp</dimen>
-
-    <!-- dock_height + dock_margin_bottom: das Grid endet oberhalb des Docks. -->
-    <dimen name="grid_margin_bottom">136dp</dimen>
-
     <dimen name="grid_padding_h">28dp</dimen>
-    <!-- oben Platz für die Uhr -->
+    <!-- oben Platz für die obere Zeile („Now Playing“ und Uhr) -->
     <dimen name="grid_padding_top">52dp</dimen>
-    <dimen name="grid_padding_bottom">6dp</dimen>
+    <dimen name="grid_padding_bottom">24dp</dimen>
     <dimen name="grid_h_spacing">4dp</dimen>
     <dimen name="grid_v_spacing">4dp</dimen>
     <dimen name="grid_icon">64dp</dimen>
     <dimen name="grid_cell_padding">8dp</dimen>
     <dimen name="grid_label_text_size">14sp</dimen>
 
-    <dimen name="dock_label_text_size">12sp</dimen>
+    <!-- Die „…“-Glyphe steht in einem Feld von Symbolgröße. -->
+    <dimen name="more_glyph_text_size">28sp</dimen>
+    <dimen name="more_button_height">48dp</dimen>
+    <dimen name="more_min_width">96dp</dimen>
+    <dimen name="more_padding_h">16dp</dimen>
+    <dimen name="more_row_padding_bottom">12dp</dimen>
+
     <dimen name="clock_text_size">30sp</dimen>
     <dimen name="clock_margin">28dp</dimen>
 
-    <!-- Navigate-Einstellungen -->
+    <!-- Die obere Zeile: links „Now Playing“, rechts die Uhr. Der Abstand
+         dazwischen ist die Reserve, falls ein langer Titel bis an die Uhr
+         reicht — die Ellipse setzt der Text selbst (maxLines/ellipsize). -->
+    <dimen name="top_row_padding_top">16dp</dimen>
+    <dimen name="now_playing_text_size">20sp</dimen>
+    <dimen name="now_playing_end_margin">24dp</dimen>
+    <!-- Das Cover: so hoch wie zwei Textzeilen, nicht höher — die Zeile bleibt
+         die Hauptsache. Die Größe steht auch im Code (NowPlaying verkleinert das
+         Bild der Session darauf), deshalb ist sie hier eine eigene Ressource. -->
+    <dimen name="now_playing_art_size">40dp</dimen>
+    <dimen name="now_playing_art_margin_end">12dp</dimen>
+    <dimen name="now_playing_padding">6dp</dimen>
+
+    <!-- Die Navigate-Einstellungen -->
     <dimen name="settings_padding_h">48dp</dimen>
     <dimen name="settings_padding_top">28dp</dimen>
-    <dimen name="settings_title_size">28sp</dimen>
-    <dimen name="settings_hint_size">14sp</dimen>
-    <dimen name="settings_path_size">12sp</dimen>
-    <dimen name="settings_row_height">64dp</dimen>
-    <dimen name="setting_icon">40dp</dimen>
-    <dimen name="setting_label_size">18sp</dimen>
+    <dimen name="settings_title_text_size">26sp</dimen>
+    <dimen name="settings_hint_text_size">14sp</dimen>
+    <dimen name="settings_hint_margin_top">4dp</dimen>
+    <dimen name="settings_list_margin_top">12dp</dimen>
+    <!-- Hoch genug für die Fernbedienung: ein Ziel von 56 dp trifft man aus drei
+         Metern, 48 dp sind die Untergrenze, die Android für Touch nennt. -->
+    <dimen name="settings_row_height">56dp</dimen>
+    <dimen name="settings_label_text_size">20sp</dimen>
+    <dimen name="settings_marker_min_width">72dp</dimen>
+    <dimen name="settings_path_text_size">12sp</dimen>
 </resources>

@@ -29,8 +29,9 @@ object IconCacheKeys {
 
     private const val SAFE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
 
-    /** Die Größe gehört in den Namen: Dock und Raster zeigen dasselbe Symbol in
-     *  zwei Größen (siehe [AppEntry.iconKey]). */
+    /** Die Größe gehört in den Namen: eine geänderte Rastergröße soll eine
+     *  eigene Datei bekommen statt einer hochskalierten (siehe
+     *  [AppEntry.iconKey]). */
     fun fileName(packageName: String, sizePx: Int): String =
         "v$FORMAT_VERSION-${sizePx}px-${sanitize(packageName)}.webp"
 

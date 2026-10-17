@@ -26,8 +26,8 @@ android {
         // was auf TV (keine Systembars) nur Risiko ohne Nutzen bringt. Das
         // Zielgerät (Chromecast HD) läuft auf API 34.
         targetSdk = 34
-        versionCode = 4
-        versionName = "0.4"
+        versionCode = 12
+        versionName = "0.12"
     }
 
     /**
@@ -220,17 +220,17 @@ tasks.register<JacocoReport>("unitTestCoverageReport") {
 }
 
 /**
- * Das Gate. Die Schwellen liegen unter dem gemessenen Stand (0.4: 18,3 % Zeilen
- * / 25,4 % Zweige) — nicht, weil mehr erlaubt sein soll, sondern damit eine
+ * Das Gate. Die Schwellen liegen unter dem gemessenen Stand (0.6: 22,8 % Zeilen
+ * / 26,7 % Zweige) — nicht, weil mehr erlaubt sein soll, sondern damit eine
  * Umbenennung oder ein verschobener Zweig nicht sofort rot wird.
  *
  * Was die Zahl **nicht** sagt: im Nenner stehen auch die Klassen, die ohne
  * Gerät gar nicht laufen können (Activity, Adapter, Loader, Repository — rund
- * 700 der 987 Zeilen). Ohne sie wäre die Quote nahe 100 %: alle Klassen, die
- * ohne Gerät prüfbar sind (ModeDecider, HomeKeyPolicy, AppCatalog, ConfigCodec,
- * FavoritesConfig, GridColumns, IconGeometry, DockSignature …), sind vollständig
- * abgedeckt. Das Gate ist deshalb ein **Regressions**schutz: neue Logik ohne
- * Test senkt die Quote und lässt den Build scheitern.
+ * 400 der 530 Zeilen). Ohne sie wäre die Quote nahe 100 %: alle Klassen, die
+ * ohne Gerät prüfbar sind (AppCatalog, ConfigCodec, NavigateConfig,
+ * GridColumns, IconGeometry, IconCacheKeys …), sind vollständig abgedeckt. Das
+ * Gate ist deshalb ein **Regressions**schutz: neue Logik ohne Test senkt die
+ * Quote und lässt den Build scheitern.
  */
 tasks.register<JacocoCoverageVerification>("unitTestCoverageVerification") {
     group = "verification"

@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Markierung der gewählten Zeile in einer ListView (listSelector).
+<!-- Markierung der gewählten Zeile in einer ListView (`listSelector`).
      Bewusst ohne Zustands-Selector: die ListView zeichnet den listSelector nur,
-     solange sie selbst den Fokus hat — genau das gewünschte Verhalten. -->
+     solange sie selbst den Fokus hat — genau das gewünschte Verhalten. Dieselbe
+     Form wie @drawable/bg_grid_item, damit Raster und Einstellungen gleich
+     aussehen. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="@color/item_focus_fill" />

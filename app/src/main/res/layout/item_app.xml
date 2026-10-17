@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Eine Raster-Zelle. GridView setzt für die ausgewählte Zelle state_selected
      auf DIESES Layout — die Kinder erben den Zustand über
-     duplicateParentState, deshalb färbt sich das Label mit. -->
+     duplicateParentState, deshalb färbt sich das Label mit.
+
+     Das Label steht zentriert unter dem Symbol (`gravity` + `textAlignment`):
+     ohne diese zwei Angaben setzt Android Text linksbündig in die Zelle, und
+     ein kurzer App-Name klebte am linken Rand statt unter dem Symbol. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -24,8 +28,10 @@
         android:layout_marginTop="6dp"
         android:duplicateParentState="true"
         android:ellipsize="end"
+        android:gravity="center"
         android:includeFontPadding="false"
         android:maxLines="1"
-        android:textColor="@color/app_label"
+        android:textAlignment="center"
+        android:textColor="@color/text_primary"
         android:textSize="@dimen/grid_label_text_size" />
 </LinearLayout>

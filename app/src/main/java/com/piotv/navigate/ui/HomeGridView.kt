@@ -3,18 +3,17 @@ package com.piotv.navigate.ui
 import android.content.Context
 import android.graphics.Rect
 import android.util.AttributeSet
-import android.view.KeyEvent
 import android.widget.AdapterView
 import android.widget.GridView
 
 /**
- * GridView mit zwei Korrekturen für die Fernbedienung.
+ * GridView mit einer Korrektur für die Fernbedienung.
  *
  * GridView (Framework) statt RecyclerView: D-Pad-Navigation, Scrollen und
  * View-Recycling sind eingebaut, und es kostet null zusätzliche Abhängigkeit.
  * Genau das ist hier die Anforderung.
  */
-class AppGridView @JvmOverloads constructor(
+class HomeGridView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = android.R.attr.gridViewStyle,
@@ -31,24 +30,8 @@ class AppGridView @JvmOverloads constructor(
 
         // GridView markiert die gewählte Zelle über state_selected, blendet die
         // Markierung beim Fokusverlust aber nicht aus. Ohne diese Zeile bliebe
-        // eine Zelle hervorgehoben, während das Dock den Fokus hat.
+        // eine Zelle blau umrahmt, während der Fokus schon auf dem „…“-Knopf
+        // darunter steht.
         selectedView?.isSelected = gainFocus
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && isInLastRow()) {
-            // Absichtlich NICHT konsumieren: dann sucht das Framework selbst
-            // unterhalb weiter und findet das Dock. Ein konsumierter Tastendruck
-            // würde den Fokus im Raster festnageln.
-            return false
-        }
-        return super.onKeyDown(keyCode, event)
-    }
-
-    private fun isInLastRow(): Boolean {
-        val total = count
-        val columns = numColumns
-        if (total == 0 || columns <= 0) return false
-        return selectedItemPosition >= total - columns
     }
 }

@@ -1,23 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Grid-Modus: opaker Hintergrund. Absichtlich sehr dunkel, aber nicht
-         schwarz — auf OLED/VA-Panels sind reine Schwarzflächen im
-         Kontrast zu den App-Icons unruhig. -->
+    <!-- Home-Seite: opaker Hintergrund. Absichtlich sehr dunkel, aber nicht
+         schwarz — auf OLED/VA-Panels sind reine Schwarzflächen im Kontrast zu
+         den App-Icons unruhig. -->
     <color name="bg_home">#FF0C0E12</color>
-
-    <!-- Dock-Modus: fast opak, damit die Symbole über jedem Videobild lesbar
-         sind, aber mit sichtbarem Rand zum laufenden Inhalt. -->
-    <color name="dock_bg">#F2101317</color>
-    <color name="dock_stroke">#1FFFFFFF</color>
 
     <color name="item_focus_fill">#26FFFFFF</color>
     <color name="item_focus_stroke">#FF6EA8FE</color>
+    <!-- Ruhezustand des „…“-Knopfes: nur eine Ahnung eines Rahmens, damit die
+         Fläche auch ohne Fokus als Knopf erkennbar ist. -->
+    <color name="item_idle_stroke">#33FFFFFF</color>
     <color name="icon_placeholder">#14FFFFFF</color>
-    <color name="dock_divider">#33FFFFFF</color>
 
     <color name="text_primary">#FFDADCE0</color>
-    <color name="text_focus">#FFFFFFFF</color>
     <color name="text_dim">#FF9AA0A6</color>
+    <!-- Apps, die aktiv sind (in den letzten 24 h im Vordergrund, siehe
+         LastApp.recentlyUsed): deutlich grün auf dem dunklen Hintergrund, aber
+         nicht grell — das Raster hat viele Labels, und Grün soll eine Ausnahme
+         bleiben. -->
+    <color name="text_active">#FF6EE787</color>
+    <!-- Die **zuletzt geöffnete** App: derselbe Grünton, eine Stufe heller, damit
+         sie sich von den übrigen aktiven Apps unterscheidet. -->
+    <color name="text_last">#FFB9F6CA</color>
 
     <color name="ic_launcher_background">#FF10151C</color>
 </resources>

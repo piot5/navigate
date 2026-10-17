@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Eine Zeile in den Navigate-Einstellungen.
-     Der Fokus kommt von der ListView (listSelector), der Text wird über
-     duplicateParentState mitgezogen. -->
+<!-- Eine Zeile in den Navigate-Einstellungen: links der Name, rechts der Stand
+     („An“/„Aus“).
+
+     Der Fokus kommt von der ListView (`listSelector`), deshalb braucht diese
+     Zeile keinen eigenen Zustands-Selector: eine ListView zeichnet ihren
+     listSelector nur, solange sie selbst den Fokus hat — genau das gewünschte
+     Verhalten. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="@dimen/settings_row_height"
@@ -10,32 +14,24 @@
     android:paddingStart="@dimen/grid_cell_padding"
     android:paddingEnd="@dimen/grid_cell_padding">
 
-    <ImageView
-        android:id="@+id/setting_icon"
-        android:layout_width="@dimen/setting_icon"
-        android:layout_height="@dimen/setting_icon"
-        android:contentDescription="@string/cd_app_icon"
-        android:duplicateParentState="true" />
-
     <TextView
         android:id="@+id/setting_label"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
         android:layout_weight="1"
-        android:duplicateParentState="true"
         android:ellipsize="end"
+        android:includeFontPadding="false"
         android:maxLines="1"
-        android:textColor="@color/app_label"
-        android:textSize="@dimen/setting_label_size" />
+        android:textColor="@color/text_primary"
+        android:textSize="@dimen/settings_label_text_size" />
 
     <TextView
-        android:id="@+id/setting_marker"
+        android:id="@+id/setting_state"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="end"
-        android:minWidth="56dp"
+        android:includeFontPadding="false"
+        android:minWidth="@dimen/settings_marker_min_width"
         android:textColor="@color/item_focus_stroke"
-        android:textSize="@dimen/setting_label_size" />
-
+        android:textSize="@dimen/settings_label_text_size" />
 </LinearLayout>

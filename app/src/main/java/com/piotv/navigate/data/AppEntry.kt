@@ -4,7 +4,7 @@ import android.content.ComponentName
 import android.content.pm.ApplicationInfo
 
 /**
- * Ein startbarer Eintrag — im Raster wie im Dock.
+ * Ein startbarer Eintrag im Raster.
  *
  * Warum [ApplicationInfo] und keine [android.content.pm.LauncherActivityInfo]:
  * die App-Liste entsteht aus zwei PackageManager-Abfragen (siehe
@@ -24,8 +24,8 @@ class AppEntry(
     val component: ComponentName
         get() = ComponentName(packageName, activityName)
 
-    /** Schlüssel für den Symbol-Cache. Die Größe gehört dazu: Dock und Raster
-     *  zeigen dasselbe Symbol in zwei Größen, und beide sollen einmal
-     *  dekodiert werden, nicht bei jedem Bind neu. */
+    /** Schlüssel für den Symbol-Cache. Die Größe gehört dazu: wird die
+     *  Rastergröße geändert (andere Dichte, `configChanges`), entsteht ein
+     *  zweiter Eintrag statt einer hochskalierten Bitmap. */
     fun iconKey(sizePx: Int): String = "$packageName@$sizePx"
 }

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Die Home-Seite: das App-Raster, der „…“-Knopf und die obere Zeile.
+
+     Zugeklappt (Standard): unten steht **eine** Zeile mit Apps; darunter, in
+     der Zeile darunter, der „…“-Knopf. Der Rest des Bildschirms bleibt leer.
+     Aufgeklappt: das Raster füllt den Bildschirm und scrollt; der „…“-Knopf
+     bleibt ganz unten stehen.
+
+     Damit beides ohne zweites Layout funktioniert, hängt die Spalte
+     (`@id/column`) am **unteren** Rand: zugeklappt ist das Raster nur eine
+     Zeile hoch (der Adapter meldet dann nur eine Zeile), aufgeklappt bekommt es
+     per `layout_weight` den ganzen Platz darüber.
+
+     Der Wurzelknoten ist bewusst `<merge>`: beide Kinder landen direkt im
+     Inhalts-Container der Activity. Der Hintergrund steht im Theme
+     (`Theme.Navigate → android:windowBackground`) — ihn zusätzlich hier zu
+     malen wäre Overdraw. -->
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <LinearLayout
+        android:id="@+id/column"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="bottom"
+        android:orientation="vertical">
+
+        <!-- GridView (Framework) statt RecyclerView: D-Pad-Navigation, Scrollen
+             und View-Recycling sind eingebaut und kosten keine zusätzliche
+             Abhängigkeit.
+
+             listSelector ausdrücklich transparent statt "@null": das Theme
+             bringt einen eigenen Auswahl-Hintergrund mit (auf dem Zielgerät ein
+             oranges Feld), und "@null" schaltet ihn nicht ab. Die Markierung
+             macht ausschließlich @drawable/bg_grid_item (abgerundeter blauer
+             Rahmen). -->
+        <com.piotv.navigate.ui.HomeGridView
+            android:id="@+id/grid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipToPadding="false"
+            android:listSelector="@android:color/transparent"
+            android:paddingStart="@dimen/grid_padding_h"
+            android:paddingTop="@dimen/grid_padding_top"
+            android:paddingEnd="@dimen/grid_padding_h"
+            android:paddingBottom="@dimen/grid_padding_bottom"
+            android:horizontalSpacing="@dimen/grid_h_spacing"
+            android:verticalSpacing="@dimen/grid_v_spacing"
+            android:stretchMode="columnWidth"
+            android:scrollbars="none"
+            android:focusable="true"
+            android:focusableInTouchMode="true" />
+
+        <!-- Die Zeile unter der App-Zeile: der „…“-Knopf, rechtsbündig unter der
+             letzten Zelle. Die Ränder entsprechen denen des Rasters, damit er
+             genau darunter steht. -->
+        <LinearLayout
+            android:id="@+id/more_row"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="@dimen/grid_padding_h"
+            android:paddingEnd="@dimen/grid_padding_h"
+            android:paddingBottom="@dimen/more_row_padding_bottom">
+
+            <TextView
+                android:id="@+id/more"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/more_button_height"
+                android:background="@drawable/bg_more_item"
+                android:clickable="true"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:minWidth="@dimen/more_min_width"
+                android:paddingStart="@dimen/more_padding_h"
+                android:paddingEnd="@dimen/more_padding_h"
+                android:text="@string/more_glyph"
+                android:textColor="@color/text_primary"
+                android:textSize="@dimen/more_glyph_text_size" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Die obere Zeile: links „Now Playing“ (nur wenn eingeschaltet **und** das
+         Raster zugeklappt ist), rechts die Uhr. Beides in einer Zeile, damit ein
+         langer Titel die Uhr nicht überholen kann: der Titel bekommt per
+         `layout_weight` genau den Platz, der übrig bleibt, und schneidet mit
+         einer Ellipse ab.
+
+         Die Uhr wird einmal pro Minute aktualisiert (ein Sekundentakt wäre ein
+         Timer pro Sekunde — auf dem Chromecast messbar, ohne Mehrwert). -->
+    <LinearLayout
+        android:id="@+id/top_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:gravity="center_vertical|end"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/clock_margin"
+        android:paddingTop="@dimen/top_row_padding_top"
+        android:paddingEnd="@dimen/clock_margin">
+
+        <!-- „Now Playing“: Cover, App-Name und was läuft. **Anklickbar** — OK auf
+             der Fernbedienung holt die spielende App zurück (siehe
+             LauncherActivity.openPlayingApp). Deshalb ist der Block fokussierbar
+             und zeigt seinen Fokus wie die Rasterzellen (bg_now_playing). -->
+        <LinearLayout
+            android:id="@+id/now_playing"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="@dimen/now_playing_end_margin"
+            android:layout_weight="1"
+            android:background="@drawable/bg_now_playing"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="@dimen/now_playing_padding"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/now_playing_art"
+                android:layout_width="@dimen/now_playing_art_size"
+                android:layout_height="@dimen/now_playing_art_size"
+                android:layout_marginEnd="@dimen/now_playing_art_margin_end"
+                android:contentDescription="@string/cd_now_playing_art"
+                android:scaleType="centerCrop"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/now_playing_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="@color/text_dim"
+                android:textSize="@dimen/now_playing_text_size" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/clock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:includeFontPadding="false"
+            android:textColor="@color/text_dim"
+            android:textSize="@dimen/clock_text_size" />
+    </LinearLayout>
+
+</merge>
