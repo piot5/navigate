@@ -8,6 +8,16 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 > Die Version wird in `app/build.gradle.kts` gepflegt (`versionCode`/`versionName`),
 > nicht hier.
 
+## 0.13.2
+
+### Behoben
+
+- **Der Release-Lauf scheiterte am Doku-Gate:** „unitTestCoverageReport.xml
+  fehlt". `release.yml` ließ nur `unitTestCoverageVerification` laufen — das Gate
+  rechnet aus den Ausführungsdaten, es schreibt aber keinen Bericht. Die
+  Coverage-**Zahlen** liest das Doku-Gate aus der XML-Datei. Jetzt laufen beide
+  Schritte auch dort, wie in `ci.yml` (der CI-Lauf war schon grün).
+
 ## 0.13.1
 
 ### Behoben

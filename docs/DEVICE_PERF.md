@@ -381,7 +381,7 @@ byte-gleich (`release_dex_bytes`), weil die Signatur nur Einträge in `META-INF`
 hinzufügt.
 
 ```
-release_apk_bytes=76188
+release_apk_bytes=76187
 apk_files=32
 release_apk_unsigned_bytes=67840
 apk_unsigned_files=29

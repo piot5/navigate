@@ -78,8 +78,12 @@ jobs:
       - name: Tests
         run: sh ./gradlew --no-daemon :app:testDebugUnitTest
 
-      - name: Coverage-Gate
-        run: sh ./gradlew --no-daemon :app:unitTestCoverageVerification
+      # Der Bericht wird hier mit erzeugt: das Doku-Gate liest die Coverage-Zahlen
+      # aus der XML-Datei, nicht aus dem Build-Ergebnis. Ohne diesen Schritt
+      # scheitert es mit „unitTestCoverageReport.xml fehlt" — genau das ist im
+      # Release-Lauf von v0.13.1 passiert.
+      - name: Coverage (Gate + Bericht für das Doku-Gate)
+        run: sh ./gradlew --no-daemon :app:unitTestCoverageReport :app:unitTestCoverageVerification
 
       - name: Lint
         run: sh ./gradlew --no-daemon :app:lintDebug
