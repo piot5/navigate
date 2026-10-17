@@ -19,11 +19,28 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 APK="app/build/outputs/apk/release/app-release.apk"
+# Zwei mögliche Namen, und das ist kein Zufall: mit Credentials signiert AGP zu
+# `app-release.apk`, ohne sie zu `app-release-unsigned.apk`. In der CI ohne
+# Keystore-Secret entsteht die unsignierte Fassung — und sie hat eine andere
+# Größe, weil die Signatur als META-INF/CERT.* im Archiv liegt (und die Dateizahl
+# dadurch zwei Einträge mehr hat). Deshalb gibt es für beide einen dokumentierten
+# Wert, statt die Prüfung zu überspringen.
+UNSIGNED_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
 DOCS="docs/DEVICE_PERF.md"
 README="README.md"
 
-if [ ! -f "$APK" ]; then
-    echo "❌ $APK fehlt — erst 'bash build_navigate.sh release' ausführen."
+if [ -f "$APK" ]; then
+    KEY_APK="release_apk_bytes"
+    KEY_FILES="apk_files"
+elif [ -f "$UNSIGNED_APK" ]; then
+    APK="$UNSIGNED_APK"
+    KEY_APK="release_apk_unsigned_bytes"
+    KEY_FILES="apk_unsigned_files"
+else
+    echo "❌ Kein Release-APK gefunden:"
+    echo "   $APK"
+    echo "   $UNSIGNED_APK"
+    echo "   Erst 'bash build_navigate.sh release' ausführen."
     exit 1
 fi
 
@@ -77,11 +94,11 @@ expect() { # expect <schlüssel> <gebauter Wert>
     fi
 }
 
-echo "Doku-Gate — ${DOCS} gegen das gebaute Release-APK:"
-expect release_apk_bytes "$apk_bytes"
+echo "Doku-Gate — ${DOCS} gegen das gebaute Release-APK ($(basename "$APK")):"
+expect "$KEY_APK" "$apk_bytes"
 expect release_dex_bytes "$dex_bytes"
 expect release_dex_files "$dex_files"
-expect apk_files "$apk_files"
+expect "$KEY_FILES" "$apk_files"
 expect unit_tests "$unit_tests"
 expect coverage_lines_percent "$coverage_lines"
 expect coverage_branches_percent "$coverage_branches"

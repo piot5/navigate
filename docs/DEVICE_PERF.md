@@ -18,7 +18,7 @@ auf dem Zielgerät gemessen, nicht geschätzt.
 
 | | 0.12 | 0.13 |
 |---|---|---|
-| Release-APK | 73.146 B | **76.187 B** |
+| Release-APK | 73.146 B | **76.188 B** |
 | `classes.dex` | 68.608 B | **73.112 B** |
 | Dateien im APK | 31 | **32** |
 | Unit-Tests | 94 | **108** |
@@ -370,11 +370,23 @@ nennen — sonst driften die Dokumente auseinander und der Leser glaubt der
 falschen. (Genau das war in 0.3 der Fall: 73.686 B dokumentiert, 73.679 B
 gebaut.)
 
+**Zwei APK, zwei Zahlen — und beide werden geprüft.** Mit Credentials signiert AGP
+zu `app-release.apk`, ohne sie zu `app-release-unsigned.apk`; die Signatur liegt
+als `META-INF/CERT.*` im Archiv, deshalb ist die unsignierte Fassung kleiner (und
+hat drei Dateien weniger). Das Gate nimmt **das gebaute** APK und vergleicht es mit
+dem passenden Wert: lokal mit `keystore/keystore.properties` sind das
+`release_apk_bytes`/`apk_files`, in der CI ohne Keystore-Secret
+`release_apk_unsigned_bytes`/`apk_unsigned_files`. Das Dex ist in beiden Fällen
+byte-gleich (`release_dex_bytes`), weil die Signatur nur Einträge in `META-INF`
+hinzufügt.
+
 ```
-release_apk_bytes=76187
+release_apk_bytes=76188
+apk_files=32
+release_apk_unsigned_bytes=67840
+apk_unsigned_files=29
 release_dex_bytes=73112
 release_dex_files=1
-apk_files=32
 unit_tests=108
 coverage_lines_percent=20,8
 coverage_branches_percent=28,9

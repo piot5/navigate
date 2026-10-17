@@ -26,8 +26,8 @@ android {
         // was auf TV (keine Systembars) nur Risiko ohne Nutzen bringt. Das
         // Zielgerät (Chromecast HD) läuft auf API 34.
         targetSdk = 34
-        versionCode = 13
-        versionName = "0.13"
+        versionCode = 14
+        versionName = "0.13.1"
     }
 
     /**
@@ -104,31 +104,42 @@ android {
             // Signing wie in KeyTab: Credentials NUR aus Env oder
             // keystore/keystore.properties (gitignored) — keine Defaults im
             // Buildfile. Ohne Credentials bleibt das Release-APK unsigniert.
+            //
+            // Zwei Bedingungen, und beide sind aus der CI gelernt (der
+            // Release-Lauf war bis 0.13 rot, und zwar genau hier):
+            //
+            //  - Ein **leerer** Wert zählt nicht. GitHub setzt ein nicht
+            //    gesetztes Secret als leere Zeichenkette in die Umgebung, nicht
+            //    als fehlende Variable — `System.getenv` liefert dann "" und
+            //    nicht null. Ohne `isNotBlank()` entstand deshalb eine
+            //    Signing-Konfiguration mit leerem Passwort, und
+            //    `validateSigningRelease` brach den Build ab
+            //    („Keystore file ... not found for signing config 'release'").
+            //  - Die Keystore-Datei muss existieren. Fehlt sie (CI ohne Secret),
+            //    bleibt das APK unsigniert — wie der Satz darüber sagt.
             val props = Properties().apply {
                 val f = rootProject.file("keystore/keystore.properties")
                 if (f.exists()) f.inputStream().use { load(it) }
             }
             fun credential(envKey: String, propKey: String): String? =
-                System.getenv(envKey) ?: props.getProperty(propKey)
+                (System.getenv(envKey) ?: props.getProperty(propKey))?.takeIf { it.isNotBlank() }
             val ksPassword = credential("NAVIGATE_KEYSTORE_PASSWORD", "NAVIGATE_KEYSTORE_PASSWORD")
             val keyPassword = credential("NAVIGATE_KEY_PASSWORD", "NAVIGATE_KEY_PASSWORD")
-            if (ksPassword != null && keyPassword != null) {
+            val store = rootProject.file(
+                credential("NAVIGATE_KEYSTORE", "NAVIGATE_KEYSTORE") ?: "keystore/navigate-release.jks"
+            )
+            if (ksPassword != null && keyPassword != null && store.isFile) {
                 signingConfig = signingConfigs.create("release") {
-                    storeFile = file(
-                        rootProject.file(
-                            System.getenv("NAVIGATE_KEYSTORE")
-                                ?: props.getProperty("NAVIGATE_KEYSTORE")
-                                ?: "keystore/navigate-release.jks"
-                        )
-                    )
+                    storeFile = store
                     storePassword = ksPassword
                     this.keyAlias = credential("NAVIGATE_KEY_ALIAS", "NAVIGATE_KEY_ALIAS") ?: "navigate"
                     this.keyPassword = keyPassword
                 }
             } else {
                 logger.warn(
-                    "Release-Signing übersprungen: NAVIGATE_KEYSTORE_PASSWORD/NAVIGATE_KEY_PASSWORD " +
-                        "fehlen (Env oder keystore/keystore.properties). Release-APK bleibt unsigniert."
+                    "Release-Signing übersprungen: kein vollständiges Credential-Paar " +
+                        "(NAVIGATE_KEYSTORE_PASSWORD/NAVIGATE_KEY_PASSWORD) oder keine Keystore-Datei " +
+                        "(${store.name}). Release-APK bleibt unsigniert."
                 )
             }
         }

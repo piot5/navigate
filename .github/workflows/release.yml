@@ -90,6 +90,18 @@ jobs:
           NAVIGATE_KEY_PASSWORD: ${{ secrets.NAVIGATE_KEY_PASSWORD }}
         run: sh ./gradlew --no-daemon :app:assembleRelease
 
+      # Wie in ci.yml: das gebaute APK unter einem festen Namen ablegen. Mit
+      # Keystore-Secret heißt es `app-release.apk`, ohne `app-release-unsigned.apk`
+      # — ein fest verdrahteter Pfad wäre in einem der beiden Fälle falsch.
+      - name: APK benennen
+        id: apk
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          src=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          cp "$src" "navigate-$version.apk"
+          echo "Gebaut: $(basename "$src")"
+          ls -l "navigate-$version.apk"
+
       - name: Doku-Gate
         run: bash tools/check_docs_drift.sh
 
@@ -97,7 +109,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: navigate-${{ steps.version.outputs.version }}
-          path: app/build/outputs/apk/release/app-release.apk
+          path: navigate-${{ steps.version.outputs.version }}.apk
 
       - name: Release anlegen (nur bei einem Tag)
         if: startsWith(github.ref, 'refs/tags/')
@@ -105,6 +117,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            "app/build/outputs/apk/release/app-release.apk#navigate-${{ steps.version.outputs.version }}.apk" \
+            "navigate-${{ steps.version.outputs.version }}.apk" \
             --title "Navigate ${{ steps.version.outputs.version }}" \
             --generate-notes

@@ -17,7 +17,7 @@ wenn eingeschaltet — „Now Playing“ links. Einzustellen gibt es zwei Sachen
 
 | | |
 |---|---|
-| **Release-APK** | 74 KB / 76.187 B (davon 71 KB / 73.112 B `classes.dex`) — eine einzige Dex-Datei |
+| **Release-APK** | 74 KB / 76.188 B signiert (66 KB / 67.840 B unsigniert) · davon 71 KB / 73.112 B `classes.dex` — eine einzige Dex-Datei |
 | **Unit-Tests** | 108, ohne Gerät lauffähig · Coverage-Gate 18 % Zeilen / 25 % Zweige (gemessen 20,8 % / 28,9 %) |
 | **Abhängigkeiten zur Laufzeit** | keine — nur Android-Framework + Kotlin-Stdlib |
 | **Berechtigungen** | `QUERY_ALL_PACKAGES` (ohne sie wären leanback-only Apps unsichtbar); `PACKAGE_USAGE_STATS` optional, nur für „zurück in die letzte App“; dazu optional der **Benachrichtigungszugriff** für „Now Playing“ (keine Manifest-Berechtigung, sondern eine Freigabe per adb — siehe unten) |

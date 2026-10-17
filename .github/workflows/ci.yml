@@ -73,6 +73,18 @@ jobs:
       - name: Release-APK (R8, unsigniert ohne Secrets)
         run: sh ./gradlew --no-daemon :app:assembleRelease
 
+      # Der Name des APK hängt davon ab, ob signiert wurde: mit Credentials
+      # `app-release.apk`, ohne sie `app-release-unsigned.apk`. Beide Fälle sind
+      # vorgesehen (das Signieren braucht ein Secret), deshalb wird hier **das
+      # gebaute** APK unter einem festen Namen abgelegt — sonst scheitert der
+      # nächste Schritt an einem Pfad, den es nicht gibt.
+      - name: APK benennen
+        run: |
+          src=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          cp "$src" navigate-release.apk
+          echo "Gebaut: $(basename "$src")"
+          ls -l navigate-release.apk
+
       - name: Doku-Gate (Messwerte gegen das APK)
         run: bash tools/check_docs_drift.sh
 
@@ -101,4 +113,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: navigate-release-unsigniert
-          path: app/build/outputs/apk/release/app-release.apk
+          path: navigate-release.apk

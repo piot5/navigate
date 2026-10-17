@@ -8,6 +8,36 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 > Die Version wird in `app/build.gradle.kts` gepflegt (`versionCode`/`versionName`),
 > nicht hier.
 
+## 0.13.1
+
+### Behoben
+
+- **Die CI war rot — seit dem ersten Push.** Zwei Fehler, beide nur in der
+  CI-Umgebung sichtbar, beide hier behoben:
+  1. **`Release-APK` brach ab:** `Execution failed for task
+     ':app:validateSigningRelease'` — „Keystore file … not found for signing
+     config 'release'". Ursache: GitHub setzt ein **nicht gesetztes** Secret als
+     leere Zeichenkette in die Umgebung, nicht als fehlende Variable;
+     `System.getenv` liefert dann `""` statt `null`. Das Buildfile baute daraus
+     eine Signing-Konfiguration mit leerem Passwort — und die zeigte auf einen
+     Keystore, den es in der CI nicht gibt. Jetzt zählt ein leerer Wert als
+     „nicht gesetzt", **und** die Keystore-Datei muss existieren; ohne beides
+     bleibt das APK unsigniert, wie es diese Datei seit 0.4 beschreibt.
+  2. **`Doku-Gate` brach ab:** es suchte `app-release.apk` und fand nichts, weil
+     ein unsigniertes Release-APK `app-release-unsigned.apk` heißt. Das Gate nimmt
+     jetzt **das gebaute** APK und vergleicht es mit dem passenden dokumentierten
+     Wert: die unsignierte Fassung hat einen eigenen (67.840 B, 29 Dateien), weil
+     die Signatur als `META-INF/CERT.*` im Archiv liegt. Das Dex ist in beiden
+     Fällen byte-gleich.
+
+### Geändert
+
+- `ci.yml` und `release.yml` legen das gebaute APK unter einem **festen** Namen ab
+  (`navigate-release.apk` bzw. `navigate-<version>.apk`). Ein fest verdrahteter
+  Pfad auf `app-release.apk` war in einem der beiden Fälle falsch.
+- Die beiden APK-Varianten samt Zahlen stehen in
+  [docs/DEVICE_PERF.md](docs/DEVICE_PERF.md).
+
 ## 0.13
 
 ### Hinzugefügt
