@@ -9,10 +9,11 @@ package com.piotv.navigate.data
  * de.swr.avp.ard.tv
  * ```
  *
- * Reines Kotlin ohne Android-Typen. Die Datei ist die **einzige** Einstellung
- * dieser Oberfläche, und ein Parser ist genau die Stelle, an der eine
- * handgeschriebene Datei still kaputtgeht (Leerzeichen, Kommas, doppelte
- * Einträge) — deshalb getrennt testbar (OrderCodecTest).
+ * Reines Kotlin ohne Android-Typen. Sie ist die **Reihenfolge** der Oberfläche;
+ * die Einstellungen stehen daneben in `settings.conf` ([SettingsCodec]). Ein
+ * Parser ist genau die Stelle, an der eine handgeschriebene Datei still
+ * kaputtgeht (Leerzeichen, Kommas, doppelte Einträge) — deshalb getrennt testbar
+ * (OrderCodecTest).
  *
  * Toleranz ist Absicht: Leerzeilen, `#`-Kommentare, umgebende Leerzeichen,
  * Komma-Listen und Zeilen der Form `order=…` (frühere Fassungen hatten
@@ -43,9 +44,9 @@ object OrderCodec {
         appendLine("# Navigate — Reihenfolge der Apps")
         appendLine("#")
         appendLine("# Eine Paketnamen-Zeile pro Eintrag, in Anzeige-Reihenfolge.")
-        appendLine("# Diese Datei ist die einzige Einstellung: die Home-Seite zeigt")
-        appendLine("# nur die erste Rasterzeile, den Rest holt der „…“-Knopf.")
-        appendLine("# Zeilen mit '#' sind Kommentare, unbekannte Zeilen werden ignoriert.")
+        appendLine("# Die Einstellungen stehen daneben in settings.conf — diese Datei")
+        appendLine("# ist nur die Reihenfolge. Zeilen mit '#' sind Kommentare,")
+        appendLine("# unbekannte Zeilen werden ignoriert.")
         appendLine()
         for (packageName in order) appendLine(packageName)
     }

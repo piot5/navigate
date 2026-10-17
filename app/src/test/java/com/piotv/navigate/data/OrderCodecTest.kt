@@ -5,10 +5,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Der Parser der Reihenfolge-Datei. Sie ist die einzige Einstellung dieser
- * Oberfläche und wird von Hand geschrieben (oder per `adb push`) — hier steht,
- * was passiert, wenn sie krumm ist. Grundsatz wie überall in diesem Projekt:
- * eine handgeschriebene Datei darf den Launcher nie daran hindern zu starten.
+ * Der Parser der Reihenfolge-Datei. Sie hält die **Reihenfolge** der Apps (die
+ * Einstellungen stehen daneben in `settings.conf`) und wird von Hand geschrieben
+ * (oder per `adb push`) — hier steht, was passiert, wenn sie krumm ist.
+ * Grundsatz wie überall in diesem Projekt: eine handgeschriebene Datei darf den
+ * Launcher nie daran hindern zu starten.
  */
 class OrderCodecTest {
 

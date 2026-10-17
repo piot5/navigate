@@ -135,11 +135,11 @@ adb shell cmd role remove-role-holder android.app.role.HOME com.piotv.navigate
 # 3. Google-TV-Launcher wieder anschalten, falls er deaktiviert war
 adb shell pm enable com.google.android.apps.tv.launcherx
 
-# 3. Zugriffe zurücknehmen (nur was gesetzt wurde)
+# 4. Zugriffe zurücknehmen (nur was gesetzt wurde)
 adb shell appops set com.piotv.navigate GET_USAGE_STATS default
 adb shell cmd notification disallow_listener com.piotv.navigate/com.piotv.navigate.NowPlayingListener
 
-# 4. Navigate deinstallieren (optional)
+# 5. Navigate deinstallieren (optional)
 adb uninstall com.piotv.navigate
 ```
 

@@ -329,6 +329,8 @@ release_dex_bytes=68608
 release_dex_files=1
 apk_files=31
 unit_tests=94
+coverage_lines_percent=20,1
+coverage_branches_percent=27,3
 ```
 
 Warum die APK-Größe reproduzierbar ist: die VCS-Info-Datei

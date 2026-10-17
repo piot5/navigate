@@ -34,6 +34,31 @@ apk_files=$(unzip -l "$APK" | tail -1 | awk '{ print $2 }')
 # Nur echte Annotationen am Zeilenanfang: „@Test" in einem Kommentar zählt nicht.
 unit_tests=$(grep -rhoE '^[[:space:]]*@Test' app/src/test --include='*.kt' | wc -l | tr -d ' ')
 
+# Coverage: Quelle ist der JaCoCo-Bericht, nicht die Doku. Die Zähler des
+# Wurzelknotens stehen am Ende der Datei (nach allen Paketen und Klassen),
+# `tail -1` trifft deshalb den Gesamtwert und nicht einen Zwischenstand.
+JACOCO="app/build/reports/jacoco/unitTestCoverageReport/unitTestCoverageReport.xml"
+if [ ! -f "$JACOCO" ]; then
+    echo "❌ $JACOCO fehlt — erst 'sh gradlew :app:unitTestCoverageReport' ausführen."
+    exit 1
+fi
+
+# 202/1005 → "20,1" (deutsche Schreibweise, wie sie in den Dokumenten steht).
+coverage_of() { # coverage_of <LINE|BRANCH>
+    local values missed covered
+    values=$(grep -oE "<counter type=\"$1\" missed=\"[0-9]+\" covered=\"[0-9]+\"/>" "$JACOCO" | tail -1)
+    missed=$(printf '%s' "$values" | grep -oE 'missed="[0-9]+"' | grep -oE '[0-9]+')
+    covered=$(printf '%s' "$values" | grep -oE 'covered="[0-9]+"' | grep -oE '[0-9]+')
+    if [ -z "$missed" ] || [ -z "$covered" ]; then
+        printf '%s' "fehlt"
+        return
+    fi
+    awk -v c="$covered" -v t="$((missed + covered))" 'BEGIN { printf "%.1f", 100*c/t }' | tr '.' ','
+}
+
+coverage_lines=$(coverage_of LINE)
+coverage_branches=$(coverage_of BRANCH)
+
 fail=0
 
 # 76430 → 76.430 (deutsche Schreibweise, wie sie in den Dokumenten steht).
@@ -58,6 +83,8 @@ expect release_dex_bytes "$dex_bytes"
 expect release_dex_files "$dex_files"
 expect apk_files "$apk_files"
 expect unit_tests "$unit_tests"
+expect coverage_lines_percent "$coverage_lines"
+expect coverage_branches_percent "$coverage_branches"
 
 for value in "$apk_bytes" "$dex_bytes"; do
     # Im README stehen die Zahlen in deutscher Schreibweise (76.430) — beide
@@ -66,6 +93,26 @@ for value in "$apk_bytes" "$dex_bytes"; do
         echo "❌ README.md nennt $value nicht (${DOCS} schon)"
         fail=1
     fi
+done
+
+# Die Coverage-Zahlen genauso: sie standen bis 0.12 nur im Fließtext und
+# konnten deshalb still veralten.
+for value in "$coverage_lines" "$coverage_branches"; do
+    if ! grep -qF "$value" "$README"; then
+        echo "❌ README.md nennt die Coverage ${value} nicht (${DOCS} schon)"
+        fail=1
+    fi
+done
+
+# Keine andere Testzahl als die des gebauten Testsets: genau dieser Fehler stand
+# in ARCHITECTURE.md (54 Tests zwei Absätze neben den richtigen 94).
+for doc in "$README" docs/ARCHITECTURE.md; do
+    for value in $(grep -oE '[0-9]+ (Unit-)?Tests' "$doc" | grep -oE '^[0-9]+' | sort -u); do
+        if [ "$value" != "$unit_tests" ]; then
+            echo "❌ ${doc} nennt ${value} Tests, das Testset hat ${unit_tests}"
+            fail=1
+        fi
+    done
 done
 
 if [ "$fail" != 0 ]; then

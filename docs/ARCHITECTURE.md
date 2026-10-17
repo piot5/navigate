@@ -209,7 +209,7 @@ Regel (94 Tests, ohne Gerät), nicht die Eigenheit des Geräts.
 
 | | Beispiele | Prüfbar |
 |---|---|---|
-| **reine Regeln**, kein Android-Typ | `AppCatalog`, `Order`, `OrderCodec`, `OrderStore` (Datei-Semantik), `GridColumns`, `IconGeometry`, `IconCacheKeys` | Unit-Test ohne Gerät — 54 Tests; die ohne Gerät prüfbaren Klassen liegen bei 100 % Zeilen-Coverage |
+| **reine Regeln**, kein Android-Typ | `AppCatalog`, `Order`, `OrderCodec`, `OrderStore` (Datei-Semantik), `NowPlayingBoard`, `NowPlayingText`, `GridColumns`, `IconGeometry`, `IconCacheKeys` | Unit-Test ohne Gerät — 94 Tests; die ohne Gerät prüfbaren Klassen liegen bei 100 % Zeilen-Coverage. Die Zahl selbst ist keine Prosa: `tools/check_docs_drift.sh` vergleicht sie mit dem gebauten Testset |
 | **Android-Verdrahtung** | `LauncherActivity`, `AppAdapter`, `HomeGridView`, `IconLoader`, `IconDiskCache`, `AppRepository` | nur auf einem Gerät; hier zählt die Messung ([DEVICE_PERF.md](DEVICE_PERF.md)) |
 
 Der Grund ist die Fehlerhistorie: die teuersten Fehler dieses Projekts waren
