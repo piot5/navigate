@@ -2,11 +2,16 @@
 # Navigate Installer
 # Verwendung: bash install_navigate.sh [pfad/zur/apk]
 #
-# Gerät:  NAVIGATE_DEVICE=<ip>:5555 (oder das erste erreichbare Gerät)
+# Gerät:  NAVIGATE_DEVICE=<ip>:5555 erzwingt genau dieses Gerät (keine Prüfung).
+#         Ohne die Variable wird das erste erreichbare **Fernsehgerät** genommen
+#         (`ro.build.characteristics` enthält `tv`). Emulatoren und Telefone
+#         werden übersprungen — das Entwicklungs-Telefon hängt oft gleichzeitig
+#         am adb, und ein Install dort wäre lautlos die falsche Zielscheibe.
 #         ADB=/pfad/zu/adb, falls adb nicht im PATH liegt.
 #
-# Das Skript installiert nur. Die Home-Rolle und der Nutzungszugriff sind
-# bewusste, einzeln umkehrbare Schritte — siehe docs/INSTALL.md.
+# Das Skript installiert nur. Die Home-Rolle und das Abschalten des
+# Google-TV-Watchdogs sind bewusste, einzeln umkehrbare Schritte —
+# siehe docs/INSTALL.md.
 
 set -e
 
@@ -23,18 +28,32 @@ if [ ! -f "$APK_PATH" ]; then
     exit 1
 fi
 
-# Gerät bestimmen: NAVIGATE_DEVICE gewinnt, sonst das erste Gerät.
+# Gerät bestimmen: NAVIGATE_DEVICE gewinnt, sonst das erste Fernsehgerät.
 if [ -z "$NAVIGATE_DEVICE" ]; then
-    NAVIGATE_DEVICE="$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1; exit}')"
+    for serial in $("$ADB" devices | awk 'NR>1 && $2=="device" {print $1}'); do
+        case "$serial" in
+            emulator-*) continue ;;
+        esac
+        characteristics="$("$ADB" -s "$serial" shell getprop ro.build.characteristics 2>/dev/null | tr -d '\r' || true)"
+        case "$characteristics" in
+            *tv*)
+                NAVIGATE_DEVICE="$serial"
+                break
+                ;;
+        esac
+    done
 fi
 
 if [ -z "$NAVIGATE_DEVICE" ]; then
-    echo "❌ Kein Gerät gefunden. adb connect <ip>:5555 ausführen oder"
-    echo "   NAVIGATE_DEVICE=<ip>:5555 setzen."
+    echo "❌ Kein Fernsehgerät gefunden. Erreichbare Geräte:"
+    "$ADB" devices | awk 'NR>1 && $2=="device" {print "     " $1}'
+    echo "   Entweder 'adb connect <ip>:5555' ausführen oder das Ziel erzwingen:"
+    echo "     NAVIGATE_DEVICE=<ip>:5555 bash install_navigate.sh"
     exit 1
 fi
 
-echo "📦 Installiere Navigate auf $NAVIGATE_DEVICE ..."
+MODEL="$("$ADB" -s "$NAVIGATE_DEVICE" shell getprop ro.product.model 2>/dev/null | tr -d '\r' || true)"
+echo "📦 Installiere Navigate auf $NAVIGATE_DEVICE${MODEL:+ ($MODEL)} ..."
 "$ADB" -s "$NAVIGATE_DEVICE" install -r "$APK_PATH" | tail -2
 
 echo ""
@@ -45,7 +64,5 @@ echo "  1) Home-Rolle:"
 echo "     $ADB -s $NAVIGATE_DEVICE shell cmd role add-role-holder android.app.role.HOME $PACKAGE"
 echo "  2) Google-TV-Watchdog abschalten (sonst holt er sich HOME zurück):"
 echo "     $ADB -s $NAVIGATE_DEVICE shell pm disable-user --user 0 com.google.android.tungsten.setupwraith"
-echo "  3) Nutzungszugriff (exakte Erkennung statt Heuristik):"
-echo "     $ADB -s $NAVIGATE_DEVICE shell appops set $PACKAGE GET_USAGE_STATS allow"
 echo ""
 echo "Prüfen:  $ADB -s $NAVIGATE_DEVICE shell cmd role get-role-holders android.app.role.HOME"
