@@ -8,12 +8,240 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 > Die Version wird in `app/build.gradle.kts` gepflegt (`versionCode`/`versionName`),
 > nicht hier.
 
-## Unreleased
+## 0.12
 
-Nach dem ersten echten CI-Lauf (das Projekt hatte bis dahin kein Remote) — keine
-Änderung am Verhalten der App.
+### Hinzugefügt
+
+- **„Now Playing“ oben links** — sichtbar im zugeklappten Zustand, also dort, wo
+  der Platz leer ist: **App-Name, Interpret und Titel** der laufenden
+  Media-Session, dazu `· pausiert`, wenn die Session pausiert ist, und das
+  **Cover** aus den Metadaten der Session (fehlt es, steht dort das App-Symbol).
+  Quelle ist der `MediaSessionManager` (dieselbe Instanz, die
+  `dumpsys media_session` zeigt); genommen wird die Session, die **wirklich
+  spielt**, sonst die erste mit einem Titel. Die Zeile ist **eine** Zeile und
+  schneidet mit einer Ellipse ab, damit ein langer Titel die Uhr rechts nicht
+  überholt.
+- **OK auf „Now Playing“ holt die spielende App zurück** — zuerst über
+  `sessionActivity` der Session (der „Jetzt läuft“-Bildschirm, den die App selbst
+  anbietet), sonst über ihren Launcher-Intent. Der Block ist dafür fokussierbar
+  und zeigt seinen Fokus wie die Rasterzellen.
+- **Einstellungen** — langes OK auf „…“ öffnet eine eigene Seite mit dem Schalter
+  *Now Playing anzeigen* (`▲ ▼` wählt, `OK` schaltet um, `◀`/`BACK` zurück). Sie
+  schreibt **sofort** in `files/settings.conf` (siehe
+  [docs/CONFIG.md](docs/CONFIG.md)) und nennt beide Datei-Pfade, damit ein
+  `adb push` nicht geraten werden muss.
+- Ehrliche Rückmeldung statt stiller Untätigkeit: ist der Schalter an und der
+  Zugriff fehlt, sagt die Seite es ausdrücklich.
+
+### Wichtig zu wissen
+
+- **Ohne Benachrichtigungszugriff bleibt das Feld leer.** Eine normale App darf
+  die aktiven Media-Sessions nicht abfragen: `getActiveSessions` verlangt einen
+  eingetragenen Benachrichtigungs-Listener (oder `MEDIA_CONTENT_CONTROL` — eine
+  Signatur-Berechtigung, die `pm grant` nicht vergeben kann). Navigate bringt
+  dafür `NowPlayingListener` mit: einen Dienst, der **nichts** liest — sein
+  eingetragener Name ist der Ausweis. Die Freigabe ist ein Befehl
+  ([docs/INSTALL.md](docs/INSTALL.md), Schritt 5b).
+- Die Abfrage läuft **alle 5 Sekunden**, im Hintergrund-Thread und nur, solange
+  die Home-Seite sichtbar und das Raster zugeklappt ist. Aufgeklappt gehört der
+  Platz den Apps — dann verschwindet das Feld.
+
+### Geändert
+
+- **Die Datei-Mechanik liegt jetzt einmal** (`data/ConfigFile.kt`): Reihenfolge
+  und Einstellungen teilen sich internen Speicher, `adb push`-Import, Drossel und
+  Cache. In genau dieser Mechanik saß der Fehler, den `OrderStoreTest` in 0.4
+  gefunden hat — zwei Kopien wären zwei Chancen, ihn wieder einzubauen.
+  `OrderStore` verhält sich unverändert (seine Tests sind unverändert grün).
+- `README.md`, `docs/ARCHITECTURE.md`, `docs/CONFIG.md` und `docs/INSTALL.md`
+  beschreiben die zweite Einstellung und den optionalen Zugriff. Die Aussage
+  „einstellbar ist nur die Reihenfolge“ stimmt nicht mehr und ist überall
+  richtiggestellt.
+
+## 0.11
+
+### Hinzugefügt
+
+- **Kontextmenü auf langes OK** (langes Drücken im Raster): *Position nach
+  vorne*, *Position nach hinten*, *App deinstallieren*, *App schließen*, *Alle
+  Apps schließen*. Deinstallieren zeigt den System-Dialog (`ACTION_DELETE` +
+  `REQUEST_DELETE_PACKAGES`); Schließen geht über
+  `ActivityManager.killBackgroundProcesses` (+ `KILL_BACKGROUND_PROCESSES`) —
+  das ist der einzige Weg, den eine normale App hat, und er greift nur für Apps
+  im Hintergrund (auf der Home-Seite der Normalfall).
+- **Die grüne Schrift aktualisiert sich laufend** (alle 5 Sekunden, nur solange
+  die Home-Seite sichtbar ist). Die Abfrage bleibt ein Zeitstempel-Blick in die
+  Nutzungsstatistik, im Hintergrund-Thread.
+- **Die zuletzt geöffnete App hat einen eigenen Grünton** — eine Stufe heller als
+  die übrigen aktiven Apps.
 
 ### Behoben
+
+- **Grün war bei ausgewählter Zelle nicht zu sehen.** Die Farbe hing an einem
+  Zustands-Selector (`state_selected` → weiß). Jetzt hängt sie nur noch am
+  Zustand der App: grün bleibt grün, die Auswahl zeigt der blaue Rahmen.
+- **Der „…“-Knopf steht jetzt zentriert** unter der App-Zeile (vorher rechts).
+
+## 0.10
+
+### Behoben
+
+- **Die grüne Markierung aus 0.9 hätte nie gegriffen.** Die Regel war „das letzte
+  Lebenszyklus-Ereignis ist nicht `STOPPED`“ — auf dem Zielgerät bekommt die App
+  darunter beim HOME-Druck aber genau dieses `ACTIVITY_STOPPED` (Folge des opaken
+  Fensters), obwohl ihr **Prozess** weiterlebt. Nachgemessen mit
+  `dumpsys activity processes`: Netflix, Disney+, WOW und der Play Store waren
+  alle noch da.
+- **Neue Regel:** grün = in den letzten **24 Stunden** im Vordergrund (nie vor dem
+  letzten Systemstart), gelesen aus den Zeitstempeln der Nutzungsstatistik
+  (`UsageStats.getLastTimeUsed`) — billig, im Hintergrund-Thread, höchstens alle
+  30 Sekunden. Ehrlich dazugesagt: „Prozess lebt“ ist damit angenähert, nicht
+  bewiesen.
+- Die Ereignis-Faltung `ForegroundLog.alive` und ihre sechs Tests sind entfallen
+  (sie beantwortete die Frage nicht); `ForegroundLog.lastResumed` bleibt für
+  „zurück in die letzte App“.
+
+## 0.9
+
+### Hinzugefügt
+
+- **Grüne Beschriftung für Apps, die noch laufen.** Grundlage ist dieselbe
+  Nutzungsstatistik wie bei „zurück in die letzte App“: ein Paket gilt als
+  laufend, solange sein letztes Lebenszyklus-Ereignis nicht `STOPPED` ist
+  (pausiert = läuft weiter). Die Faltung (`ForegroundLog.alive`) ist reine Logik
+  und getestet; die Abfrage läuft im Hintergrund-Thread und höchstens alle 30
+  Sekunden — ein 6-Stunden-Fenster auf dem HOME-Pfad wäre genau der Posten, den
+  0.2 dort entfernt hat. Ohne Nutzungszugriff bleibt nichts grün, statt etwas
+  falsch grün zu färben.
+- Zwei Zustandslisten `app_label` / `app_label_running`: die **Auswahl** bleibt in
+  beiden Fällen weiß, damit „ausgewählt“ unabhängig davon aussieht, ob die App
+  läuft.
+
+### Behoben
+
+- **Die App-Beschriftung stand nicht zentriert unter dem Symbol.** `item_app.xml`
+  hatte kein `android:gravity` — Android setzt Text dann linksbündig in die
+  Zelle, und ein kurzer Name klebte am linken Rand. Jetzt `gravity="center"` +
+  `textAlignment="center"`.
+
+## 0.8
+
+### Hinzugefügt
+
+- **HOME und BACK holen die zuletzt benutzte App zurück.** Ein HOME-Druck auf der
+  schon sichtbaren Home-Seite ist damit ein Umschalter statt einer Sackgasse;
+  BACK klappt erst ein aufgeklapptes Raster zu und geht dann in die App.
+  Die Antwort auf „welche App war zuletzt vorne?“ kommt aus der
+  Nutzungsstatistik (App-Op `GET_USAGE_STATS`, optional) und sonst aus dem
+  Merker der zuletzt über Navigate gestarteten App — die Faltung der Ereignisse
+  (`ForegroundLog`) ist reine Logik und getestet.
+- **`PACKAGE_USAGE_STATS` wieder im Manifest** — ausdrücklich optional und nur
+  für diese eine Frage; ohne den App-Op startet Navigate unverändert.
+
+## 0.7
+
+**Von Grund auf neu gebaut** — weil die Fassungen bis 0.6 auf dem Zielgerät zwar
+bedienbar, aber **unsichtbar** waren. Ein HOME-Druck zeigt jetzt: unten eine
+Zeile mit Apps, darunter den „…“-Knopf; „…“ klappt das ganze Raster auf.
+
+### Geändert
+
+- **Das Fenster ist opak und völlig gewöhnlich.** Das Theme setzt nur noch
+  `windowBackground`/`colorBackground`; `windowIsTranslucent`,
+  `windowDisablePreview`, der eigene `windowAnimationStyle` mit lauter
+  `@null`-Einträgen und alle Fenstergrößen-Tricks sind entfernt.
+  **Grund (gemessen):** Mit dem translucenten Theme war das Fenster auf dem
+  Gerät gezeichnet, fokussiert, bedienbar — und nicht zu sehen; nur bei einem
+  Klick blitzte kurz etwas auf. Alle SurfaceFlinger-Ebenen meldeten
+  `alpha=1.000000`, `mDrawState=HAS_DRAWN`, `Surface: shown=true alpha=1.0`. Ein
+  translucentes Fenster lässt die App darunter am Leben (nur pausiert); jede auf
+  diesem Fernseher sichtbare App hat ein opakes Fenster. Details:
+  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- **Aufbau neu:** eine senkrechte Spalte am unteren Rand. Zugeklappt meldet der
+  Adapter genau **eine Zeile** (das Raster ist `wrap_content` hoch), darunter
+  steht der „…“-Knopf in einer eigenen Zeile. Aufgeklappt bekommt das Raster per
+  `layout_weight` den ganzen Platz und scrollt. Kein zweites Layout, kein
+  zweites Fenster, keine Animation.
+- **Ein Symbol mehr in der Zeile.** Der „…“-Knopf belegt keine Rasterzelle mehr:
+  die Zeile zeigt jetzt alle Spalten (auf dem Chromecast 6 statt 5 Apps).
+- **Orange Auswahl-Highlight entfernt, blauer Rahmen bleibt.** Der orange
+  Hintergrund kam vom Theme (`listSelector`); `android:listSelector="@null"`
+  schaltet ihn nicht ab, jetzt steht dort `@android:color/transparent`. Die
+  Markierung selbst bleibt wie sie war: `bg_grid_item.xml` (abgerundet, blauer
+  2dp-Rahmen). `HomeGridView` räumt sie ab, wenn der Fokus auf den „…“-Knopf
+  wandert.
+- **Einstellbar ist nur noch die Reihenfolge.** `Order`, `OrderCodec`,
+  `OrderStore` ersetzen `ConfigCodec`/`NavigateConfig`/`FavoritesCodec`; die
+  Konfigurationsdatei enthält eine Paketnamen-Zeile pro Eintrag. `columns`,
+  `show_clock`, `show_icons` und die Favoriten sind entfallen (die Uhr ist
+  immer an, Symbole immer an, Spalten kommen aus der Bildschirmbreite).
+- **Reihenfolge auf dem Fernseher:** langes OK auf einer App schiebt sie eine
+  Position nach vorne und speichert sofort.
+- **Kleiner gemessen:** Release-APK **55.537 B**, `classes.dex` **40.868 B**,
+  54 Tests, Zeilen-Coverage **22,1 %** (Zweige 27,4 %).
+
+## 0.6
+
+**Die untere Zeile ist weg.** Ein HOME-Druck zeigt nur noch das Raster mit allen
+startbaren Apps — kein Overlay, keine Favoritenzeile, keinen zweiten Zustand.
+Das ist zugleich die Performance-Änderung: der HOME-Druck hat keinen zweiten
+Inhalt mehr, für den er vorher bei **jedem** Druck eine Nutzungsstatistik-Abfrage,
+einen Aufbau der Zeile und einen Fenster-Relayout bezahlt hat.
+
+### Geändert
+
+- **Ein Zustand statt zwei.** `LauncherMode`, `ModeDecider` und die ganze
+  Fenstergrößen-Umschaltung entfallen; das Fenster ist immer der ganze
+  Bildschirm. Was bleibt, ist der Inhalt: das Raster.
+- **Vordergrund-Erkennung entfernt** (`ForegroundProbe`, `UsageEventFolder`,
+  `ForegroundSnapshot`, `Prefs`). Sie existierte nur, um „läuft eine App?" zu
+  beantworten — die Frage stellt sich nicht mehr. Damit fällt auch die
+  Berechtigung `PACKAGE_USAGE_STATS` aus dem Manifest (und mit ihr der
+  Einrichtungsschritt „Nutzungszugriff").
+- **Untere Zeile entfernt** (`DockController`, `DockSignature`, `item_dock.xml`,
+  `bg_dock.xml`, `ic_home`/`ic_tune`/`ic_settings`, Dock-Dimensionen und -Farben).
+  Langes Drücken im Raster schaltet damit auch keinen Favoriten mehr um.
+- **Navigate-Einstellungen entfernt** (`SettingsActivity`, `SettingsAdapter`) —
+  der Bildschirm war ausschließlich der Favoriten-Editor. Die verbleibenden
+  Einstellungen (`columns`, `show_clock`, `show_icons`) stehen weiterhin in der
+  Konfigurationsdatei (docs/CONFIG.md).
+- **`FavoritesConfig` → `NavigateConfig`, `FavoritesCodec` entfällt.** Die Datei
+  hält jetzt nur noch die Raster-Einstellungen. Schlüssel früherer Fassungen
+  (`favorites`, `max_favorites`) werden ignoriert statt als Fehler behandelt —
+  eine alte Datei auf dem Gerät stört also nicht.
+- **Kleiner und schlanker gemessen:** Release-APK **54.463 B** statt 76.410 B,
+  `classes.dex` **40.916 B** statt 69.260 B, 27 statt 37 Dateien im APK. Die
+  Testzahl sinkt mit dem entfernten Code von 93 auf 51 (die Tests für die
+  entfernten Regeln sind mit ihnen gegangen); die Zeilen-Coverage steigt dabei
+  von 18,3 % auf **22,8 %** (Zweige 26,7 %).
+- **Doku-Ehrlichkeit:** Der Theme-Eintrag mit lauter `@null`-Animationen schaltet
+  den Übergang **nicht** ab — die Shell ersetzt eine fehlende Animation durch
+  ihre eigene Vorgabe (im Log: `loadAnimation: anim=AlphaAnimation …
+  isEntrance=true`). Das steht jetzt an der Fundstelle und in docs/ARCHITECTURE.md.
+- **`install_navigate.sh` trifft nur noch Fernsehgeräte.** Ohne
+  `NAVIGATE_DEVICE` nahm das Skript das *erste erreichbare* Gerät — bei einem
+  gleichzeitig am adb hängenden Test-Telefon war das die falsche Zielscheibe, und
+  der Fehler wäre lautlos gewesen. Jetzt wird `ro.build.characteristics` geprüft
+  (muss `tv` enthalten), Emulatoren und Telefone werden übersprungen, und das
+  gewählte Gerät wird mit Modell ausgegeben. Ein anderes Ziel erzwingt
+  `NAVIGATE_DEVICE`.
+
+## 0.5
+
+### Behoben
+
+- **Die Zeile über der laufenden App war auf dem Zielgerät nicht zu sehen.** Das
+  DOCK-Fenster war bis 0.4 auf die Höhe der Zeile verkleinert (Höhe
+  `WRAP_CONTENT`, `Gravity.BOTTOM`). `dumpsys window` meldete es dabei korrekt
+  (`(0,0)(fillxwrap) gr=BOTTOM CENTER`, `Requested w=1920 h=272`,
+  `frame=[0,808][1920,1080]`, Fläche mit gültigem Puffer, `alpha=1.0`), und das
+  System lieferte den HOME-Intent normal aus (`wm_on_resume_called`,
+  `input_focus: Focus entering … reason=Window became focusable`) — auf dem
+  Bildschirm kam von der Zeile nichts an. Die Fenstergröße war die **einzige**
+  strukturelle Differenz zum GRID-Modus, der sichtbar funktioniert; sie ist jetzt
+  in beiden Modi dieselbe (ganzer Bildschirm). Der Modus steckt nur noch im
+  Inhalt: GRID malt die Wurzel deckend, DOCK lässt sie transparent und zeigt nur
+  die Zeile. Messbelege: [docs/DEVICE_PERF.md](docs/DEVICE_PERF.md).
 
 - **Die CI scheiterte in der Stufe „Android SDK".** `android-actions/setup-android@v3`
   ruft `sdkmanager tools` auf, und das Paket „tools" gibt es im SDK-Repository

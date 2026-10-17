@@ -13,8 +13,11 @@ bash build_navigate.sh release
 bash install_navigate.sh app/build/outputs/apk/release/app-release.apk
 ```
 
-`install_navigate.sh` nimmt das erste erreichbare Gerät oder das in
-`NAVIGATE_DEVICE` gesetzte (z. B. `NAVIGATE_DEVICE=192.168.178.23:5555`).
+`install_navigate.sh` nimmt ohne Zutun das erste erreichbare **Fernsehgerät**
+(`ro.build.characteristics` enthält `tv`) — Emulatoren und Telefone werden
+übersprungen, damit ein gleichzeitig am adb hängendes Test-Telefon nicht die
+falsche Zielscheibe ist. Ein anderes Ziel erzwingt man mit
+`NAVIGATE_DEVICE=192.168.178.23:5555` (dann wird nicht geprüft).
 Voraussetzung ist ein eingeschaltetes ADB auf dem Gerät
 (Entwickleroptionen → USB-Debugging, bei Google TV zusätzlich
 „Netzwerk-Debugging“, dann `adb connect <ip>:5555`).
@@ -51,44 +54,69 @@ Der Google-TV-Launcher (`com.google.android.apps.tv.launcherx`) muss dafür
 Ist er bereits deaktiviert (z. B. weil vorher ein anderer Launcher lief),
 schadet das nicht.
 
-## 4. Nutzungszugriff erteilen (empfohlen)
+## 4. Fertig
 
-Ohne Nutzungszugriff muss Navigate **raten**, ob hinter dem Dock noch eine App
-läuft (Heuristik, siehe [ARCHITECTURE.md](ARCHITECTURE.md)). Mit Zugriff ist die
-Antwort exakt:
+HOME drücken: die Home-Seite erscheint — unten eine Zeile mit den ersten Apps,
+darunter der „…“-Knopf. „…“ klappt das ganze Raster auf und wieder zu.
+
+## 5. Optional: Zugriffe (einzeln, unabhängig)
+
+Beide Zugriffe sind freiwillig, jeder schaltet genau **eine** Funktion frei, und
+beide sind einzeln rücknehmbar (siehe „Rückweg“). Ohne sie startet Navigate
+unverändert — es fehlt nur das eine Feld bzw. die exakte Antwort auf „zurück in
+die letzte App“.
+
+### 5a. Nutzungszugriff — für „zurück in die letzte App“
+
+Auf der **schon sichtbaren** Home-Seite holen HOME und BACK die zuletzt benutzte
+App zurück. Woher Navigate das weiß, hängt an einem optionalen App-Op:
 
 ```bash
 adb shell appops set com.piotv.navigate GET_USAGE_STATS allow
 adb shell appops get com.piotv.navigate GET_USAGE_STATS   # Kontrolle
 ```
 
+- **Mit** dem Zugriff liest Navigate die Nutzungsstatistik (kurzes Fenster, dann
+  ein langes) — exakt, auch für Apps, die nicht hier gestartet wurden.
+- **Ohne** ihn merkt sich Navigate die zuletzt **über Navigate gestartete** App.
+  Das ist im Normalfall richtig und stört sonst nicht: ohne bekannte App bleibt
+  die Home-Seite einfach stehen.
+
 Alternativ auf dem Gerät: **Einstellungen → Apps → Spezieller Zugriff →
-Nutzungszugriff → Navigate**. Der Weg ist auch von Navigate aus erreichbar:
-langes Drücken auf **Einstellungen** in der unteren Zeile.
+Nutzungszugriff → Navigate**.
 
-## 5. Fertig
+### 5b. Benachrichtigungszugriff — für „Now Playing“
 
-HOME drücken. Läuft eine App, erscheint nur die untere Zeile; läuft nichts,
-erscheint die Home-Seite.
+Das Feld oben links zeigt App, Interpret, Titel und Cover der laufenden
+Media-Session — **ohne diesen Zugriff bleibt es leer**. Der Grund ist keine
+Bequemlichkeit, sondern eine Grenze von Android: `getActiveSessions` verlangt,
+dass der Aufrufer ein eingetragener Benachrichtigungs-Listener ist. (Die
+Alternative wäre `MEDIA_CONTENT_CONTROL` — eine Signatur-Berechtigung, die
+`pm grant` nicht vergeben kann.)
+
+```bash
+adb shell cmd notification allow_listener com.piotv.navigate/com.piotv.navigate.NowPlayingListener
+# Kontrolle — der Name muss in der Liste stehen:
+adb shell settings get secure enabled_notification_listeners
+```
+
+Navigate liest dabei **keine** Benachrichtigungen: `NowPlayingListener` ist ein
+leerer Dienst, sein eingetragener Name ist der Ausweis für die Abfrage der
+Media-Sessions. Ohne die Freigabe bleibt das Feld leer — und die
+Einstellungsseite sagt das auch (langes OK auf „…“).
+
+Alternativ auf dem Gerät: **Einstellungen → Apps → Spezieller Zugriff →
+Benachrichtigungszugriff → Navigate — Now Playing**.
 
 ## Bedienung
 
 | Taste | Wirkung |
 |---|---|
-| HOME | Zeile über der laufenden App, sonst Home-Seite |
-| HOME (Zeile steht) | Zeile schließen, zurück zur App |
-| ◀ ▲ ▼ ▶ | Fokus (Raster ↔ Zeile mit ▼ / ▲) |
-| OK | App starten · Favorit an/aus (Einstellungen) · ◀ ▶ verschieben |
-| langes OK im Raster | Favorit setzen/entfernen |
-| langes OK in der Zeile | Favorit entfernen |
-| langes OK auf Einstellungen | Nutzungszugriff |
-| BACK in der Zeile | Zeile schließen, zurück zur App |
-| BACK auf der Home-Seite | ohne Wirkung (nichts, was darüber liegt) |
-
-**Wichtig für die Erwartung an die Zeile:** sie hält den Tastaturfokus, solange
-sie steht — das ist ihr Zweck (man soll Favoriten wählen können), heißt aber
-auch, dass die App darunter keine D-Pad-Eingabe mehr bekommt. HOME oder BACK
-schließen sie, die App kommt zurück und ist wieder bedienbar.
+| HOME | von einer App: Home-Seite · auf der Home-Seite: zurück in die letzte App |
+| ◀ ▲ ▼ ▶ | Fokus im Raster |
+| OK | App starten · auf „…“ das Raster auf-/zuklappen · auf „Now Playing“ zurück in die spielende App |
+| BACK | aufgeklapptes Raster zuklappen · sonst zurück in die letzte App |
+| langes OK | auf einer App: Kontextmenü (Position nach vorne/hinten · deinstallieren · schließen · alle schließen) · auf „…“: Einstellungen |
 
 
 ## Rückweg
@@ -106,6 +134,10 @@ adb shell cmd role remove-role-holder android.app.role.HOME com.piotv.navigate
 
 # 3. Google-TV-Launcher wieder anschalten, falls er deaktiviert war
 adb shell pm enable com.google.android.apps.tv.launcherx
+
+# 3. Zugriffe zurücknehmen (nur was gesetzt wurde)
+adb shell appops set com.piotv.navigate GET_USAGE_STATS default
+adb shell cmd notification disallow_listener com.piotv.navigate/com.piotv.navigate.NowPlayingListener
 
 # 4. Navigate deinstallieren (optional)
 adb uninstall com.piotv.navigate
@@ -127,15 +159,26 @@ adb shell dumpsys package com.google.android.tungsten.setupwraith | grep 'User 0
 
 Einen alten Home-Task loswerden: `adb shell am force-stop <alter-launcher>`.
 
-**Die Zeile erscheint, aber dahinter ist ein leerer Bildschirm.** Dann ist das
-Fensterformat nicht translucide — siehe
-[ARCHITECTURE.md](ARCHITECTURE.md#das-fensterformat-gemessener-kompromiss).
-In dieser Version ist das behoben; bei eigenen Änderungen an Theme oder
-Fensterattributen darauf achten.
+**Die Zeile über der laufenden App fehlt.** Es gibt sie seit 0.6 nicht mehr —
+der HOME-Druck zeigt immer das Raster. Wenn stattdessen etwas anderes passiert,
+ist die Home-Rolle nicht gesetzt (Schritt 2) oder der Google-TV-Watchdog ist
+wieder aktiv (Schritt 3).
 
-**Die Zeile zeigt nie etwas anderes als die Home-Seite.** Der Nutzungszugriff
-fehlt (Schritt 4) und die Heuristik hält keine App für laufend. Prüfen mit
-`adb shell appops get com.piotv.navigate GET_USAGE_STATS`.
+**Das „Now Playing“-Feld bleibt leer.** Drei mögliche Gründe, in dieser
+Reihenfolge prüfen:
+
+```bash
+# 1. Ist die Einstellung an? (langes OK auf „…“ — oder per Datei)
+adb shell cat /sdcard/Android/data/com.piotv.navigate/files/settings.conf
+# 2. Hat Navigate den Benachrichtigungszugriff? (Schritt 5b)
+adb shell settings get secure enabled_notification_listeners
+# 3. Spielt überhaupt etwas? (leer = nichts zu zeigen, das Feld bleibt aus)
+adb shell dumpsys media_session | grep -E 'package=|state='
+```
+
+Leer ist kein Fehler: ohne Session wird der Block **ausgeblendet**, statt einen
+Platzhalter zu zeigen. Ein pausierter Titel wird dagegen angezeigt (mit
+`· pausiert`) — sonst sähe er aus wie „läuft“.
 
 **Ein Symbol fehlt im Raster.** Prüfen, ob die App überhaupt startbar ist:
 
