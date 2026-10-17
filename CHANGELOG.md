@@ -8,6 +8,55 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 > Die Version wird in `app/build.gradle.kts` gepflegt (`versionCode`/`versionName`),
 > nicht hier.
 
+## 0.13
+
+### Hinzugefügt
+
+- **Eine „Now Playing“-Zeile je App** — statt genau einer Zeile für „die“ Session.
+  Bis 0.12 verschwand eine der Angaben, wenn ein Hörbuch pausiert lief und daneben
+  ein Radiosender: es gewann, wer „den Ton macht“. Jetzt bekommt **jede App mit
+  einer aktiven Media-Session** ihre eigene Zeile (Cover inklusive), was spielt
+  steht oben, und **OK auf einer Zeile holt genau diese App zurück**
+  (`sessionActivity` der Session, sonst ihr Launcher-Intent).
+- **Die Zeilen bleiben stehen.** Eine Zeile ändert sich nur, wenn sich für **diese
+  App** etwas ändert (Textvergleich in `NowPlayingPanel.bind`); sonst wird weder
+  geschrieben noch ein neues Cover geholt. Bis 0.12 wurde der Block bei jedem
+  Durchlauf neu gesetzt.
+- **Schonfrist und ehrliche Fehler.** Eine Session, die in **einem** Durchlauf
+  fehlt (beim Titelwechsel der Normalfall), lässt ihre Zeile erst nach zwei
+  erfolgreichen Abfragen ohne sie verschwinden. Eine **fehlgeschlagene** Abfrage
+  (kein Benachrichtigungszugriff, Dienst antwortet nicht) löscht gar nichts:
+  `NowPlaying.active` gibt dann `null` statt einer leeren Liste.
+- `data/NowPlayingBoard.kt` — die Regel dahinter, ohne Android-Typen und mit 14
+  Unit-Tests: eine Zeile je App, Reihenfolge, Persistenz, Schonfrist.
+
+### Geändert
+
+- **Drei Bausteine sind aus `LauncherActivity` ausgezogen** — die Datei ist von
+  **769 auf 596 Zeilen** gefallen:
+  `ui/Ticker.kt` (ein Takt statt drei `Handler`/`Runnable`-Paare),
+  `ui/NowPlayingPanel.kt` (die Zeilen, ihr Takt, ihre Höhe),
+  `ui/AppMenu.kt` (Kontextmenü und seine Aktionen). Die Activity hält weiterhin den
+  einen Zustand und beantwortet als `Listener` die Fragen der Teile.
+- Der **Cover-Cache** ist ein LRU (4 MB) statt **ein** Platz: mit einer Zeile je
+  App werden mehrere Cover gleichzeitig gebraucht.
+- Das **Doku-Gate** prüft zwei Dinge mehr: die Coverage-Zahlen (aus dem
+  JaCoCo-Bericht) und dass in README/ARCHITECTURE keine andere Testzahl steht als
+  im gebauten Testset — genau dieser Fehler stand in 0.12 in der Architektur (54
+  neben 94).
+- Das **Coverage-Gate** steht bei 18 % Zeilen / 25 % Zweige (vorher 16 %/22 %,
+  gemessen 20,8 %/28,9 %).
+- Die Home-Seite **begründet den oberen Rand des Rasters** jetzt aus der Höhe des
+  Now-Playing-Blocks (`onHeightChanged`): bei zwei Zeilen läge die erste App-Zeile
+  sonst darunter.
+
+### Bekannt / offen
+
+- **0.13 ist nicht auf dem Gerät gesehen.** Gebaut, getestet und gemessen, aber die
+  Darstellung mehrerer Zeilen, der Abstand zum Raster und die Uhr neben einem
+  mehrzeiligen Block sind ungeprüft ([docs/DEVICE_PERF.md](docs/DEVICE_PERF.md),
+  „Was daran nicht auf dem Gerät geprüft ist“).
+
 ## 0.12
 
 ### Hinzugefügt

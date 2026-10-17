@@ -14,6 +14,53 @@ auf dem Zielgerät gemessen, nicht geschätzt.
 | RAM | 1.439.332 kB total, ~200 MB verfügbar im Betrieb |
 | Heap-Limit | 256 MB |
 
+## 0.13 (eine Now-Playing-Zeile je App, ausgelagerte Bausteine)
+
+| | 0.12 | 0.13 |
+|---|---|---|
+| Release-APK | 73.146 B | **76.187 B** |
+| `classes.dex` | 68.608 B | **73.112 B** |
+| Dateien im APK | 31 | **32** |
+| Unit-Tests | 94 | **108** |
+| Coverage (Zeilen / Zweige) | 20,1 % / 27,3 % | **20,8 % / 28,9 %** |
+
+Neu: **eine „Now Playing“-Zeile je App** mit aktiver Media-Session (statt genau
+einer Zeile für „die“ Session), mit **Persistenz** — eine Zeile ändert sich nur,
+wenn sich für diese App etwas ändert — und mit Schonfrist, damit eine Session, die
+beim Titelwechsel kurz verschwindet, die Zeile nicht flackern lässt. Dazu sind drei
+Bausteine aus `LauncherActivity` ausgezogen (`Ticker`, `NowPlayingPanel`,
+`AppMenu`); die Datei ist von **769 auf 596 Zeilen** gefallen.
+
+Was die Zahlen erklären und was nicht:
+
+- Die **eine zusätzliche Datei** im APK ist `res/layout/item_now_playing.xml` — die
+  Zeile wird je App aufgeblasen, sie kann nicht mehr fest im Layout stehen.
+- `classes.dex` wächst um **4.504 B**. Das ist der Preis für 14 neue Tests, den
+  Board-Zustand, das Panel, das Menü und den `Ticker` — nicht für neue
+  Abhängigkeiten (es gibt weiterhin **keine** zur Laufzeit).
+- Die **Coverage steigt**, obwohl im Nenner rund 100 Zeilen mehr Android-Code
+  stehen (Panel, Menü, Ticker, das Höhenmanagement der Activity): die 14 neuen
+  Tests decken die reine Regel (`NowPlayingBoard`) vollständig ab.
+
+### Was daran **nicht** auf dem Gerät geprüft ist
+
+Ehrlich, weil die Zahlen es nicht zeigen: 0.13 ist **gebaut und getestet, aber
+nicht auf dem Fernseher gesehen**. Ungeprüft sind damit drei Dinge, die man nur
+dort sieht:
+
+1. **Das Aussehen mehrerer Zeilen.** Zwei Zeilen untereinander mit Fokus-Markierung
+   je Zeile — geprüft ist nur, dass die Views entstehen und sich richtig binden.
+2. **Die Höhenrückmeldung ans Raster.** Der Block meldet seine Höhe, das Raster
+   bekommt sie als oberen Rand (`onHeightChanged`). Auf einem Gerät muss man sehen,
+   ob der Abstand passt, wenn zwei Zeilen stehen.
+3. **Die Uhr bei mehreren Zeilen.** Die obere Zeile richtet ihren Inhalt weiterhin
+   mittig aus (`gravity="center_vertical"`): bei einer Zeile ist das wie bisher,
+   bei drei Zeilen stünde die Uhr neben der Mitte des Blocks.
+
+Messbefehle für den Fall, dass es auf dem Gerät nachgezogen wird: siehe
+„Startzeit, Speicher, Jank" unten — dieselbe Vorgehensweise (`dumpsys`,
+`screencap`, `logcat`).
+
 ## 0.12 (Now Playing oben links, Einstellungen)
 
 | | 0.11 | 0.12 |
@@ -324,13 +371,13 @@ falschen. (Genau das war in 0.3 der Fall: 73.686 B dokumentiert, 73.679 B
 gebaut.)
 
 ```
-release_apk_bytes=73146
-release_dex_bytes=68608
+release_apk_bytes=76187
+release_dex_bytes=73112
 release_dex_files=1
-apk_files=31
-unit_tests=94
-coverage_lines_percent=20,1
-coverage_branches_percent=27,3
+apk_files=32
+unit_tests=108
+coverage_lines_percent=20,8
+coverage_branches_percent=28,9
 ```
 
 Warum die APK-Größe reproduzierbar ist: die VCS-Info-Datei

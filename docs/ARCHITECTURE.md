@@ -20,6 +20,24 @@ Es gibt **keinen zweiten Zustand** — „zugeklappt“ und „aufgeklappt“ un
 sich nur in der Menge, die der Adapter meldet (`limit`), und in der Höhe des
 Rasters. Kein zweites Layout, kein zweites Fenster, keine Animation.
 
+## Was seit 0.13 nicht mehr in der Activity steht
+
+Die Home-Seite war bis 0.12 **eine** Datei mit 769 Zeilen: Raster, Uhr, grüne
+Schrift, Now-Playing-Block und Kontextmenü in einer Klasse. Sie ist jetzt 596
+Zeilen — nicht, weil weniger Code da wäre, sondern weil drei Stücke einen eigenen
+Namen haben:
+
+| Stück | Wo | Warum getrennt |
+|---|---|---|
+| Zeittakt (Uhr · grün · Now Playing) | [Ticker](../app/src/main/java/com/piotv/navigate/ui/Ticker.kt) | drei `Handler` und drei `Runnable` waren dreimal derselbe Code mit einem anderen Intervall |
+| die Now-Playing-Zeilen | [NowPlayingPanel](../app/src/main/java/com/piotv/navigate/ui/NowPlayingPanel.kt) | eine Zeile je App, Persistenz, Höhenmeldung ans Raster |
+| Kontextmenü | [AppMenu](../app/src/main/java/com/piotv/navigate/ui/AppMenu.kt) | kennt nur Dialog, Intents und Toasts — den Rasterzustand kennt der Aufrufer |
+
+Die Activity hält weiterhin den **einen** Zustand (Raster, Reihenfolge, Fokus) und
+beantwortet als `Listener` die Fragen der ausgezogenen Teile: „ist das Feld
+eingeschaltet?“, „wie heißt diese App?“, „wie hoch bist du?“. Dieselbe Trennung wie
+zwischen `AppAdapter` und der Home-Seite — nur mit Zuhörer statt Rückgriff.
+
 ## Das Fenster: opak, und warum das die eigentliche Korrektur war
 
 Bis 0.6 war das Theme translucide (damit beim HOME-Druck kein schwarzer Blitz
@@ -167,12 +185,16 @@ Ehrlich dazu: „Prozess lebt“ ist **angenähert**. Eine App, die vor 23 Stund
 benutzt und inzwischen vom System beendet wurde, ist grün — das Fenster ist der
 Kompromiss zwischen „alles Aktive“ und „nichts Falsches“.
 
-## „Now Playing“: eine Zeile, die man anspringen kann
+## „Now Playing“: eine Zeile je App, die man anspringen kann
 
-Oben links steht im zugeklappten Zustand, was gerade läuft — **App · Interpret –
-Titel**, dazu `· pausiert` und das Cover. Der Block ist der einzige Teil der
-Home-Seite, der etwas anderes tut als „starte diese App“: **OK darauf holt die
-spielende App zurück**.
+Oben links stehen im zugeklappten Zustand die laufenden Sessions — **eine Zeile je
+App**, jede als **App · Interpret – Titel**, dazu `· pausiert` und das Cover. Der
+Block ist der einzige Teil der Home-Seite, der etwas anderes tut als „starte diese
+App“: **OK auf einer Zeile holt genau diese App zurück**.
+
+Bis 0.12 war es **eine** Zeile: die Session, die „den Ton macht“. Das war eine
+Auswahl, die niemand getroffen hat — läuft ein Hörbuch pausiert und daneben ein
+Radiosender, verschwand eine der beiden Angaben.
 
 Woher die Angaben kommen:
 
@@ -181,6 +203,7 @@ Woher die Angaben kommen:
 | Titel, Interpret, Zustand | `MediaMetadata` der Session (`METADATA_KEY_TITLE`/`_ARTIST`) und `PlaybackState` |
 | Cover | `MediaMetadata.getBitmap()`: erst `METADATA_KEY_ALBUM_ART`, dann `_ART`, dann `_DISPLAY_ICON`. Mehr bietet die API nicht — die `*_URI`-Varianten gäbe es zusätzlich, sie verlangen aber einen Content-Resolver für ein Bild, das meist schon mitkommt |
 | App-Name | **nicht** aus der Session, sondern aus der eigenen App-Liste (`sessionActivity`-Paket → `AppEntry.label`): dieselben Namen wie im Raster |
+| welche Session einer App | die **spielende**, sonst die erste mit Titel ([NowPlaying.active](../app/src/main/java/com/piotv/navigate/data/NowPlaying.kt)) |
 | „wohin zurück“ | `MediaController.getSessionActivity()` — der „Jetzt läuft“-Bildschirm, den die App selbst anbietet. Setzt sie ihn nicht, greift ihr Launcher-Intent, wie aus dem Raster |
 
 Drei Entscheidungen, die daran hängen:
@@ -190,27 +213,43 @@ Drei Entscheidungen, die daran hängen:
    ist der Ausweis — ein leerer Dienst, der nichts liest. Die entstehende
    `SecurityException` wird geschluckt, der Block bleibt leer: dieselbe Haltung
    wie bei „ohne Nutzungszugriff ist nichts grün“.
-2. **Das Cover wird auf Symbolgröße verkleinert und einmal gehalten.** Ohne den
-   Cache würde alle 5 Sekunden dasselbe Bild geholt und skaliert (ein
-   1000×1000-Cover sind 4 MB); der Schlüssel ist das **Lied**, nicht das
-   Bitmap-Objekt — jede Abfrage liefert ein neues. Fehlt ein Cover, steht dort
-   das App-Symbol aus dem eigenen Symbol-Cache.
+2. **Die Cover liegen in einem LRU (4 MB).** Ohne den Cache würde alle 5 Sekunden
+   dasselbe Bild geholt und skaliert (ein 1000×1000-Cover sind 4 MB); der
+   Schlüssel ist das **Lied**, nicht das Bitmap-Objekt — jede Abfrage liefert ein
+   neues. Bis 0.12 war das **ein** Platz (es gab nur eine Zeile); mit einer Zeile
+   je App hält der Cache mehrere. Fehlt ein Cover, steht dort das App-Symbol aus
+   dem eigenen Symbol-Cache.
 3. **Kein Rückkanal.** Kein `addOnActiveSessionsChangedListener`, kein
    `MediaController.Callback`: die Home-Seite fragt im Takt ihres eigenen Timers
    (5 s, nur sichtbar und zugeklappt). Ein Listener wäre genauer und wäre
-   zusätzlicher Zustand — für eine Zeile mit Cover lohnt er nicht.
+   zusätzlicher Zustand — für ein paar Zeilen mit Cover lohnt er nicht.
 
-Die Regel „was steht in der Zeile“ liegt in
+**Wann sich eine Zeile ändert** — die Regel steht in
+[NowPlayingBoard](../app/src/main/java/com/piotv/navigate/data/NowPlayingBoard.kt):
+
+- **Eine Zeile je App.** Zwei Sessions derselben App ergeben eine Zeile (die
+  spielende gewinnt), eine App ohne Titel und Interpret gar keine.
+- **Sie bleibt stehen, wie sie ist.** Der Vergleich ist der fertige Text: ist er
+  gleich, wird nichts geschrieben und kein neues Cover geholt — sonst würde jeder
+  Takt die Anzeige neu setzen (auf dem Gerät als Flackern sichtbar).
+- **Schonfrist von zwei Abfragen.** Eine Session, die bei **einem** Durchlauf
+  fehlt, verschwindet nicht sofort (beim Titelwechsel verschwindet sie kurz); erst
+  nach zwei erfolgreichen Abfragen ohne sie fällt die Zeile weg.
+- **Ein fehlgeschlagener Blick löscht nichts.** [NowPlaying.active] gibt dann
+  `null` statt einer leeren Liste — „ich weiß es nicht“ ist etwas anderes als „es
+  läuft nichts“.
+
+Die Regeln liegen in
 [NowPlayingText](../app/src/main/java/com/piotv/navigate/data/NowPlayingText.kt)
-und kennt kein Android — dieselbe Trennung wie bei „grün“: geprüft wird die
-Regel (94 Tests, ohne Gerät), nicht die Eigenheit des Geräts.
+und NowPlayingBoard und kennen kein Android — dieselbe Trennung wie bei „grün“:
+geprüft wird die Regel (108 Tests, ohne Gerät), nicht die Eigenheit des Geräts.
 
 ## Was ohne Gerät prüfbar ist (und was nicht)
 
 | | Beispiele | Prüfbar |
 |---|---|---|
-| **reine Regeln**, kein Android-Typ | `AppCatalog`, `Order`, `OrderCodec`, `OrderStore` (Datei-Semantik), `NowPlayingBoard`, `NowPlayingText`, `GridColumns`, `IconGeometry`, `IconCacheKeys` | Unit-Test ohne Gerät — 94 Tests; die ohne Gerät prüfbaren Klassen liegen bei 100 % Zeilen-Coverage. Die Zahl selbst ist keine Prosa: `tools/check_docs_drift.sh` vergleicht sie mit dem gebauten Testset |
-| **Android-Verdrahtung** | `LauncherActivity`, `AppAdapter`, `HomeGridView`, `IconLoader`, `IconDiskCache`, `AppRepository` | nur auf einem Gerät; hier zählt die Messung ([DEVICE_PERF.md](DEVICE_PERF.md)) |
+| **reine Regeln**, kein Android-Typ | `AppCatalog`, `Order`, `OrderCodec`, `OrderStore` (Datei-Semantik), `NowPlayingBoard`, `NowPlayingText`, `GridColumns`, `IconGeometry`, `IconCacheKeys` | Unit-Test ohne Gerät — 108 Tests; die ohne Gerät prüfbaren Klassen liegen bei 100 % Zeilen-Coverage. Die Zahl selbst ist keine Prosa: `tools/check_docs_drift.sh` vergleicht sie mit dem gebauten Testset |
+| **Android-Verdrahtung** | `LauncherActivity`, `NowPlayingPanel`, `AppMenu`, `Ticker`, `AppAdapter`, `HomeGridView`, `IconLoader`, `IconDiskCache`, `AppRepository`, `NowPlaying` | nur auf einem Gerät; hier zählt die Messung ([DEVICE_PERF.md](DEVICE_PERF.md)) |
 
 Der Grund ist die Fehlerhistorie: die teuersten Fehler dieses Projekts waren
 **Regeln**, keine Android-Eigenheiten. Solche Regeln stehen deshalb in einem

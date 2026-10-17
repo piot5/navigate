@@ -17,17 +17,19 @@ wenn eingeschaltet — „Now Playing“ links. Einzustellen gibt es zwei Sachen
 
 | | |
 |---|---|
-| **Release-APK** | 71 KB / 73.146 B (davon 67 KB / 68.608 B `classes.dex`) — eine einzige Dex-Datei |
-| **Unit-Tests** | 94, ohne Gerät lauffähig · Coverage-Gate 16 % Zeilen / 22 % Zweige (gemessen 20,1 % / 27,3 %) |
+| **Release-APK** | 74 KB / 76.187 B (davon 71 KB / 73.112 B `classes.dex`) — eine einzige Dex-Datei |
+| **Unit-Tests** | 108, ohne Gerät lauffähig · Coverage-Gate 18 % Zeilen / 25 % Zweige (gemessen 20,8 % / 28,9 %) |
 | **Abhängigkeiten zur Laufzeit** | keine — nur Android-Framework + Kotlin-Stdlib |
 | **Berechtigungen** | `QUERY_ALL_PACKAGES` (ohne sie wären leanback-only Apps unsichtbar); `PACKAGE_USAGE_STATS` optional, nur für „zurück in die letzte App“; dazu optional der **Benachrichtigungszugriff** für „Now Playing“ (keine Manifest-Berechtigung, sondern eine Freigabe per adb — siehe unten) |
-| **Startzeit / Speicher** | 128 ms / ~56 MB PSS — gemessen mit 0.1, für 0.7 **nicht** neu gemessen ([docs/DEVICE_PERF.md](docs/DEVICE_PERF.md)) |
+| **Startzeit / Speicher** | 128 ms / ~56 MB PSS — gemessen mit 0.1, für 0.13 **nicht** neu gemessen ([docs/DEVICE_PERF.md](docs/DEVICE_PERF.md)) |
 
-> APK-Größe, Dex-Größe und Testzahl werden von
+> APK-Größe, Dex-Größe, Testzahl **und** die Coverage-Zahlen werden von
 > [`tools/check_docs_drift.sh`](tools/check_docs_drift.sh) gegen das gebaute APK
-> geprüft — sie können deshalb nicht still veralten. Startzeit und Speicher sind
-> bewusst als **alte** Messwerte gekennzeichnet: sie stammen aus der Fassung mit
-> der unteren Zeile, die es seit 0.7 nicht mehr gibt.
+> bzw. den JaCoCo-Bericht geprüft — sie können deshalb nicht still veralten. Das
+> Skript prüft außerdem, dass in README und Architektur **keine andere Testzahl**
+> steht als im gebauten Testset. Startzeit und Speicher sind bewusst als **alte**
+> Messwerte gekennzeichnet: sie stammen aus der Fassung mit der unteren Zeile, die
+> es seit 0.7 nicht mehr gibt.
 
 ## Funktionen
 
@@ -42,16 +44,24 @@ wenn eingeschaltet — „Now Playing“ links. Einzustellen gibt es zwei Sachen
   speichert die Reihenfolge. Der Weg, die Reihenfolge auf dem Fernseher zu
   ändern; der andere ist die Konfigurationsdatei (`adb push`).
 - **Uhr** oben rechts, im Minutentakt.
-- **„Now Playing“ oben links** (0.12, optional): **App-Name, Interpret und Titel**
-  der laufenden Media-Session, dazu `· pausiert`, wenn sie pausiert ist, und das
-  **Cover**, wenn die Session eines mitliefert (sonst das App-Symbol). Sichtbar
-  nur im zugeklappten Zustand — aufgeklappt gehört der Platz den Apps.
-  **OK darauf holt die spielende App zurück** (erst ihr „Jetzt läuft“-Bildschirm,
+- **„Now Playing“ oben links** (0.12, mehrzeilig seit 0.13, optional): **eine Zeile
+  je App mit aktiver Media-Session** — **App-Name, Interpret und Titel**, dazu
+  `· pausiert`, wenn sie pausiert ist, und das **Cover**, wenn die Session eines
+  mitliefert (sonst das App-Symbol). Läuft ein Hörbuch pausiert und daneben ein
+  Radiosender, stehen beide Zeilen da; was **spielt**, steht oben. Sichtbar nur im
+  zugeklappten Zustand — aufgeklappt gehört der Platz den Apps.
+  **OK auf einer Zeile holt genau diese App zurück** (erst ihr „Jetzt läuft“-Bildschirm,
   sonst die App selbst). Eingeschaltet wird es in den Einstellungen; ohne
   **Benachrichtigungszugriff** bleibt es leer (eine normale App darf die
   Media-Sessions nicht abfragen, siehe [docs/INSTALL.md](docs/INSTALL.md)
   Schritt 5b). Die Abfrage läuft alle 5 Sekunden im Hintergrund-Thread, nur
   solange die Home-Seite sichtbar ist.
+- **Eine Zeile ändert sich nur, wenn sich für diese App etwas ändert.** Sonst bleibt
+  sie stehen, wie sie ist — samt Cover. Eine verschwundene Session lässt ihre Zeile
+  erst nach **zwei** erfolgreichen Abfragen ohne sie verschwinden (zehn Sekunden),
+  weil eine Session beim Titelwechsel kurz fehlt; ein **fehlgeschlagener** Blick
+  (kein Zugriff, Dienst antwortet nicht) löscht gar nichts. Die Regel steht in
+  `data/NowPlayingBoard.kt` und ist ohne Gerät geprüft.
 - **Einstellungen (langes OK auf „…“):** eine Seite mit dem Schalter *Now Playing
   anzeigen*, mit der Fernbedienung bedient (`▲ ▼` wählt, `OK` schaltet um,
   `◀`/`BACK` zurück). Sie schreibt sofort in die Datei und nennt die Pfade —
@@ -86,7 +96,7 @@ wenn eingeschaltet — „Now Playing“ links. Einzustellen gibt es zwei Sachen
 |---|---|
 | HOME | von einer App: Home-Seite (untere Zeile) · auf der Home-Seite: zurück in die letzte App |
 | ◀ ▶ ▲ ▼ | Fokus im Raster |
-| OK | App starten · auf „…“ das Raster auf-/zuklappen · auf „Now Playing“ zurück in die spielende App |
+| OK | App starten · auf „…“ das Raster auf-/zuklappen · auf einer „Now Playing“-Zeile zurück in die spielende App |
 | BACK | aufgeklapptes Raster zuklappen · sonst zurück in die letzte App |
 | langes OK | auf einer App: Kontextmenü (Position nach vorne/hinten · deinstallieren · schließen · alle schließen) · auf „…“: Einstellungen |
 
@@ -104,7 +114,7 @@ Voraussetzungen: JDK 17, Android SDK mit Plattform 36 und Build-Tools
 Vier Prüfungen, alle auch in der CI (`.github/workflows/ci.yml`):
 
 ```bash
-sh gradlew :app:testDebugUnitTest              # 94 Unit-Tests (ohne Gerät)
+sh gradlew :app:testDebugUnitTest              # 108 Unit-Tests (ohne Gerät)
 sh gradlew :app:unitTestCoverageVerification   # Coverage-Gate (Bericht: unitTestCoverageReport)
 sh gradlew :app:lintDebug                      # Lint — Warnungen sind Fehler
 bash tools/check_docs_drift.sh                 # Messwerte der Doku ↔ gebautes APK
@@ -116,12 +126,13 @@ Testbericht, Coverage-Bericht, Lint-Bericht und APK als Artefakte ab. Ein Tag
 ein GitHub-Release mit dem APK — signiert, wenn das Secret
 `NAVIGATE_KEYSTORE_BASE64` gesetzt ist.
 
-Die 94 Tests laufen **ohne Gerät**: App-Auswahl (`AppCatalog`), die
+Die 108 Tests laufen **ohne Gerät**: App-Auswahl (`AppCatalog`), die
 Anzeige-Reihenfolge (`Order`), die Konfigurationsdateien (`OrderCodec`,
 `OrderStore`, `SettingsCodec`, `SettingsStore`, `ConfigFile`), die
-Now-Playing-Zeile (`NowPlayingText`), Raster-Spalten, Symbol-Einpassung,
-Cache-Schlüssel. Diese Klassen liegen bei 100 % Zeilen-Coverage; die Gesamtquote
-(20,1 % Zeilen / 27,3 % Zweige) enthält auch die Android-Klassen und steht mit
+Now-Playing-Zeilen (`NowPlayingText`, `NowPlayingBoard`), Raster-Spalten,
+Symbol-Einpassung, Cache-Schlüssel. Diese Klassen liegen bei 100 %
+Zeilen-Coverage; die Gesamtquote
+(20,8 % Zeilen / 28,9 % Zweige) enthält auch die Android-Klassen und steht mit
 Begründung in [docs/DEVICE_PERF.md](docs/DEVICE_PERF.md).
 
 ## Installieren und als Home-App einrichten
@@ -212,7 +223,7 @@ Ausführlich: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ```
 app/src/main/java/com/piotv/navigate/
-  LauncherActivity.kt        die ganze Home-Seite: Raster, „…“, obere Zeile, Starten
+  LauncherActivity.kt        die Home-Seite: Raster, „…“, Reihenfolge, Starten, Lebenszyklus
   NowPlayingListener.kt      der Dienst, der den Blick in die Media-Sessions erlaubt
   data/AppRepository.kt      App-Liste (zwei Kategorien), Prozess-Singleton
   data/AppEntry.kt           ein startbarer Eintrag
@@ -226,6 +237,7 @@ app/src/main/java/com/piotv/navigate/
   data/SettingsStore.kt      settings.conf — dieselbe Mechanik wie OrderStore
   data/NowPlaying.kt         die laufende Media-Session lesen (MediaSessionManager)
   data/NowPlayingText.kt     daraus eine Zeile machen (getestet)
+  data/NowPlayingBoard.kt    eine Zeile je App — und wann sie sich ändert (getestet)
   ui/AppAdapter.kt           Rasterzellen (Apps; `limit` = eine Zeile oder alle)
   ui/HomeGridView.kt         GridView + Fokus-Korrektur (Markierung beim Fokusverlust)
   ui/GridColumns.kt          Spaltenzahl des Rasters (getestet)
@@ -233,6 +245,9 @@ app/src/main/java/com/piotv/navigate/
   ui/IconLoader.kt           Symbole: Speicher-Cache → Platte → Ressourcen
   ui/IconDiskCache.kt        WebP-Symbole im internen Speicher (+ Schlüssel, getestet)
   ui/SettingsActivity.kt     die Einstellungsseite (langes OK auf „…“)
+  ui/NowPlayingPanel.kt      die Zeilen oben links: bauen, takten, anspringen
+  ui/AppMenu.kt              das Kontextmenü (langes OK auf einer App)
+  ui/Ticker.kt               ein Takt auf dem Main-Thread (Uhr · grün · Now Playing)
 tools/make_assets.py         Icon-Vektoren + TV-Banner generieren
 tools/check_docs_drift.sh    Doku-Gate: dokumentierte Messwerte ↔ gebautes APK
 docs/                        ARCHITECTURE · CONFIG · INSTALL · DEVICE_PERF
@@ -243,7 +258,7 @@ docs/                        ARCHITECTURE · CONFIG · INSTALL · DEVICE_PERF
 Ehrlich aufgeführt, weil sie beim Lesen der Doku sonst überraschen:
 
 1. **Startzeit und Speicher sind alte Werte.** Die dokumentierten 128 ms und
-   ~56 MB stammen aus 0.1, der Fassung mit der unteren Zeile. Für 0.7 sind sie
+   ~56 MB stammen aus 0.1, der Fassung mit der unteren Zeile. Für 0.13 sind sie
    **nicht** neu gemessen. Messbefehle: [docs/DEVICE_PERF.md](docs/DEVICE_PERF.md).
 2. **Der Grund der früheren Unsichtbarkeit ist eine Korrelation, kein Beweis.**
    Alle translucenten Fassungen waren auf dem Zielgerät unsichtbar, alle dort

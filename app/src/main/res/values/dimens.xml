@@ -32,6 +32,15 @@
     <dimen name="now_playing_art_size">40dp</dimen>
     <dimen name="now_playing_art_margin_end">12dp</dimen>
     <dimen name="now_playing_padding">6dp</dimen>
+    <!-- Abstand zwischen zwei Now-Playing-Zeilen. Seit 0.13 gibt es eine Zeile je
+         App mit aktiver Media-Session — ohne Abstand klebten zwei Zeilen
+         aneinander, und die Fokus-Markierung (bg_now_playing) wäre nicht als
+         Markierung einer Zeile zu erkennen. -->
+    <dimen name="now_playing_row_spacing">4dp</dimen>
+    <!-- Zwischen dem Now-Playing-Block und der ersten Rasterzeile. Das Raster
+         beginnt so tief, wie der Block hoch ist (LauncherActivity), plus dieser
+         Abstand. -->
+    <dimen name="now_playing_gap_bottom">8dp</dimen>
 
     <!-- Die Navigate-Einstellungen -->
     <dimen name="settings_padding_h">48dp</dimen>

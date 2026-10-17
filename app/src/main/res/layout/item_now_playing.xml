@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Eine „Now Playing“-Zeile: Cover, App-Name und was läuft.
+
+     Sie wird für **jede** App mit aktiver Media-Session einmal aufgeblasen
+     (NowPlayingPanel) und danach wiederverwendet — dieselbe Idee wie
+     `convertView` im Raster. Deshalb ist sie eine eigene Datei und nicht ein
+     Kind von activity_home.xml.
+
+     Fokussierbar wie eine Rasterzelle: OK auf der Zeile holt die spielende App
+     zurück (der „Jetzt läuft“-Bildschirm, sonst die App selbst). Die
+     Fokus-Markierung ist dieselbe wie beim früheren Einzelblock
+     (bg_now_playing, state_focused). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/now_playing_row"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_now_playing"
+    android:clickable="true"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="@dimen/now_playing_padding">
+
+    <ImageView
+        android:id="@+id/now_playing_row_art"
+        android:layout_width="@dimen/now_playing_art_size"
+        android:layout_height="@dimen/now_playing_art_size"
+        android:layout_marginEnd="@dimen/now_playing_art_margin_end"
+        android:contentDescription="@string/cd_now_playing_art"
+        android:scaleType="centerCrop"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/now_playing_row_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:includeFontPadding="false"
+        android:maxLines="1"
+        android:textColor="@color/text_dim"
+        android:textSize="@dimen/now_playing_text_size" />
+</LinearLayout>

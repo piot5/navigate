@@ -43,7 +43,7 @@ now_playing=on
 
 | Schlüssel | Werte | Wirkung |
 |---|---|---|
-| `now_playing` | `on` / `off` (auch `true`/`false`, `1`/`0`, `an`/`aus`, `ja`/`nein`, Groß-/Kleinschreibung egal) | zeigt das „Now Playing“-Feld oben links (nur im zugeklappten Zustand) |
+| `now_playing` | `on` / `off` (auch `true`/`false`, `1`/`0`, `an`/`aus`, `ja`/`nein`, Groß-/Kleinschreibung egal) | zeigt das „Now Playing“-Feld oben links — seit 0.13 **eine Zeile je App** mit aktiver Media-Session, nur im zugeklappten Zustand |
 
 Genau wie bei der Reihenfolge ist **Toleranz Absicht**: `#`-Zeilen, Leerzeilen,
 umgebende Leerzeichen, `now-playing` statt `now_playing` und unbekannte

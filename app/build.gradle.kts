@@ -26,8 +26,8 @@ android {
         // was auf TV (keine Systembars) nur Risiko ohne Nutzen bringt. Das
         // Zielgerät (Chromecast HD) läuft auf API 34.
         targetSdk = 34
-        versionCode = 12
-        versionName = "0.12"
+        versionCode = 13
+        versionName = "0.13"
     }
 
     /**
@@ -220,15 +220,18 @@ tasks.register<JacocoReport>("unitTestCoverageReport") {
 }
 
 /**
- * Das Gate. Die Schwellen liegen unter dem gemessenen Stand (0.6: 22,8 % Zeilen
- * / 26,7 % Zweige) — nicht, weil mehr erlaubt sein soll, sondern damit eine
- * Umbenennung oder ein verschobener Zweig nicht sofort rot wird.
+ * Das Gate. Die Schwellen liegen unter dem gemessenen Stand (0.13: 20,8 % Zeilen
+ * / 28,9 % Zweige) — nicht, weil mehr erlaubt sein soll, sondern damit eine
+ * Umbenennung oder ein verschobener Zweig nicht sofort rot wird. In 0.12 standen
+ * hier 16 %/22 %; das war der Stand von 0.6 und damit so weit unter dem Ist-Wert,
+ * dass es kaum noch etwas bewachen konnte.
  *
  * Was die Zahl **nicht** sagt: im Nenner stehen auch die Klassen, die ohne
- * Gerät gar nicht laufen können (Activity, Adapter, Loader, Repository — rund
- * 400 der 530 Zeilen). Ohne sie wäre die Quote nahe 100 %: alle Klassen, die
- * ohne Gerät prüfbar sind (AppCatalog, ConfigCodec, NavigateConfig,
- * GridColumns, IconGeometry, IconCacheKeys …), sind vollständig abgedeckt. Das
+ * Gerät gar nicht laufen können (Activity, Panel, Menü, Adapter, Loader,
+ * Repository). Ohne sie wäre die Quote nahe 100 %: alle Klassen, die
+ * ohne Gerät prüfbar sind (AppCatalog, Order, OrderCodec, OrderStore, ConfigFile,
+ * SettingsCodec, SettingsStore, NowPlayingText, NowPlayingBoard, GridColumns,
+ * IconGeometry, IconCacheKeys …), sind vollständig abgedeckt. Das
  * Gate ist deshalb ein **Regressions**schutz: neue Logik ohne Test senkt die
  * Quote und lässt den Build scheitern.
  */
@@ -244,12 +247,12 @@ tasks.register<JacocoCoverageVerification>("unitTestCoverageVerification") {
             limit {
                 counter = "LINE"
                 value = "COVEREDRATIO"
-                minimum = "0.16".toBigDecimal()
+                minimum = "0.18".toBigDecimal()
             }
             limit {
                 counter = "BRANCH"
                 value = "COVEREDRATIO"
-                minimum = "0.22".toBigDecimal()
+                minimum = "0.25".toBigDecimal()
             }
         }
     }

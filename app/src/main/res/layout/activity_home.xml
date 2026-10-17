@@ -84,12 +84,17 @@
 
     <!-- Die obere Zeile: links „Now Playing“ (nur wenn eingeschaltet **und** das
          Raster zugeklappt ist), rechts die Uhr. Beides in einer Zeile, damit ein
-         langer Titel die Uhr nicht überholen kann: der Titel bekommt per
+         langer Titel die Uhr nicht überholen kann: der Text bekommt per
          `layout_weight` genau den Platz, der übrig bleibt, und schneidet mit
          einer Ellipse ab.
 
-         Die Uhr wird einmal pro Minute aktualisiert (ein Sekundentakt wäre ein
-         Timer pro Sekunde — auf dem Chromecast messbar, ohne Mehrwert). -->
+         Der Container ist seit 0.13 **leer**: die Zeilen baut NowPlayingPanel,
+         eine je App mit aktiver Media-Session (item_now_playing.xml). Ein eigener
+         Block war es bis 0.12 — damals gab es genau eine Zeile, und die konnte im
+         Layout stehen.
+
+         Die Uhr wird im Minutentakt aktualisiert (ein Sekundentakt wäre ein Timer
+         pro Sekunde — auf dem Chromecast messbar, ohne Mehrwert). -->
     <LinearLayout
         android:id="@+id/top_row"
         android:layout_width="match_parent"
@@ -101,43 +106,14 @@
         android:paddingTop="@dimen/top_row_padding_top"
         android:paddingEnd="@dimen/clock_margin">
 
-        <!-- „Now Playing“: Cover, App-Name und was läuft. **Anklickbar** — OK auf
-             der Fernbedienung holt die spielende App zurück (siehe
-             LauncherActivity.openPlayingApp). Deshalb ist der Block fokussierbar
-             und zeigt seinen Fokus wie die Rasterzellen (bg_now_playing). -->
         <LinearLayout
             android:id="@+id/now_playing"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginEnd="@dimen/now_playing_end_margin"
             android:layout_weight="1"
-            android:background="@drawable/bg_now_playing"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="@dimen/now_playing_padding"
-            android:visibility="gone">
-
-            <ImageView
-                android:id="@+id/now_playing_art"
-                android:layout_width="@dimen/now_playing_art_size"
-                android:layout_height="@dimen/now_playing_art_size"
-                android:layout_marginEnd="@dimen/now_playing_art_margin_end"
-                android:contentDescription="@string/cd_now_playing_art"
-                android:scaleType="centerCrop"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/now_playing_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:includeFontPadding="false"
-                android:maxLines="1"
-                android:textColor="@color/text_dim"
-                android:textSize="@dimen/now_playing_text_size" />
-        </LinearLayout>
+            android:orientation="vertical"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/clock"

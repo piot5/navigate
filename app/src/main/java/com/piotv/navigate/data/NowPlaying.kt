@@ -8,6 +8,7 @@ import android.media.MediaMetadata
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
+import android.util.LruCache
 import com.piotv.navigate.NowPlayingListener
 import kotlin.math.max
 
@@ -35,11 +36,12 @@ class NowPlaying(context: Context) {
     private val manager = appContext.getSystemService(MediaSessionManager::class.java)
     private val listener = ComponentName(appContext, NowPlayingListener::class.java)
 
-    /** Schlüssel des zuletzt geholten Covers (siehe [art]). */
-    private var cachedArtKey: String? = null
-
-    /** Das zuletzt geholte, verkleinerte Cover — **ein** Platz, nicht mehr. */
-    private var cachedArt: Bitmap? = null
+    /**
+     * Verkleinerte Cover, nach **Bytes** begrenzt (siehe [art]).
+     */
+    private val artCache = object : LruCache<String, Bitmap>(MAX_ART_BYTES) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
+    }
 
     /**
      * Darf Navigate die Sessions sehen?
@@ -51,64 +53,106 @@ class NowPlaying(context: Context) {
     fun hasAccess(): Boolean = sessions() != null
 
     /**
-     * Die Session, die den Ton macht — oder `null`.
+     * **Alle** Sessions, die etwas zu zeigen haben — eine je App.
      *
-     * Vorrang hat, was **wirklich spielt**; sonst die erste Session mit einem
-     * Titel (eine pausierte Aufnahme ist immer noch „was gerade läuft“, siehe
-     * [NowPlayingText.PAUSED]).
+     * Bis 0.12 gab es hier genau eine Session: die, die „den Ton macht“. Läuft
+     * ein Hörbuch pausiert und daneben ein Radiosender, verschwand damit eine
+     * der beiden Angaben. Jetzt bekommt jede App mit einer aktiven Session ihre
+     * eigene Zeile.
+     *
+     * Vorrang **je App** hat, was wirklich spielt; sonst die erste Session mit
+     * einem Titel (eine pausierte Aufnahme ist immer noch „was gerade läuft“,
+     * siehe [NowPlayingText.PAUSED]).
      *
      * @param artSizePx Kantenlänge, auf die ein Cover verkleinert wird. `0` heißt
      *   „kein Bild“ — dann wird auch keines geholt.
+     * @return `null`, wenn die Abfrage **fehlgeschlagen** ist (kein Zugriff,
+     *   Session-Dienst antwortet nicht). Eine leere Liste heißt dagegen
+     *   „erfolgreich nachgesehen, es läuft nichts“. Der Unterschied ist die
+     *   Grundlage dafür, dass ein fehlgeschlagener Blick die Anzeige nicht
+     *   löscht — siehe [NowPlayingBoard.observe].
      */
-    fun current(artSizePx: Int = 0): NowPlayingTrack? {
+    fun active(artSizePx: Int = 0): List<NowPlayingTrack>? {
         val controllers = sessions() ?: return null
-        val controller = controllers.firstOrNull(::isPlaying)
-            ?: controllers.firstOrNull { metadata(it) != null }
-            ?: return null
-        val metadata = metadata(controller) ?: return null
 
-        val info = NowPlayingInfo(
-            title = text(metadata, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE),
-            artist = text(metadata, MediaMetadata.METADATA_KEY_ARTIST, MediaMetadata.METADATA_KEY_ALBUM_ARTIST),
-            playing = isPlaying(controller),
-        )
-        // Ohne Titel und ohne Interpret gibt es nichts zu zeigen — dann auch
-        // keine „pausiert“-Zeile.
-        if (NowPlayingText.line(info).isEmpty()) return null
-
-        return NowPlayingTrack(
-            info = info,
-            packageName = controller.packageName.orEmpty(),
-            // Der „Jetzt läuft“-Bildschirm der App, wenn sie einen anbietet: der
-            // vorgesehene Weg, aus einer Session heraus zur App zu kommen. Viele
-            // TV-Apps setzen ihn nicht — deshalb gibt es den zweiten Weg in
-            // LauncherActivity.openPlayingApp.
-            activity = try {
-                controller.sessionActivity
+        // Je Paket eine Session: die spielende gewinnt, sonst die erste.
+        val chosen = LinkedHashMap<String, MediaController>()
+        for (controller in controllers) {
+            val packageName = try {
+                controller.packageName.orEmpty()
             } catch (e: Exception) {
-                null
-            },
-            art = art(metadata, artSizePx),
-        )
+                ""
+            }
+            // Ohne Paket lässt sich die Zeile weder benennen noch anspringen.
+            if (packageName.isEmpty()) continue
+            if (metadata(controller) == null) continue
+            val existing = chosen[packageName]
+            if (existing == null || (!isPlaying(existing) && isPlaying(controller))) {
+                chosen[packageName] = controller
+            }
+        }
+
+        val tracks = ArrayList<NowPlayingTrack>(chosen.size)
+        for ((packageName, controller) in chosen) {
+            val metadata = metadata(controller) ?: continue
+            val info = NowPlayingInfo(
+                title = text(metadata, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE),
+                artist = text(metadata, MediaMetadata.METADATA_KEY_ARTIST, MediaMetadata.METADATA_KEY_ALBUM_ARTIST),
+                playing = isPlaying(controller),
+            )
+            // Ohne Titel und ohne Interpret gibt es nichts zu zeigen — dann auch
+            // keine „pausiert“-Zeile.
+            if (NowPlayingText.line(info).isEmpty()) continue
+
+            tracks.add(
+                NowPlayingTrack(
+                    info = info,
+                    packageName = packageName,
+                    // Der „Jetzt läuft“-Bildschirm der App, wenn sie einen
+                    // anbietet: der vorgesehene Weg, aus einer Session heraus zur
+                    // App zu kommen. Viele TV-Apps setzen ihn nicht — deshalb gibt
+                    // es den zweiten Weg in LauncherActivity.openRow.
+                    activity = sessionActivity(controller),
+                    art = art(metadata, artSizePx),
+                )
+            )
+        }
+
+        // Was spielt, steht oben. `sortedByDescending` ist stabil: innerhalb
+        // einer Gruppe bleibt die Reihenfolge des Systems.
+        return tracks.sortedByDescending { it.info.playing }
+    }
+
+    /** Der „Jetzt läuft“-Bildschirm der Session — oder `null`. */
+    private fun sessionActivity(controller: MediaController): PendingIntent? = try {
+        controller.sessionActivity
+    } catch (e: Exception) {
+        null
     }
 
     /**
-     * Das Cover in Symbolgröße — mit **einem** Platz Cache.
+     * Das Cover in Symbolgröße — mit einem **kleinen** Cache.
      *
      * Ohne den Cache würde alle fünf Sekunden dasselbe Bild neu aus der fremden
      * App geholt und verkleinert; ein 1000×1000-Cover sind 4 MB, die auf einem
      * 1,4-GB-Gerät niemand fünfmal pro Minute durch den Speicher schaufeln will.
-     * Der Schlüssel ist das **Lied** ([artKey]) und nicht das Bitmap-Objekt: jede
-     * Abfrage liefert ein neues.
+     * Bis 0.12 war der Cache **ein** Platz (es gab ja nur eine Zeile); seit es
+     * eine Zeile je App gibt, hält ein LRU mehrere Cover — begrenzt nach Bytes
+     * statt nach Anzahl, weil die Größe des Ergebnisses von der fremden App
+     * abhängt.
+     *
+     * Der Schlüssel ist das **Lied** ([artKey]) und nicht das Bitmap-Objekt:
+     * jede Abfrage liefert ein neues. Eine Session **ohne** Cover wird nicht
+     * gespeichert — dort ist die Abfrage billig, der Schlüssel fehlt einfach.
      */
     private fun art(metadata: MediaMetadata, sizePx: Int): Bitmap? {
         if (sizePx <= 0) return null
         val key = artKey(metadata, sizePx)
-        if (key == cachedArtKey) return cachedArt
-        val source = artwork(metadata)
-        cachedArtKey = key
-        cachedArt = source?.let { small(it, sizePx) }
-        return cachedArt
+        artCache.get(key)?.let { return it }
+        val source = artwork(metadata) ?: return null
+        val scaled = small(source, sizePx)
+        artCache.put(key, scaled)
+        return scaled
     }
 
     /** Lied-Kennung plus Zielgröße — ändert sich das Lied, gilt der Cache nicht mehr. */
@@ -194,6 +238,14 @@ class NowPlaying(context: Context) {
     }
 
     private companion object {
+        /**
+         * Obergrenze des Cover-Caches. 4 MB sind ein paar Alben-Bilder in
+         * Symbolgröße und auf einem 1,4-GB-Gerät vertretbar — dieselbe
+         * Größenordnung wie der Symbol-Cache eines Rasters, nicht wie ein
+         * ganzer Symbol-Cache.
+         */
+        const val MAX_ART_BYTES = 4 * 1024 * 1024
+
         /**
          * Reihenfolge der Bild-Schlüssel: das Album-Cover zuerst, dann das
          * generische Artwork, dann das Anzeige-Symbol. Manche Apps füllen nur
