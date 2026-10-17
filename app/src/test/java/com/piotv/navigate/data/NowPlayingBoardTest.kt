@@ -27,6 +27,12 @@ class NowPlayingBoardTest {
         NowPlayingInfo(title = title, artist = artist, playing = playing),
     )
 
+    /** Eine Session, die gerade **nichts** hergibt: Ladescreen, Werbung, Menü. */
+    private fun silent(packageName: String) = NowPlayingBoard.Observed(packageName, null)
+
+    /** Eine App, die **ausdrücklich beendet** hat (`STOPPED`/`ERROR`). */
+    private fun ended(packageName: String) = NowPlayingBoard.Observed(packageName, null, ended = true)
+
     private fun lines(board: NowPlayingBoard) = board.rows().map { "${it.packageName}=${it.line}" }
 
     @Test
@@ -126,18 +132,63 @@ class NowPlayingBoardTest {
     }
 
     @Test
-    fun `eine verschwundene App bleibt zwei Abfragen stehen`() {
+    fun `eine verschwundene Session loescht die Zeile nicht`() {
         val board = NowPlayingBoard()
         board.observe(listOf(seen("com.zdf", "Tagesschau"), seen("com.spotify", "Der Weg")))
 
-        // Erste erfolgreiche Abfrage ohne Spotify: die Schonfrist greift — eine
-        // Session verschwindet beim Titelwechsel kurz.
+        // Auf dem Zielgerät war die Session von WOW nach dem Film **ganz** weg,
+        // ohne je „beendet" zu melden. Die Zeile bleibt trotzdem stehen.
         assertFalse(board.observe(listOf(seen("com.zdf", "Tagesschau"))))
         assertEquals(listOf("com.zdf=Tagesschau", "com.spotify=Der Weg"), lines(board))
 
-        // Zweite Abfrage ohne Spotify: jetzt ist die Zeile weg.
-        assertTrue(board.observe(listOf(seen("com.zdf", "Tagesschau"))))
-        assertEquals(listOf("com.zdf=Tagesschau"), lines(board))
+        // Auch nach einer halben Minute ohne Sichtung.
+        repeat(6) { board.observe(listOf(seen("com.zdf", "Tagesschau"))) }
+        assertEquals(listOf("com.zdf=Tagesschau", "com.spotify=Der Weg"), lines(board))
+    }
+
+    @Test
+    fun `eine Session ohne Titel loescht die Zeile nicht`() {
+        // Das war der Fehler von 0.13.2: der Ladescreen einer App liefert eine
+        // Session **ohne** Titel, und der Eintrag verschwand nach wenigen Sekunden.
+        val board = NowPlayingBoard()
+        board.observe(listOf(seen("com.hbo", "Ein Film", artist = "HBO Max")))
+
+        assertFalse(board.observe(listOf(silent("com.hbo"))))
+        assertFalse(board.observe(listOf(silent("com.hbo"))))
+        // Der Text bleibt **wortgleich** stehen (Interpret – Titel), er wird nicht
+        // neu zusammengesetzt und nicht geleert.
+        assertEquals(listOf("com.hbo=HBO Max – Ein Film"), lines(board))
+
+        // Der nächste Titel ersetzt ihn dann.
+        assertTrue(board.observe(listOf(seen("com.hbo", "Der naechste Film"))))
+        assertEquals(listOf("com.hbo=Der naechste Film"), lines(board))
+    }
+
+    @Test
+    fun `ein ausdrueckliches Ende entfernt die Zeile nach zwei Abfragen`() {
+        val board = NowPlayingBoard()
+        board.observe(listOf(seen("com.spotify", "Der Weg")))
+
+        // Einmal beendet: noch nicht — zwischen zwei Folgen steht die Session kurz
+        // auf STOPPED.
+        assertFalse(board.observe(listOf(ended("com.spotify"))))
+        assertEquals(listOf("com.spotify=Der Weg"), lines(board))
+
+        assertTrue(board.observe(listOf(ended("com.spotify"))))
+        assertEquals(emptyList<String>(), lines(board))
+    }
+
+    @Test
+    fun `ein Ende zwischen zwei Folgen nimmt die Zeile nicht weg`() {
+        val board = NowPlayingBoard()
+        board.observe(listOf(seen("com.netflix", "Folge 1")))
+
+        board.observe(listOf(ended("com.netflix")))
+        // Die nächste Folge beginnt: die Schonfrist beginnt von vorn.
+        assertTrue(board.observe(listOf(seen("com.netflix", "Folge 2"))))
+        assertEquals(listOf("com.netflix=Folge 2"), lines(board))
+        assertFalse(board.observe(listOf(ended("com.netflix"))))
+        assertEquals(listOf("com.netflix=Folge 2"), lines(board))
     }
 
     @Test
@@ -162,15 +213,15 @@ class NowPlayingBoardTest {
     }
 
     @Test
-    fun `nach dem Verschwinden beginnt die Schonfrist von vorn`() {
+    fun `nach einem entfernten Eintrag beginnt die Schonfrist von vorn`() {
         val board = NowPlayingBoard()
         board.observe(listOf(seen("com.spotify", "Der Weg")))
-        board.observe(emptyList())
-        board.observe(emptyList())
+        board.observe(listOf(ended("com.spotify")))
+        board.observe(listOf(ended("com.spotify")))
         assertEquals(emptyList<String>(), lines(board))
 
-        board.observe(listOf(seen("com.spotify", "Der Weg")))
-        board.observe(emptyList())
-        assertEquals(listOf("com.spotify=Der Weg"), lines(board))
+        board.observe(listOf(seen("com.spotify", "Ein neuer Titel")))
+        board.observe(listOf(ended("com.spotify")))
+        assertEquals(listOf("com.spotify=Ein neuer Titel"), lines(board))
     }
 }

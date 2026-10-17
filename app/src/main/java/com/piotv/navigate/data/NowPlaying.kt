@@ -75,7 +75,10 @@ class NowPlaying(context: Context) {
     fun active(artSizePx: Int = 0): List<NowPlayingTrack>? {
         val controllers = sessions() ?: return null
 
-        // Je Paket eine Session: die spielende gewinnt, sonst die erste.
+        // Je Paket eine Session: die spielende gewinnt, sonst die erste. Eine
+        // Session **ohne** Metadaten bleibt dabei — sie ist die Auskunft „die App
+        // ist da, sagt aber gerade nichts“ (Ladescreen, Werbung, Menü) und darf
+        // eine bestehende Zeile nicht löschen (siehe [NowPlayingBoard]).
         val chosen = LinkedHashMap<String, MediaController>()
         for (controller in controllers) {
             val packageName = try {
@@ -85,7 +88,6 @@ class NowPlaying(context: Context) {
             }
             // Ohne Paket lässt sich die Zeile weder benennen noch anspringen.
             if (packageName.isEmpty()) continue
-            if (metadata(controller) == null) continue
             val existing = chosen[packageName]
             if (existing == null || (!isPlaying(existing) && isPlaying(controller))) {
                 chosen[packageName] = controller
@@ -94,33 +96,54 @@ class NowPlaying(context: Context) {
 
         val tracks = ArrayList<NowPlayingTrack>(chosen.size)
         for ((packageName, controller) in chosen) {
-            val metadata = metadata(controller) ?: continue
-            val info = NowPlayingInfo(
-                title = text(metadata, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE),
-                artist = text(metadata, MediaMetadata.METADATA_KEY_ARTIST, MediaMetadata.METADATA_KEY_ALBUM_ARTIST),
-                playing = isPlaying(controller),
-            )
-            // Ohne Titel und ohne Interpret gibt es nichts zu zeigen — dann auch
-            // keine „pausiert“-Zeile.
-            if (NowPlayingText.line(info).isEmpty()) continue
-
+            val metadata = metadata(controller)
             tracks.add(
                 NowPlayingTrack(
-                    info = info,
+                    // Titel und Interpret können fehlen. Dann ist die Zeile leer,
+                    // und die Anzeige behält, was sie hatte — statt sie zu löschen.
+                    info = NowPlayingInfo(
+                        title = metadata?.let {
+                            text(it, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE)
+                        },
+                        artist = metadata?.let {
+                            text(it, MediaMetadata.METADATA_KEY_ARTIST, MediaMetadata.METADATA_KEY_ALBUM_ARTIST)
+                        },
+                        playing = isPlaying(controller),
+                    ),
                     packageName = packageName,
                     // Der „Jetzt läuft“-Bildschirm der App, wenn sie einen
                     // anbietet: der vorgesehene Weg, aus einer Session heraus zur
                     // App zu kommen. Viele TV-Apps setzen ihn nicht — deshalb gibt
                     // es den zweiten Weg in LauncherActivity.openRow.
                     activity = sessionActivity(controller),
-                    art = art(metadata, artSizePx),
+                    art = metadata?.let { art(it, artSizePx) },
+                    // „Diese App hat beendet“ ist etwas anderes als „diese App
+                    // sagt gerade nichts“ — siehe [isEnded].
+                    ended = isEnded(controller),
                 )
             )
         }
 
-        // Was spielt, steht oben. `sortedByDescending` ist stabil: innerhalb
-        // einer Gruppe bleibt die Reihenfolge des Systems.
-        return tracks.sortedByDescending { it.info.playing }
+        // Was spielt, steht oben, was beendet ist unten. `sortedWith` ist stabil:
+        // innerhalb einer Gruppe bleibt die Reihenfolge des Systems.
+        return tracks.sortedWith(
+            compareByDescending<NowPlayingTrack> { !it.ended }.thenByDescending { it.info.playing }
+        )
+    }
+
+    /**
+     * Hat die App **beendet**?
+     *
+     * `STATE_STOPPED` und `STATE_ERROR` sind ein ausdrückliches „hier läuft nichts
+     * mehr“ — das ist die Erlaubnis, eine Zeile zu entfernen. `STATE_NONE` zählt
+     * **nicht** dazu: das ist auch der Zustand einer frisch angelegten Session, und
+     * eine App, die gerade startet, soll ihre letzte Zeile nicht verlieren.
+     */
+    private fun isEnded(controller: MediaController): Boolean = try {
+        val state = controller.playbackState?.state
+        state == PlaybackState.STATE_STOPPED || state == PlaybackState.STATE_ERROR
+    } catch (e: Exception) {
+        false
     }
 
     /** Der „Jetzt läuft“-Bildschirm der Session — oder `null`. */
@@ -285,4 +308,10 @@ class NowPlayingTrack(
     val activity: PendingIntent?,
     /** Cover in Symbolgröße oder `null`. */
     val art: Bitmap?,
+    /**
+     * `true`, wenn die App **beendet** hat (Session steht auf `STOPPED`/`ERROR`).
+     * Dann darf ihre Zeile verschwinden. „Keine Session“ heißt dagegen nur „jetzt
+     * nichts zu sagen“ und lässt sie stehen — siehe [NowPlayingBoard].
+     */
+    val ended: Boolean = false,
 )

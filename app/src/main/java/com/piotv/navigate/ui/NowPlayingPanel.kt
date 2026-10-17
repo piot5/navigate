@@ -11,6 +11,7 @@ import com.piotv.navigate.R
 import com.piotv.navigate.data.AppEntry
 import com.piotv.navigate.data.NowPlaying
 import com.piotv.navigate.data.NowPlayingBoard
+import com.piotv.navigate.data.NowPlayingText
 import com.piotv.navigate.data.NowPlayingTrack
 import com.piotv.navigate.util.Background
 
@@ -131,10 +132,17 @@ class NowPlayingPanel(
                     return@post
                 }
                 // Der App-Name kommt aus der App-Liste und wird deshalb auf dem
-                // Main-Thread geholt — dort lebt die Liste.
+                // Main-Thread geholt — dort lebt die Liste. Ist die Zeile leer
+                // (Ladescreen, Werbung), wird `info = null` übergeben: die Anzeige
+                // behält dann, was sie hatte, statt die Zeile zu löschen.
                 val observed = found?.map { track ->
                     val label = listener.entryOf(track.packageName)?.label ?: track.packageName
-                    NowPlayingBoard.Observed(track.packageName, track.info.copy(app = label))
+                    NowPlayingBoard.Observed(
+                        packageName = track.packageName,
+                        info = track.info.copy(app = label)
+                            .takeIf { NowPlayingText.line(it).isNotEmpty() },
+                        ended = track.ended,
+                    )
                 }
                 // `null` heißt „Abfrage fehlgeschlagen“: die Zeilen bleiben, wie
                 // sie sind, und auch die Cover werden nicht neu geholt.

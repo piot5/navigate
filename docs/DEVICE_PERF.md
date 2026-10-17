@@ -14,11 +14,53 @@ auf dem Zielgerät gemessen, nicht geschätzt.
 | RAM | 1.439.332 kB total, ~200 MB verfügbar im Betrieb |
 | Heap-Limit | 256 MB |
 
+## 0.13.3 (der Eintrag bleibt stehen)
+
+| | 0.13.0 | 0.13.3 |
+|---|---|---|
+| Release-APK | 76.187 B | **76.481 B** |
+| `classes.dex` | 73.112 B | **73.652 B** |
+| Dateien im APK | 32 | **32** |
+| Unit-Tests | 108 | **111** |
+| Coverage (Zeilen / Zweige) | 20,8 % / 28,9 % | **21,2 % / 29,3 %** |
+
+Behoben: **der Now-Playing-Eintrag verschwand nach wenigen Sekunden**, obwohl die
+App weiterlief (auf dem Zielgerät gesehen und gemeldet: „der eintrag von zb jetzt
+hbo ist nach wenigen sec verschwunden"). Ursache war eine Regel, die **drei
+verschiedene Dinge gleich** behandelte: „Titel da", „Session da, aber ohne Titel"
+(Ladescreen, Werbung) und „keine Session" (App im Hintergrund, Titelwechsel) wurden
+alle als „nichts zu zeigen" gelesen und löschten die Zeile.
+
+Gemessen auf dem Zielgerät (2026-10-17), als Beleg für den dritten Fall:
+
+```
+--- t=1 ---  package=com.wbd.stream  state=PLAYING(3)  metadata: Return to Silent Hill
+--- t=6 ---  (kein Eintrag für com.wbd.stream mehr)
+```
+
+Die Session von WOW war nach dem Film **ganz weg** — ohne je `STOPPED` zu melden.
+Wer das als „die App ist weg" liest, löscht eine Zeile, die der Nutzer gerade liest.
+
+Seit 0.13.3 gilt ([NowPlayingBoard](../app/src/main/java/com/piotv/navigate/data/NowPlayingBoard.kt)):
+
+| Was die Abfrage sagt | Was passiert |
+|---|---|
+| Ein Titel (spielt oder pausiert) | Zeile anlegen bzw. nur bei **geändertem Text** neu schreiben |
+| Session da, aber **ohne Titel** | Zeile bleibt stehen, wie sie ist |
+| **Keine** Session | Zeile bleibt stehen |
+| Session meldet **beendet** (`STOPPED`/`ERROR`) | Zeile verschwindet nach zwei Abfragen (10 s) |
+| Abfrage **fehlgeschlagen** (`null`) | nichts ändert sich |
+
+Der Preis, offen: eine App, die ihre Session ohne `STOPPED` verliert, behält ihre
+Zeile bis zum Neustart des Launcher-Prozesses (auf 1,4 GB der Normalfall nach ein
+paar Stunden). Das ist die bewusste Entscheidung — eine Zeile, die man liest, darf
+nicht unter dem Lesen verschwinden.
+
 ## 0.13 (eine Now-Playing-Zeile je App, ausgelagerte Bausteine)
 
 | | 0.12 | 0.13 |
 |---|---|---|
-| Release-APK | 73.146 B | **76.188 B** |
+| Release-APK | 73.146 B | **76.187 B** |
 | `classes.dex` | 68.608 B | **73.112 B** |
 | Dateien im APK | 31 | **32** |
 | Unit-Tests | 94 | **108** |
@@ -381,15 +423,15 @@ byte-gleich (`release_dex_bytes`), weil die Signatur nur Einträge in `META-INF`
 hinzufügt.
 
 ```
-release_apk_bytes=76187
+release_apk_bytes=76481
 apk_files=32
-release_apk_unsigned_bytes=67840
+release_apk_unsigned_bytes=68120
 apk_unsigned_files=29
-release_dex_bytes=73112
+release_dex_bytes=73652
 release_dex_files=1
-unit_tests=108
-coverage_lines_percent=20,8
-coverage_branches_percent=28,9
+unit_tests=111
+coverage_lines_percent=21,2
+coverage_branches_percent=29,3
 ```
 
 Warum die APK-Größe reproduzierbar ist: die VCS-Info-Datei

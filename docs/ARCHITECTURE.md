@@ -232,23 +232,32 @@ Drei Entscheidungen, die daran hängen:
 - **Sie bleibt stehen, wie sie ist.** Der Vergleich ist der fertige Text: ist er
   gleich, wird nichts geschrieben und kein neues Cover geholt — sonst würde jeder
   Takt die Anzeige neu setzen (auf dem Gerät als Flackern sichtbar).
-- **Schonfrist von zwei Abfragen.** Eine Session, die bei **einem** Durchlauf
-  fehlt, verschwindet nicht sofort (beim Titelwechsel verschwindet sie kurz); erst
-  nach zwei erfolgreichen Abfragen ohne sie fällt die Zeile weg.
+- **Nur ein ausdrückliches Ende nimmt sie weg.** Drei Dinge werden
+  auseinandergehalten: ein neuer **Titel** ersetzt den alten; eine Session **ohne
+  Titel** (Ladescreen, Werbung) oder **gar keine** Session (App im Hintergrund,
+  Titelwechsel) lässt die Zeile stehen; erst `STOPPED`/`ERROR` — zweimal in Folge,
+  also zehn Sekunden — entfernt sie. Auf dem Zielgerät war die Session von WOW nach
+  dem Film **ganz weg**, ohne je `STOPPED` zu melden: genau daran ist die erste
+  Fassung dieser Regel (0.13.2) gescheitert, der Eintrag verschwand nach wenigen
+  Sekunden.
 - **Ein fehlgeschlagener Blick löscht nichts.** [NowPlaying.active] gibt dann
   `null` statt einer leeren Liste — „ich weiß es nicht“ ist etwas anderes als „es
   läuft nichts“.
+- **Der Preis, offen gesagt:** eine App, die ihre Session ohne `STOPPED` verliert,
+  behält ihre Zeile bis zum Neustart des Launcher-Prozesses (auf 1,4 GB der
+  Normalfall nach ein paar Stunden). Das ist die bewusste Entscheidung: eine Zeile,
+  die man gerade liest, darf nicht unter dem Lesen verschwinden.
 
 Die Regeln liegen in
 [NowPlayingText](../app/src/main/java/com/piotv/navigate/data/NowPlayingText.kt)
 und NowPlayingBoard und kennen kein Android — dieselbe Trennung wie bei „grün“:
-geprüft wird die Regel (108 Tests, ohne Gerät), nicht die Eigenheit des Geräts.
+geprüft wird die Regel (111 Tests, ohne Gerät), nicht die Eigenheit des Geräts.
 
 ## Was ohne Gerät prüfbar ist (und was nicht)
 
 | | Beispiele | Prüfbar |
 |---|---|---|
-| **reine Regeln**, kein Android-Typ | `AppCatalog`, `Order`, `OrderCodec`, `OrderStore` (Datei-Semantik), `NowPlayingBoard`, `NowPlayingText`, `GridColumns`, `IconGeometry`, `IconCacheKeys` | Unit-Test ohne Gerät — 108 Tests; die ohne Gerät prüfbaren Klassen liegen bei 100 % Zeilen-Coverage. Die Zahl selbst ist keine Prosa: `tools/check_docs_drift.sh` vergleicht sie mit dem gebauten Testset |
+| **reine Regeln**, kein Android-Typ | `AppCatalog`, `Order`, `OrderCodec`, `OrderStore` (Datei-Semantik), `NowPlayingBoard`, `NowPlayingText`, `GridColumns`, `IconGeometry`, `IconCacheKeys` | Unit-Test ohne Gerät — 111 Tests; die ohne Gerät prüfbaren Klassen liegen bei 100 % Zeilen-Coverage. Die Zahl selbst ist keine Prosa: `tools/check_docs_drift.sh` vergleicht sie mit dem gebauten Testset |
 | **Android-Verdrahtung** | `LauncherActivity`, `NowPlayingPanel`, `AppMenu`, `Ticker`, `AppAdapter`, `HomeGridView`, `IconLoader`, `IconDiskCache`, `AppRepository`, `NowPlaying` | nur auf einem Gerät; hier zählt die Messung ([DEVICE_PERF.md](DEVICE_PERF.md)) |
 
 Der Grund ist die Fehlerhistorie: die teuersten Fehler dieses Projekts waren

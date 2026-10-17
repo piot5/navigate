@@ -17,8 +17,8 @@ wenn eingeschaltet — „Now Playing“ links. Einzustellen gibt es zwei Sachen
 
 | | |
 |---|---|
-| **Release-APK** | 74 KB / 76.187 B signiert (66 KB / 67.840 B unsigniert) · davon 71 KB / 73.112 B `classes.dex` — eine einzige Dex-Datei |
-| **Unit-Tests** | 108, ohne Gerät lauffähig · Coverage-Gate 18 % Zeilen / 25 % Zweige (gemessen 20,8 % / 28,9 %) |
+| **Release-APK** | 74 KB / 76.481 B signiert (66 KB / 68.120 B unsigniert) · davon 71 KB / 73.652 B `classes.dex` — eine einzige Dex-Datei |
+| **Unit-Tests** | 111, ohne Gerät lauffähig · Coverage-Gate 18 % Zeilen / 25 % Zweige (gemessen 21,2 % / 29,3 %) |
 | **Abhängigkeiten zur Laufzeit** | keine — nur Android-Framework + Kotlin-Stdlib |
 | **Berechtigungen** | `QUERY_ALL_PACKAGES` (ohne sie wären leanback-only Apps unsichtbar); `PACKAGE_USAGE_STATS` optional, nur für „zurück in die letzte App“; dazu optional der **Benachrichtigungszugriff** für „Now Playing“ (keine Manifest-Berechtigung, sondern eine Freigabe per adb — siehe unten) |
 | **Startzeit / Speicher** | 128 ms / ~56 MB PSS — gemessen mit 0.1, für 0.13 **nicht** neu gemessen ([docs/DEVICE_PERF.md](docs/DEVICE_PERF.md)) |
@@ -56,12 +56,16 @@ wenn eingeschaltet — „Now Playing“ links. Einzustellen gibt es zwei Sachen
   Media-Sessions nicht abfragen, siehe [docs/INSTALL.md](docs/INSTALL.md)
   Schritt 5b). Die Abfrage läuft alle 5 Sekunden im Hintergrund-Thread, nur
   solange die Home-Seite sichtbar ist.
-- **Eine Zeile ändert sich nur, wenn sich für diese App etwas ändert.** Sonst bleibt
-  sie stehen, wie sie ist — samt Cover. Eine verschwundene Session lässt ihre Zeile
-  erst nach **zwei** erfolgreichen Abfragen ohne sie verschwinden (zehn Sekunden),
-  weil eine Session beim Titelwechsel kurz fehlt; ein **fehlgeschlagener** Blick
-  (kein Zugriff, Dienst antwortet nicht) löscht gar nichts. Die Regel steht in
-  `data/NowPlayingBoard.kt` und ist ohne Gerät geprüft.
+- **Eine Zeile bleibt stehen, bis sich für diese App etwas ändert.** Drei Fälle
+  werden auseinandergehalten (die Regel steht in `data/NowPlayingBoard.kt` und ist
+  ohne Gerät geprüft): ein neuer **Titel** ersetzt den alten; eine Session **ohne
+  Titel** (Ladescreen, Werbung) oder **gar keine** Session (App im Hintergrund)
+  lässt die Zeile samt Cover stehen; nur ein **ausdrückliches Ende**
+  (`STOPPED`/`ERROR`, zweimal in Folge) nimmt sie weg. Ein **fehlgeschlagener**
+  Blick (kein Zugriff, Dienst antwortet nicht) löscht ebenfalls nichts.
+  Ehrlich dazu: eine App, die ihre Session ohne `STOPPED` verliert, behält ihre
+  Zeile bis zum Neustart des Launchers — auf dem Chromecast der Normalfall nach ein
+  paar Stunden.
 - **Einstellungen (langes OK auf „…“):** eine Seite mit dem Schalter *Now Playing
   anzeigen*, mit der Fernbedienung bedient (`▲ ▼` wählt, `OK` schaltet um,
   `◀`/`BACK` zurück). Sie schreibt sofort in die Datei und nennt die Pfade —
@@ -114,7 +118,7 @@ Voraussetzungen: JDK 17, Android SDK mit Plattform 36 und Build-Tools
 Vier Prüfungen, alle auch in der CI (`.github/workflows/ci.yml`):
 
 ```bash
-sh gradlew :app:testDebugUnitTest              # 108 Unit-Tests (ohne Gerät)
+sh gradlew :app:testDebugUnitTest              # 111 Unit-Tests (ohne Gerät)
 sh gradlew :app:unitTestCoverageVerification   # Coverage-Gate (Bericht: unitTestCoverageReport)
 sh gradlew :app:lintDebug                      # Lint — Warnungen sind Fehler
 bash tools/check_docs_drift.sh                 # Messwerte der Doku ↔ gebautes APK
@@ -126,13 +130,13 @@ Testbericht, Coverage-Bericht, Lint-Bericht und APK als Artefakte ab. Ein Tag
 ein GitHub-Release mit dem APK — signiert, wenn das Secret
 `NAVIGATE_KEYSTORE_BASE64` gesetzt ist.
 
-Die 108 Tests laufen **ohne Gerät**: App-Auswahl (`AppCatalog`), die
+Die 111 Tests laufen **ohne Gerät**: App-Auswahl (`AppCatalog`), die
 Anzeige-Reihenfolge (`Order`), die Konfigurationsdateien (`OrderCodec`,
 `OrderStore`, `SettingsCodec`, `SettingsStore`, `ConfigFile`), die
 Now-Playing-Zeilen (`NowPlayingText`, `NowPlayingBoard`), Raster-Spalten,
 Symbol-Einpassung, Cache-Schlüssel. Diese Klassen liegen bei 100 %
 Zeilen-Coverage; die Gesamtquote
-(20,8 % Zeilen / 28,9 % Zweige) enthält auch die Android-Klassen und steht mit
+(21,2 % Zeilen / 29,3 % Zweige) enthält auch die Android-Klassen und steht mit
 Begründung in [docs/DEVICE_PERF.md](docs/DEVICE_PERF.md).
 
 ## Installieren und als Home-App einrichten

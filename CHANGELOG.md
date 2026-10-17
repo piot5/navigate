@@ -8,6 +8,43 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 > Die Version wird in `app/build.gradle.kts` gepflegt (`versionCode`/`versionName`),
 > nicht hier.
 
+## 0.13.3
+
+### Behoben
+
+- **Der „Now Playing“-Eintrag verschwand nach wenigen Sekunden, obwohl die App
+  weiterlief.** Auf dem Zielgerät gesehen und gemeldet („der eintrag von zb jetzt
+  hbo ist nach wenigen sec verschwunden"). Ursache war eine Regel in 0.13, die
+  **drei verschiedene Dinge gleich** behandelte: „Titel da", „Session da, aber ohne
+  Titel" (Ladescreen, Werbung, Menü) und „gar keine Session" (App im Hintergrund,
+  Titelwechsel) wurden alle als „nichts zu zeigen" gelesen — und löschten die
+  Zeile. Auf dem Zielgerät nachgemessen: die Session von WOW war nach dem Film
+  **ganz weg**, ohne je `STOPPED` zu melden.
+
+  Jetzt gilt ([NowPlayingBoard](app/src/main/java/com/piotv/navigate/data/NowPlayingBoard.kt)):
+
+  | Was die Abfrage sagt | Was passiert |
+  |---|---|
+  | Ein Titel (spielt oder pausiert) | Zeile anlegen bzw. nur bei **geändertem Text** neu schreiben |
+  | Session da, aber **ohne Titel** | Zeile bleibt stehen, wie sie ist |
+  | **Keine** Session | Zeile bleibt stehen |
+  | Session meldet **beendet** (`STOPPED`/`ERROR`) | Zeile verschwindet nach zwei Abfragen (10 s) |
+  | Abfrage **fehlgeschlagen** (`null`) | nichts ändert sich |
+
+- `NowPlayingTrack.ended` und `NowPlaying.isEnded` — „die App hat beendet" ist
+  etwas anderes als „die App sagt gerade nichts". `STATE_NONE` zählt **nicht** als
+  beendet: das ist auch der Zustand einer frisch angelegten Session, und eine App,
+  die gerade startet, soll ihre letzte Zeile nicht verlieren.
+- `NowPlaying.active` liefert jetzt auch Sessions **ohne** Metadaten (vorher wurden
+  sie übersprungen — genau daran hing der Fehler) und sortiert Beendetes nach unten.
+
+### Bekannt / offen
+
+- **Der Preis der Persistenz:** eine App, die ihre Session ohne `STOPPED` verliert,
+  behält ihre Zeile bis zum Neustart des Launcher-Prozesses. Das ist die bewusste
+  Entscheidung — eine Zeile, die man gerade liest, darf nicht unter dem Lesen
+  verschwinden ([docs/DEVICE_PERF.md](docs/DEVICE_PERF.md)).
+
 ## 0.13.2
 
 ### Behoben
