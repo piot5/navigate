@@ -8,6 +8,128 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 > Die Version wird in `app/build.gradle.kts` gepflegt (`versionCode`/`versionName`),
 > nicht hier.
 
+## 0.15.0
+
+### Neu
+
+- **Der Now-Playing-Block hat ein Gedächtnis.** Ersetzt ein neuer Titel die
+  Zeile einer App, wandert der alte in den Verlauf (`files/history.conf`) —
+  statt zu verschwinden. Die Anzeige zeigt Live-Zeilen zuerst, darunter den
+  Verlauf **neueste oben**; ältere Einträge werden beim Runterscrollen
+  seitenweise (8) dynamisch nachgeladen — die Datei (höchstens 500 Einträge)
+  wird nie am Stück in Views verwandelt. Verlaufseinträge sind gedimmt und
+  tragen nur das App-Symbol (die Session ist längst weg); OK auf einer Zeile
+  startet die App. Der Block scrollt höchstens 260 dp hoch, danach scrollt er
+  in sich — das Raster rutscht nicht endlos nach unten. Lesbar auch per
+  `adb pull` (siehe [docs/CONFIG.md](docs/CONFIG.md)).
+- **28 neue Unit-Tests** (148 statt 120): Verlauf als Datei lesen/schreiben/
+  blättern/begrenzen (`HistoryCodecTest`, `HistoryStoreTest`), die
+  Carryover-Regel (neuer Titel schiebt alten in den Verlauf) und der
+  Pausenzustand als **kein** neuer Titel (`NowPlayingBoardTest`,
+  `NowPlayingTextTest`).
+
+### Behoben
+
+- **Ein Titel stand zweimal im Verlauf — einmal mit, einmal ohne „pausiert".**
+  Die Anzeigezeile (mit Pausenzusatz) diente als Änderungsschlüssel; jeder
+  Pause-Tipp war damit ein „neuer Titel". Der Verlauf hängt jetzt am **Inhalt**
+  ohne Pausenzusatz ([NowPlayingText.content]), die Anzeige weiter an der Zeile
+  mit Zusatz ([NowPlayingText.line]). Das gilt für **jede** App — die Regel
+  kennt keinen Paketnamen.
+- **Zwei HOME-Kandidaten.** War die Debug-APK (`com.piotv.navigate.debug`)
+  neben der Release-APK installiert, zeigte der HOME-Druck einen Auswahldialog
+  statt des Rasters (beide tragen einen HOME-Filter). Für den Betrieb gehört nur
+  **eine** Navigate-Variante auf das Gerät (siehe [docs/INSTALL.md](docs/INSTALL.md)).
+- **Die Benachrichtigungs-Listener-Adresse ist nicht mehr fest verdrahtet.**
+  Sie kommt jetzt aus `applicationContext.packageName` — damit passt die
+  Freigabe `cmd notification allow_listener <Paket>/.NowPlayingListener` auch
+  bei der Debug-APK (`.debug`), und das Feld bleibt nicht leer.
+
+## 0.14.1
+
+### Geändert
+
+- **Der Video-Hintergrund ist entfernt.** `background=video` aus 0.14 wird jetzt
+  wie ein unbekannter Wert gelesen — der bisherige Stand bleibt stehen, geraten
+  wird nicht. Es gibt wieder zwei Möglichkeiten: `dark` (Standard) und `image`.
+  Ein Video belegte auf dem Chromecast dauerhaft einen Hardware-Decoder, für eine
+  Fläche, die hinter dem Raster liegt — ein Preis ohne Nutzen.
+- **Hintergrundbild ausgetauscht:** die Standarddatei `background.jpg` wurde
+  durch ein neues Bild ersetzt (`adb push`).
+
+## 0.14.0
+
+### Neu
+
+- **Die Einstellungen haben drei Zeilen statt einer** (langes OK auf „…“):
+
+  | Zeile | Werte | Wirkung |
+  |---|---|---|
+  | Now Playing anzeigen | An / Aus | das Feld oben links (wie bisher) |
+  | Uhr anzeigen | An / Aus | die Uhr oben rechts — **neu abschaltbar**, Standard ist an |
+  | Hintergrund | Dunkel · Bild · Video | was **hinter dem Raster** liegt |
+
+  Jede Änderung geht sofort in `settings.conf` (`show_clock=`, `background=`,
+  `background_file=`) und ist damit auch per `adb push` zu setzen
+  ([docs/CONFIG.md](docs/CONFIG.md)).
+
+- **Die Uhr wird beim Abschalten nicht nur unsichtbar, sie tickt auch nicht
+  mehr.** Ein Timer für ein Feld, das niemand sieht, wäre auf dem Chromecast
+  messbar — dieselbe Regel wie beim Now-Playing-Block.
+
+- **Drei Hintergründe.** Bisher war die Fläche hinter dem Raster immer der
+  einfarbige, sehr dunkle Ton aus dem Theme. Jetzt gibt es daneben **Bild** und
+  **Video** (stumm, in Schleife), beide aus einer Mediendatei im externen
+  App-Ordner (`adb push`, siehe [docs/CONFIG.md](docs/CONFIG.md)):
+
+  | `background` | Was zu sehen ist | Datei |
+  |---|---|---|
+  | `dark` (Standard) | wie bisher | keine |
+  | `image` | ein Bild, formatfüllend | `background.jpg` |
+  | `video` | ein Video, stumm und in Schleife | `background.mp4` |
+
+  Über dem Hintergrund liegt eine **Abdunkelung** (`@color/bg_scrim`, 40 %
+  Schwarz): ohne sie konkurriert ein helles Foto mit den App-Beschriftungen.
+  Das Bild wird auf Bildschirmgröße verkleinert dekodiert (im Hintergrund-Thread,
+  `inJustDecodeBounds` + `inSampleSize`) — ein 4K-Foto wären sonst 33 MB Speicher.
+  Fehlt die Datei oder ist sie unlesbar, bleibt es dunkel; die Einstellungsseite
+  nennt den Pfad.
+
+  **Was es bewusst nicht gibt:** die Hintergründe, die Android TV „eingebaut“ hat
+  (Google-TV-Ambient/„Backdrop“, `TvContract`-Empfehlungsbilder, Wallpaper) — sie
+  liegen hinter Systemberechtigungen bzw. in fremden privaten Ordnern. Die
+  Prüfung steht in [docs/LAST_SEEN_TITEL.md](docs/LAST_SEEN_TITEL.md), Abschnitt 6.
+
+- **Eine Machbarkeitsnotiz zum „Last seen“-Titel** in
+  [docs/LAST_SEEN_TITEL.md](docs/LAST_SEEN_TITEL.md): ob und wie unter dem Feld
+  oben links ein **Titel** stehen könnte, wenn die App ein Favorit ist. Antwort:
+  ja, mit den Daten, die es schon gibt — aber „Serie“ kennt weder Android noch die
+  Media-Session, und nicht jede App veröffentlicht überhaupt Metadaten.
+
+### Geändert
+
+- **Keine grüne Schrift mehr.** Bis 0.13 färbte Navigate die App-Beschriftungen
+  nach Zustand: grün, wenn die App in den letzten 24 h im Vordergrund war,
+  hellgrün, wenn sie zuletzt geöffnet wurde. Welcher Ton welchen Zustand meinte,
+  war ohne Doku nicht zu erraten — und für den Nutzer änderte die Farbe nichts:
+  eine grüne Beschriftung war nicht anklickbarer als eine graue. Jetzt ist **jede**
+  Beschriftung `text_primary`, und die zwei Grüntöne (`text_active`,
+  `text_last`) sind aus `colors.xml` verschwunden. Die Warnzeile auf der
+  Einstellungsseite („Kein Benachrichtigungszugriff“) war der letzte grüne Text
+  und ist jetzt `text_dim` wie jeder andere Hinweis.
+
+- **Damit fällt ein Takt weg.** Die Färbung wurde alle 5 Sekunden aufgefrischt
+  (`activeTicker` → `LastApp.recentlyUsed()`, eine Abfrage der Nutzungsstatistik).
+  Beide sind entfallen; es bleiben zwei Takte (Uhr, Now Playing). Was bleibt, ist
+  die Nutzungsstatistik für **HOME/BACK → zurück in die letzte App**
+  (`LastApp.packageName()`, ausgelöst durch einen Tastendruck, nicht im Takt).
+
+### Behoben
+
+- **`AppAdapter.submit` verglich Zustände, die es nicht mehr gibt.** Der Vergleich
+  (`limit`, `active`, `lastPackage`, App-Liste) entschied, ob ein
+  `notifyDataSetChanged()` nötig ist; er prüft jetzt nur noch Limit und Liste.
+
 ## 0.13.3
 
 ### Behoben

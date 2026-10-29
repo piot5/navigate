@@ -12,16 +12,23 @@
     <color name="item_idle_stroke">#33FFFFFF</color>
     <color name="icon_placeholder">#14FFFFFF</color>
 
+    <!-- Die Abdunkelung über einem Bild-Hintergrund (0.14). Ohne sie
+         konkurriert ein helles Foto mit den App-Beschriftungen — auf einem
+         Fernseher aus drei Metern ist das der Unterschied zwischen „lesbar“ und
+         „bunt“. 40 % Schwarz lässt das Bild noch erkennen und die Schrift
+         darüber stehen. -->
+    <color name="bg_scrim">#66000000</color>
+
     <color name="text_primary">#FFDADCE0</color>
     <color name="text_dim">#FF9AA0A6</color>
-    <!-- Apps, die aktiv sind (in den letzten 24 h im Vordergrund, siehe
-         LastApp.recentlyUsed): deutlich grün auf dem dunklen Hintergrund, aber
-         nicht grell — das Raster hat viele Labels, und Grün soll eine Ausnahme
-         bleiben. -->
-    <color name="text_active">#FF6EE787</color>
-    <!-- Die **zuletzt geöffnete** App: derselbe Grünton, eine Stufe heller, damit
-         sie sich von den übrigen aktiven Apps unterscheidet. -->
-    <color name="text_last">#FFB9F6CA</color>
+    <!-- Seit 0.14 gibt es **keine grüne Schrift** mehr: jede App-Beschriftung im
+         Raster ist `text_primary`, unabhängig davon, ob die App zuletzt lief.
+         Bis 0.13 standen hier zwei Grüntöne (`text_active` für „in den letzten
+         24 h im Vordergrund", `text_last` für „zuletzt geöffnet"); sie machten
+         das Raster bunt, ohne dass der Farbunterschied etwas bediente — welcher
+         Ton welchen Zustand meinte, war ohne Doku nicht zu erraten. Mit ihnen
+         fiel der Takt weg, der die Nutzungsstatistik alle 5 Sekunden nach dem
+         „aktiv"-Stand fragte (siehe CHANGELOG 0.14.0). -->
 
     <color name="ic_launcher_background">#FF10151C</color>
 </resources>

@@ -17,6 +17,7 @@ import android.service.notification.NotificationListenerService
  * Navigate läuft unverändert weiter (siehe docs/INSTALL.md, Schritt 5b).
  *
  * Der Name hier ist auch der Name in der Freigabe:
- * `adb shell cmd notification allow_listener com.piotv.navigate/.NowPlayingListener`
+ * `adb shell cmd notification allow_listener <Installation-Paket>/.NowPlayingListener`
+ * (Release: `com.piotv.navigate/`, Debug: `com.piotv.navigate.debug/`)
  */
 class NowPlayingListener : NotificationListenerService()

@@ -2,6 +2,7 @@ package com.piotv.navigate.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -98,5 +99,55 @@ class SettingsCodecTest {
         val on = SettingsCodec.serialize(NavigateSettings(nowPlaying = true))
         assertTrue(off.contains("now_playing=off"))
         assertTrue(on.contains("now_playing=on"))
+    }
+
+    @Test
+    fun `die Uhr ist standardmaessig an und laesst sich abschalten`() {
+        assertTrue(SettingsCodec.parse(null).showClock)
+        assertFalse(SettingsCodec.parse("show_clock=off").showClock)
+        assertTrue(SettingsCodec.parse("show_clock=an").showClock)
+        // Ein unbekannter Wert lässt den Standard stehen — geraten wird nicht.
+        assertTrue(SettingsCodec.parse("show_clock=vielleicht").showClock)
+    }
+
+    @Test
+    fun `der Hintergrund hat zwei Werte und einen Standard`() {
+        assertEquals(BackgroundStyle.DARK, SettingsCodec.parse(null).background)
+        assertEquals(BackgroundStyle.DARK, SettingsCodec.parse("background=dark").background)
+        assertEquals(BackgroundStyle.DARK, SettingsCodec.parse("background=aus").background)
+        assertEquals(BackgroundStyle.IMAGE, SettingsCodec.parse("background=image").background)
+        assertEquals(BackgroundStyle.IMAGE, SettingsCodec.parse("background=Bild").background)
+        // video aus 0.14 ist entfernt: ein unbekannter Wert lässt den Standard stehen.
+        assertEquals(BackgroundStyle.DARK, SettingsCodec.parse("background=video").background)
+        // Ein unbekannter Wert ist kein dritter Hintergrund.
+        assertEquals(BackgroundStyle.DARK, SettingsCodec.parse("background=regenbogen").background)
+    }
+
+    @Test
+    fun `der Pfad der Hintergrund-Datei wird gelesen und kann geleert werden`() {
+        assertEquals(
+            "/sdcard/Pictures/wand.jpg",
+            SettingsCodec.parse("background_file=/sdcard/Pictures/wand.jpg").backgroundFile,
+        )
+        // Leer (oder ohne "=") heißt ausdrücklich „kein eigener Pfad“ — der
+        // Standardname im externen App-Ordner gilt dann wieder.
+        assertNull(SettingsCodec.parse("background_file=").backgroundFile)
+        assertNull(SettingsCodec.parse("background_file").backgroundFile)
+    }
+
+    @Test
+    fun `alle vier Schluessel stehen in der geschriebenen Datei`() {
+        val text = SettingsCodec.serialize(
+            NavigateSettings(
+                nowPlaying = true,
+                showClock = false,
+                background = BackgroundStyle.IMAGE,
+                backgroundFile = "wand.jpg",
+            )
+        )
+        assertTrue(text.contains("now_playing=on"))
+        assertTrue(text.contains("show_clock=off"))
+        assertTrue(text.contains("background=image"))
+        assertTrue(text.contains("background_file=wand.jpg"))
     }
 }

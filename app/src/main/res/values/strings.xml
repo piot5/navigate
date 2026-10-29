@@ -30,6 +30,10 @@
     <string name="settings_title">Einstellungen</string>
     <string name="settings_hint">OK schaltet um · ▲ ▼ wählt · ◀ oder BACK zurück</string>
     <string name="settings_now_playing">Now Playing anzeigen</string>
+    <string name="settings_clock">Uhr anzeigen</string>
+    <string name="settings_background">Hintergrund</string>
+    <string name="background_dark">Dunkel</string>
+    <string name="background_image">Bild</string>
     <string name="settings_on">An</string>
     <string name="settings_off">Aus</string>
     <!-- Ehrlich statt still: eine Einstellung, die eingeschaltet ist und dann
@@ -37,6 +41,10 @@
     <string name="settings_no_access">Kein Benachrichtigungszugriff — das Feld bleibt leer</string>
     <string name="settings_path_label">Datei: %1$s</string>
     <string name="settings_import_path_label">Import (adb push): %1$s</string>
+    <!-- Der Hintergrund braucht eine Mediendatei, die Navigate nicht selbst
+         anlegen kann: hier steht, wohin sie gehört. -->
+    <string name="settings_background_path_label">Hintergrund-Datei (adb push): %1$s</string>
+    <string name="settings_background_missing">Datei fehlt — der Hintergrund bleibt dunkel</string>
 
     <!-- Der Dienst, der den Blick in die Media-Sessions erlaubt. Sein Text steht
          in Androids Liste der Benachrichtigungszugriffe — deshalb ein eigener
@@ -51,4 +59,9 @@
          Laufzeit durch den App-Namen ersetzt (AppAdapter) — der XML-Wert gilt
          nur, solange eine recycelte Zelle noch nichts gebunden hat. -->
     <string name="cd_app_icon">App-Symbol</string>
+
+    <!-- Die Hintergrund-Ebene (0.14). Ein Bild als Hintergrund hat keine
+         Beschriftung, die ein Screenreader vorlesen könnte — der Text sagt
+         wenigstens, was die Fläche ist. -->
+    <string name="cd_background">Hintergrundbild</string>
 </resources>

@@ -12,16 +12,17 @@ HOME-Taste drücken
 Mehr tut dieser Launcher nicht. Die Home-Seite ist ein App-Raster, von dem
 zunächst **nur die untere Zeile** sichtbar ist; darunter, in der Zeile darunter,
 sitzt der „…“-Knopf und klappt den Rest auf. Oben stehen die Uhr rechts und —
-wenn eingeschaltet — „Now Playing“ links. Einzustellen gibt es zwei Sachen:
-**die Reihenfolge der Apps** und **ob das Now-Playing-Feld erscheint**.
+wenn eingeschaltet — „Now Playing“ links. Einzustellen gibt es drei Sachen:
+**die Reihenfolge der Apps**, **ob das Now-Playing-Feld und die Uhr erscheinen**
+und **was hinter dem Raster liegt** (einfarbig oder Bild).
 
 | | |
 |---|---|
-| **Release-APK** | 74 KB / 76.481 B signiert (66 KB / 68.120 B unsigniert) · davon 71 KB / 73.652 B `classes.dex` — eine einzige Dex-Datei |
-| **Unit-Tests** | 111, ohne Gerät lauffähig · Coverage-Gate 18 % Zeilen / 25 % Zweige (gemessen 21,2 % / 29,3 %) |
+| **Release-APK** | 80 KB / 82.329 B signiert · davon 82 KB / 84.068 B `classes.dex` — eine einzige Dex-Datei |
+| **Unit-Tests** | 148, ohne Gerät lauffähig · Coverage-Gate 18 % Zeilen / 25 % Zweige (gemessen 26,0 % / 36,5 %) |
 | **Abhängigkeiten zur Laufzeit** | keine — nur Android-Framework + Kotlin-Stdlib |
 | **Berechtigungen** | `QUERY_ALL_PACKAGES` (ohne sie wären leanback-only Apps unsichtbar); `PACKAGE_USAGE_STATS` optional, nur für „zurück in die letzte App“; dazu optional der **Benachrichtigungszugriff** für „Now Playing“ (keine Manifest-Berechtigung, sondern eine Freigabe per adb — siehe unten) |
-| **Startzeit / Speicher** | 128 ms / ~56 MB PSS — gemessen mit 0.1, für 0.13 **nicht** neu gemessen ([docs/DEVICE_PERF.md](docs/DEVICE_PERF.md)) |
+| **Startzeit / Speicher** | 128 ms / ~56 MB PSS — gemessen mit 0.1, für 0.15 **nicht** neu gemessen ([docs/DEVICE_PERF.md](docs/DEVICE_PERF.md)) |
 
 > APK-Größe, Dex-Größe, Testzahl **und** die Coverage-Zahlen werden von
 > [`tools/check_docs_drift.sh`](tools/check_docs_drift.sh) gegen das gebaute APK
@@ -56,9 +57,11 @@ wenn eingeschaltet — „Now Playing“ links. Einzustellen gibt es zwei Sachen
   Media-Sessions nicht abfragen, siehe [docs/INSTALL.md](docs/INSTALL.md)
   Schritt 5b). Die Abfrage läuft alle 5 Sekunden im Hintergrund-Thread, nur
   solange die Home-Seite sichtbar ist.
-- **Eine Zeile bleibt stehen, bis sich für diese App etwas ändert.** Drei Fälle
-  werden auseinandergehalten (die Regel steht in `data/NowPlayingBoard.kt` und ist
-  ohne Gerät geprüft): ein neuer **Titel** ersetzt den alten; eine Session **ohne
+- **Eine Zeile bleibt stehen, bis sich für diese App etwas ändert — und nichts
+  geht verloren.** Drei Fälle werden auseinandergehalten (die Regel steht in
+  `data/NowPlayingBoard.kt` und ist ohne Gerät geprüft): ein neuer **Titel**
+  ersetzt den alten — der alte wandert dabei in den Verlauf (`history.conf`,
+  neueste oben, dynamisch nachgeladen beim Scrollen); eine Session **ohne
   Titel** (Ladescreen, Werbung) oder **gar keine** Session (App im Hintergrund)
   lässt die Zeile samt Cover stehen; nur ein **ausdrückliches Ende**
   (`STOPPED`/`ERROR`, zweimal in Folge) nimmt sie weg. Ein **fehlgeschlagener**
@@ -66,19 +69,25 @@ wenn eingeschaltet — „Now Playing“ links. Einzustellen gibt es zwei Sachen
   Ehrlich dazu: eine App, die ihre Session ohne `STOPPED` verliert, behält ihre
   Zeile bis zum Neustart des Launchers — auf dem Chromecast der Normalfall nach ein
   paar Stunden.
-- **Einstellungen (langes OK auf „…“):** eine Seite mit dem Schalter *Now Playing
-  anzeigen*, mit der Fernbedienung bedient (`▲ ▼` wählt, `OK` schaltet um,
-  `◀`/`BACK` zurück). Sie schreibt sofort in die Datei und nennt die Pfade —
-  die Einstellung ist damit auch per `adb push` zu setzen
-  ([docs/CONFIG.md](docs/CONFIG.md)).
-- **Grüne Beschriftung für Apps, die aktiv sind.** Die Frage dahinter ist
-  dieselbe wie bei „zurück in die letzte App“ (Nutzungsstatistik): aktiv heißt
-  „in den letzten 24 Stunden im Vordergrund“ — auf diesem Gerät leben die
-  App-Prozesse danach noch, obwohl ihre Activity gestoppt ist. Die **zuletzt
-  geöffnete** App bekommt einen helleren Grünton, und die Markierung wird
-  **laufend** nachgeführt (5-Sekunden-Takt, solange die Home-Seite sichtbar ist).
-  Grün bleibt auch bei ausgewählter Zelle grün — die Auswahl zeigt der Rahmen.
-  Ohne Nutzungszugriff ist nichts grün — lieber nichts als falsch.
+- **Einstellungen (langes OK auf „…“):** eine Seite mit **drei Zeilen** — *Now
+  Playing anzeigen* (An/Aus), *Uhr anzeigen* (An/Aus) und *Hintergrund*
+  (Dunkel · Bild) — mit der Fernbedienung bedient (`▲ ▼` wählt, `OK`
+  schaltet um, `◀`/`BACK` zurück). Sie schreibt sofort in die Datei und nennt die
+  Pfade — die Einstellungen sind damit auch per `adb push` zu setzen
+  ([docs/CONFIG.md](docs/CONFIG.md)). „Uhr aus“ heißt auch: **kein Takt mehr**.
+- **Zwei Hintergründe (0.14):** hinter dem Raster liegt entweder der einfarbige,
+  sehr dunkle Ton (Standard) oder ein **Bild** (formatfüllend). Es kommt aus
+  einer Mediendatei im externen App-Ordner (`background.jpg`, per `adb push`);
+  über dem Bild liegt eine Abdunkelung, damit die Beschriftungen lesbar bleiben.
+  Das Bild wird auf Bildschirmgröße verkleinert im Hintergrund-Thread dekodiert.
+  Die Hintergründe, die Android TV „eingebaut“ hat (Ambient/„Backdrop“,
+  Empfehlungsbilder, Wallpaper), sind für einen Launcher **nicht erreichbar** —
+  die Prüfung steht in [docs/LAST_SEEN_TITEL.md](docs/LAST_SEEN_TITEL.md).
+- **Keine grüne Schrift (0.14):** bis 0.13 waren App-Beschriftungen grün
+  („in den letzten 24 Stunden aktiv“) bzw. hellgrün („zuletzt geöffnet“). Die
+  Farben sind entfallen — jede Beschriftung ist gleich hell, und der Takt, der
+  sie alle 5 Sekunden auffrischte, mit ihnen. Die Nutzungsstatistik bleibt nur
+  für **HOME/BACK → zurück in die letzte App**.
 - **Kontextmenü (langes OK):** Position nach vorne/hinten, App deinstallieren
   (System-Dialog), App schließen, alle Apps schließen. Schließen wirkt nur auf
   Apps im Hintergrund — mehr erlaubt Android einer normalen App nicht.
@@ -118,7 +127,7 @@ Voraussetzungen: JDK 17, Android SDK mit Plattform 36 und Build-Tools
 Vier Prüfungen, alle auch in der CI (`.github/workflows/ci.yml`):
 
 ```bash
-sh gradlew :app:testDebugUnitTest              # 111 Unit-Tests (ohne Gerät)
+sh gradlew :app:testDebugUnitTest              # 148 Unit-Tests (ohne Gerät)
 sh gradlew :app:unitTestCoverageVerification   # Coverage-Gate (Bericht: unitTestCoverageReport)
 sh gradlew :app:lintDebug                      # Lint — Warnungen sind Fehler
 bash tools/check_docs_drift.sh                 # Messwerte der Doku ↔ gebautes APK
@@ -130,13 +139,14 @@ Testbericht, Coverage-Bericht, Lint-Bericht und APK als Artefakte ab. Ein Tag
 ein GitHub-Release mit dem APK — signiert, wenn das Secret
 `NAVIGATE_KEYSTORE_BASE64` gesetzt ist.
 
-Die 111 Tests laufen **ohne Gerät**: App-Auswahl (`AppCatalog`), die
+Die 148 Tests laufen **ohne Gerät**: App-Auswahl (`AppCatalog`), die
 Anzeige-Reihenfolge (`Order`), die Konfigurationsdateien (`OrderCodec`,
 `OrderStore`, `SettingsCodec`, `SettingsStore`, `ConfigFile`), die
-Now-Playing-Zeilen (`NowPlayingText`, `NowPlayingBoard`), Raster-Spalten,
-Symbol-Einpassung, Cache-Schlüssel. Diese Klassen liegen bei 100 %
-Zeilen-Coverage; die Gesamtquote
-(21,2 % Zeilen / 29,3 % Zweige) enthält auch die Android-Klassen und steht mit
+Now-Playing-Zeilen (`NowPlayingText`, `NowPlayingBoard`), der Verlauf
+(`HistoryCodec`, `HistoryStore`), die Hintergrund-Regel
+(`BackgroundPlan`), Raster-Spalten, Symbol-Einpassung, Cache-Schlüssel. Diese
+Klassen liegen bei 100 % Zeilen-Coverage; die Gesamtquote
+(26,0 % Zeilen / 36,5 % Zweige) enthält auch die Android-Klassen und steht mit
 Begründung in [docs/DEVICE_PERF.md](docs/DEVICE_PERF.md).
 
 ## Installieren und als Home-App einrichten
@@ -241,7 +251,10 @@ app/src/main/java/com/piotv/navigate/
   data/SettingsStore.kt      settings.conf — dieselbe Mechanik wie OrderStore
   data/NowPlaying.kt         die laufende Media-Session lesen (MediaSessionManager)
   data/NowPlayingText.kt     daraus eine Zeile machen (getestet)
-  data/NowPlayingBoard.kt    eine Zeile je App — und wann sie sich ändert (getestet)
+  data/NowPlayingBoard.kt    eine Zeile je App (+ Verlauf) — und wann sie sich ändert (getestet)
+   data/HistoryEntry.kt       ein Verlaufseintrag (Paket, Zeile, Zeit)
+   data/HistoryCodec.kt       Parser/Serializer der Verlauf-Datei (getestet)
+   data/HistoryStore.kt       history.conf — Verlauf mit Seiten-Blättern (getestet)
   ui/AppAdapter.kt           Rasterzellen (Apps; `limit` = eine Zeile oder alle)
   ui/HomeGridView.kt         GridView + Fokus-Korrektur (Markierung beim Fokusverlust)
   ui/GridColumns.kt          Spaltenzahl des Rasters (getestet)
@@ -249,7 +262,7 @@ app/src/main/java/com/piotv/navigate/
   ui/IconLoader.kt           Symbole: Speicher-Cache → Platte → Ressourcen
   ui/IconDiskCache.kt        WebP-Symbole im internen Speicher (+ Schlüssel, getestet)
   ui/SettingsActivity.kt     die Einstellungsseite (langes OK auf „…“)
-  ui/NowPlayingPanel.kt      die Zeilen oben links: bauen, takten, anspringen
+  ui/NowPlayingPanel.kt      die Zeilen oben links: Live + Verlauf, takten, nachladen
   ui/AppMenu.kt              das Kontextmenü (langes OK auf einer App)
   ui/Ticker.kt               ein Takt auf dem Main-Thread (Uhr · grün · Now Playing)
 tools/make_assets.py         Icon-Vektoren + TV-Banner generieren

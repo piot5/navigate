@@ -14,6 +14,78 @@ auf dem Zielgerät gemessen, nicht geschätzt.
 | RAM | 1.439.332 kB total, ~200 MB verfügbar im Betrieb |
 | Heap-Limit | 256 MB |
 
+## 0.15.0 (Now-Playing-Verlauf)
+
+| | 0.14.1 | 0.15.0 |
+|---|---|---|
+| Release-APK (signiert) | 78.312 B | **82.329 B** |
+| `classes.dex` | 76.040 B | **84.068 B** |
+| Dateien im APK | 32 | **32** |
+| Unit-Tests | 120 | **148** |
+| Coverage (Zeilen / Zweige) | 22,9 % / 32,4 % | **26,0 % / 36,5 %** |
+
+Der Verlauf (`history.conf`, seitenweise nachgeladen, höchstens 500 Einträge)
+kostet ~3,8 KB APK und ~7,5 KB Dex: drei neue Dateien (`HistoryEntry`,
+`HistoryCodec`, `HistoryStore`), die Carryover-Regel im Board und das
+Verlauf-Rendering im Panel plus ScrollView im Layout. Die Coverage steigt,
+weil die neuen Regeln vollständig getestet sind (18 neue Tests) — der Nenner
+wächst um getestete Zeilen.
+
+**Nicht neu gemessen** (unverändert übernommen, siehe unten): Startzeit und
+Speicher. Der Verlauf wird im Hintergrund-Thread geschrieben und seitenweise
+gelesen — der HOME-Pfad fasst nur den Stand im Speicher an.
+
+## 0.14.1 (Video-Hintergrund entfernt · Hintergrundbild ausgetauscht)
+
+| | 0.14.0 | 0.14.1 |
+|---|---|---|
+| Release-APK (signiert) | 79.232 B | **78.312 B** |
+| Release-APK (unsigniert) | 70.876 B | **69.960 B** |
+| `classes.dex` | 77.848 B | **76.040 B** |
+| Dateien im APK | 32 | **32** |
+| Unit-Tests | 120 | **120** |
+| Coverage (Zeilen / Zweige) | 22,5 % / 32,2 % | **22,9 % / 32,4 %** |
+
+Der **Video-Hintergrund** ist entfernt: der dritte Wert `background=video`, die
+`VideoView`-Ebene im Layout und die zwei Methoden dafür fallen weg. Die APK wird
+dadurch kleiner (R8 wirft den Video-Pfad mit heraus), die Coverage steigt leicht,
+weil weniger ungetestete Activity-Zweige im Nenner stehen. Das Hintergrundbild
+`background.jpg` wurde durch ein neues Bild ersetzt — gleicher Pfad, anderer
+Inhalt, also kein Messwert.
+
+## 0.14.0 (keine grüne Schrift · Uhr abschaltbar · drei Hintergründe)
+
+| | 0.13.3 | 0.14.0 |
+|---|---|---|
+| Release-APK | 76.481 B | **79.232 B** |
+| `classes.dex` | 73.652 B | **77.848 B** |
+| Dateien im APK | 32 | **32** |
+| Unit-Tests | 111 | **120** |
+| Coverage (Zeilen / Zweige) | 21,2 % / 29,3 % | **22,5 % / 32,2 %** |
+
+Drei Änderungen, die sich in den Zahlen wiederfinden:
+
+1. **Keine grüne Schrift mehr.** `text_active` und `text_last` sind aus
+   `colors.xml` verschwunden, `AppAdapter` setzt gar keine Beschriftungsfarbe mehr
+   (die Farbe steht in `item_app.xml`), und der Takt, der die Färbung alle
+   5 Sekunden auffrischte, ist entfallen — samt `LastApp.recentlyUsed()`.
+   Die APK wächst trotzdem: die zwei neuen Funktionen unten sind mehr Code als
+   das, was wegfiel.
+2. **Die Uhr ist abschaltbar** (`show_clock`) — und „aus“ heißt auch: kein Takt.
+3. **Drei Hintergründe** (`background=dark|image|video`): ein Bild wird
+   verkleinert dekodiert, ein Video läuft stumm in Schleife. Beides kostet Code
+   (`BackgroundPlan`, `decodeScaled`, die zwei Ebenen im Layout) — deshalb der
+   Zuwachs von ~2,7 KB APK und ~4,2 KB Dex.
+
+**Nicht neu gemessen** (unverändert übernommen, siehe unten): Startzeit und
+Speicher. Die Änderungen berühren den HOME-Pfad nicht — der Hintergrund wird
+einmal gesetzt, das Bild einmal dekodiert.
+
+Was die neuen Hintergründe **kosten**, ehrlich gemessen werden müsste: ein Video
+belegt auf diesem Gerät einen Hardware-Decoder, solange die Home-Seite sichtbar
+ist. Der Standard ist deshalb `dark`, und beim Verlassen der Home-Seite wird
+pausiert (`onPause`).
+
 ## 0.13.3 (der Eintrag bleibt stehen)
 
 | | 0.13.0 | 0.13.3 |
@@ -423,15 +495,15 @@ byte-gleich (`release_dex_bytes`), weil die Signatur nur Einträge in `META-INF`
 hinzufügt.
 
 ```
-release_apk_bytes=76481
+release_apk_bytes=82329
 apk_files=32
-release_apk_unsigned_bytes=68120
+release_apk_unsigned_bytes=69960
 apk_unsigned_files=29
-release_dex_bytes=73652
+release_dex_bytes=84068
 release_dex_files=1
-unit_tests=111
-coverage_lines_percent=21,2
-coverage_branches_percent=29,3
+unit_tests=148
+coverage_lines_percent=26,0
+coverage_branches_percent=36,5
 ```
 
 Warum die APK-Größe reproduzierbar ist: die VCS-Info-Datei

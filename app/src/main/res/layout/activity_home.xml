@@ -17,6 +17,34 @@
      malen wäre Overdraw. -->
 <merge xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Der Hintergrund (0.14) — zwei Möglichkeiten, siehe data/Background.kt.
+         Die View liegt **hinter** dem Raster: Kinder eines `<merge>` landen in
+         ihrer Reihenfolge im Inhalts-Container, das erste Kind ist also die
+         unterste Ebene. Sie ist standardmäßig `gone` — der einfarbige
+         Hintergrund des Themes (@color/bg_home) bleibt der Standard.
+
+         Das Bild wird auf Bildschirmgröße verkleinert dekodiert
+         (LauncherActivity): ein 4K-Foto wären 33 MB im Speicher für eine Fläche,
+         die ein Fernseher aus drei Metern nicht auflöst. -->
+    <ImageView
+        android:id="@+id/background_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/cd_background"
+        android:scaleType="centerCrop"
+        android:visibility="gone" />
+
+    <!-- Die Abdunkelung über dem Hintergrund: ohne sie konkurriert ein helles
+         Foto mit den App-Beschriftungen. Sie liegt über dem Bild und unter dem
+         Raster — und ist nur sichtbar, wenn es einen Hintergrund gibt. -->
+    <View
+        android:id="@+id/background_scrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/bg_scrim"
+        android:visibility="gone" />
+
+
     <LinearLayout
         android:id="@+id/column"
         android:layout_width="match_parent"
@@ -89,9 +117,13 @@
          einer Ellipse ab.
 
          Der Container ist seit 0.13 **leer**: die Zeilen baut NowPlayingPanel,
-         eine je App mit aktiver Media-Session (item_now_playing.xml). Ein eigener
-         Block war es bis 0.12 — damals gab es genau eine Zeile, und die konnte im
-         Layout stehen.
+         aktuelle je App mit aktiver Media-Session plus Verlauf darunter
+         (item_now_playing.xml). Ein eigener Block war es bis 0.12 — damals gab
+         es genau eine Zeile, und die konnte im Layout stehen.
+
+         Der Verlauf wächst dynamisch: die äußere ScrollView nimmt höchstens
+         `now_playing_max_height` ein, danach scrollt der Block — das Raster
+         rutscht nicht endlos nach unten.
 
          Die Uhr wird im Minutentakt aktualisiert (ein Sekundentakt wäre ein Timer
          pro Sekunde — auf dem Chromecast messbar, ohne Mehrwert). -->
@@ -106,14 +138,22 @@
         android:paddingTop="@dimen/top_row_padding_top"
         android:paddingEnd="@dimen/clock_margin">
 
-        <LinearLayout
-            android:id="@+id/now_playing"
+        <ScrollView
+            android:id="@+id/now_playing_scroll"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginEnd="@dimen/now_playing_end_margin"
             android:layout_weight="1"
-            android:orientation="vertical"
-            android:visibility="gone" />
+            android:maxHeight="@dimen/now_playing_max_height"
+            android:scrollbars="none"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/now_playing"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </ScrollView>
 
         <TextView
             android:id="@+id/clock"

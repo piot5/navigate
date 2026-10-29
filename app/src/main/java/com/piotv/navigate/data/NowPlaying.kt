@@ -34,7 +34,25 @@ class NowPlaying(context: Context) {
 
     private val appContext = context.applicationContext
     private val manager = appContext.getSystemService(MediaSessionManager::class.java)
-    private val listener = ComponentName(appContext, NowPlayingListener::class.java)
+
+    /**
+     * Die Adresse des „Now Playing“-Dienstes, mit der Navigate beim System
+     * registriert werden muss (und die `getActiveSessions` dafür fordert).
+     *
+     * Der Wert ist **nicht** hart auf den qualifizierten Package-Namen
+     * (`com.piotv.navigate`) festgelegt: `applicationIdSuffix` (Debug-Builds) und
+     * andere Signatur-Konfigurationen bringen einen anderen Namen mit. Lässt man
+     * den Namen aus `applicationContext.packageName` folgen, passt er sich
+     * automatisch an, egal ob die Release-APK `com.piotv.navigate` oder die
+     * Debug-APK `com.piotv.navigate.debug` ist. Damit ist die Benachrichtigungs-
+     * Listener-Freigabe (siehe [NowPlayingListener] und docs/INSTALL.md,
+     * Schritt 5b) beim `adb shell cmd notification allow_listener` immer auf das
+     * Paket des gerade installierten APK ausgerichtet.
+     */
+    private val listener = ComponentName(
+        appContext.packageName,
+        NowPlayingListener::class.java.name,
+    )
 
     /**
      * Verkleinerte Cover, nach **Bytes** begrenzt (siehe [art]).

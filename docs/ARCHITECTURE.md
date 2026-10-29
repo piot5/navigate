@@ -30,7 +30,7 @@ Namen haben:
 | Stück | Wo | Warum getrennt |
 |---|---|---|
 | Zeittakt (Uhr · grün · Now Playing) | [Ticker](../app/src/main/java/com/piotv/navigate/ui/Ticker.kt) | drei `Handler` und drei `Runnable` waren dreimal derselbe Code mit einem anderen Intervall |
-| die Now-Playing-Zeilen | [NowPlayingPanel](../app/src/main/java/com/piotv/navigate/ui/NowPlayingPanel.kt) | eine Zeile je App, Persistenz, Höhenmeldung ans Raster |
+| die Now-Playing-Zeilen | [NowPlayingPanel](../app/src/main/java/com/piotv/navigate/ui/NowPlayingPanel.kt) | Live je App plus Verlauf, Persistenz, Höhenmeldung ans Raster |
 | Kontextmenü | [AppMenu](../app/src/main/java/com/piotv/navigate/ui/AppMenu.kt) | kennt nur Dialog, Intents und Toasts — den Rasterzustand kennt der Aufrufer |
 
 Die Activity hält weiterhin den **einen** Zustand (Raster, Reihenfolge, Fokus) und
@@ -185,12 +185,15 @@ Ehrlich dazu: „Prozess lebt“ ist **angenähert**. Eine App, die vor 23 Stund
 benutzt und inzwischen vom System beendet wurde, ist grün — das Fenster ist der
 Kompromiss zwischen „alles Aktive“ und „nichts Falsches“.
 
-## „Now Playing“: eine Zeile je App, die man anspringen kann
+## „Now Playing“: aktuelle je App plus Verlauf, alles anspringbar
 
-Oben links stehen im zugeklappten Zustand die laufenden Sessions — **eine Zeile je
-App**, jede als **App · Interpret – Titel**, dazu `· pausiert` und das Cover. Der
-Block ist der einzige Teil der Home-Seite, der etwas anderes tut als „starte diese
-App“: **OK auf einer Zeile holt genau diese App zurück**.
+Oben links stehen im zugeklappten Zustand die laufenden Sessions — **aktuelle
+je App**, jede als **App · Interpret – Titel**, dazu `· pausiert` und das Cover.
+Darunter der **Verlauf** aus `history.conf`: was lief, neueste oben, gedimmt,
+ältere werden beim Runterscrollen seitenweise nachgeladen. Der Block ist der
+einzige Teil der Home-Seite, der etwas anderes tut als „starte diese
+App“: **OK auf einer Zeile holt genau diese App zurück** (Verlauf: die App
+selbst).
 
 Bis 0.12 war es **eine** Zeile: die Session, die „den Ton macht“. Das war eine
 Auswahl, die niemand getroffen hat — läuft ein Hörbuch pausiert und daneben ein
@@ -233,32 +236,40 @@ Drei Entscheidungen, die daran hängen:
   gleich, wird nichts geschrieben und kein neues Cover geholt — sonst würde jeder
   Takt die Anzeige neu setzen (auf dem Gerät als Flackern sichtbar).
 - **Nur ein ausdrückliches Ende nimmt sie weg.** Drei Dinge werden
-  auseinandergehalten: ein neuer **Titel** ersetzt den alten; eine Session **ohne
-  Titel** (Ladescreen, Werbung) oder **gar keine** Session (App im Hintergrund,
-  Titelwechsel) lässt die Zeile stehen; erst `STOPPED`/`ERROR` — zweimal in Folge,
-  also zehn Sekunden — entfernt sie. Auf dem Zielgerät war die Session von WOW nach
-  dem Film **ganz weg**, ohne je `STOPPED` zu melden: genau daran ist die erste
-  Fassung dieser Regel (0.13.2) gescheitert, der Eintrag verschwand nach wenigen
-  Sekunden.
+  auseinandergehalten: ein neuer **Titel** ersetzt den alten — der alte wandert
+  dabei in den Verlauf ([HistoryStore](../app/src/main/java/com/piotv/navigate/data/HistoryStore.kt));
+  eine Session **ohne Titel** (Ladescreen, Werbung) oder **gar keine** Session
+  (App im Hintergrund, Titelwechsel) lässt die Zeile stehen; erst
+  `STOPPED`/`ERROR` — zweimal in Folge, also zehn Sekunden — entfernt sie. Auf
+  dem Zielgerät war die Session von WOW nach dem Film **ganz weg**, ohne je
+  `STOPPED` zu melden: genau daran ist die erste Fassung dieser Regel (0.13.2)
+  gescheitert, der Eintrag verschwand nach wenigen Sekunden.
 - **Ein fehlgeschlagener Blick löscht nichts.** [NowPlaying.active] gibt dann
   `null` statt einer leeren Liste — „ich weiß es nicht“ ist etwas anderes als „es
   läuft nichts“.
+- **Der Verlauf ist die vierte Antwort.** Live-Zeilen zuerst, darunter
+  `history.conf` neueste-zuerst, höchstens 500 Einträge, seitenweise (8)
+  nachgeladen beim Runterscrollen. Der Block ist höchstens 260 dp hoch, danach
+  scrollt er in sich — das Raster rutscht nicht endlos nach unten.
 - **Der Preis, offen gesagt:** eine App, die ihre Session ohne `STOPPED` verliert,
   behält ihre Zeile bis zum Neustart des Launcher-Prozesses (auf 1,4 GB der
   Normalfall nach ein paar Stunden). Das ist die bewusste Entscheidung: eine Zeile,
   die man gerade liest, darf nicht unter dem Lesen verschwinden.
 
 Die Regeln liegen in
-[NowPlayingText](../app/src/main/java/com/piotv/navigate/data/NowPlayingText.kt)
-und NowPlayingBoard und kennen kein Android — dieselbe Trennung wie bei „grün“:
-geprüft wird die Regel (111 Tests, ohne Gerät), nicht die Eigenheit des Geräts.
+[NowPlayingText](../app/src/main/java/com/piotv/navigate/data/NowPlayingText.kt),
+NowPlayingBoard, [HistoryCodec](../app/src/main/java/com/piotv/navigate/data/HistoryCodec.kt)
+und [HistoryStore](../app/src/main/java/com/piotv/navigate/data/HistoryStore.kt)
+und kennen kein Android — dieselbe Trennung wie bei der
+Reihenfolge ([Order](../app/src/main/java/com/piotv/navigate/data/Order.kt)):
+geprüft wird die Regel (148 Tests, ohne Gerät), nicht die Eigenheit des Geräts.
 
 ## Was ohne Gerät prüfbar ist (und was nicht)
 
 | | Beispiele | Prüfbar |
 |---|---|---|
-| **reine Regeln**, kein Android-Typ | `AppCatalog`, `Order`, `OrderCodec`, `OrderStore` (Datei-Semantik), `NowPlayingBoard`, `NowPlayingText`, `GridColumns`, `IconGeometry`, `IconCacheKeys` | Unit-Test ohne Gerät — 111 Tests; die ohne Gerät prüfbaren Klassen liegen bei 100 % Zeilen-Coverage. Die Zahl selbst ist keine Prosa: `tools/check_docs_drift.sh` vergleicht sie mit dem gebauten Testset |
-| **Android-Verdrahtung** | `LauncherActivity`, `NowPlayingPanel`, `AppMenu`, `Ticker`, `AppAdapter`, `HomeGridView`, `IconLoader`, `IconDiskCache`, `AppRepository`, `NowPlaying` | nur auf einem Gerät; hier zählt die Messung ([DEVICE_PERF.md](DEVICE_PERF.md)) |
+| **reine Regeln**, kein Android-Typ | `AppCatalog`, `Order`, `OrderCodec`, `OrderStore` (Datei-Semantik), `NowPlayingBoard`, `NowPlayingText`, `HistoryCodec`, `HistoryStore` (Datei-Semantik), `BackgroundPlan`, `SettingsCodec`, `GridColumns`, `IconGeometry`, `IconCacheKeys` | Unit-Test ohne Gerät — 148 Tests; die ohne Gerät prüfbaren Klassen liegen bei 100 % Zeilen-Coverage. Die Zahl selbst ist keine Prosa: `tools/check_docs_drift.sh` vergleicht sie mit dem gebauten Testset |
+| **Android-Verdrahtung** | `LauncherActivity` (inkl. Hintergrund-Ebenen), `NowPlayingPanel`, `AppMenu`, `Ticker`, `AppAdapter`, `HomeGridView`, `IconLoader`, `IconDiskCache`, `AppRepository`, `NowPlaying` | nur auf einem Gerät; hier zählt die Messung ([DEVICE_PERF.md](DEVICE_PERF.md)) |
 
 Der Grund ist die Fehlerhistorie: die teuersten Fehler dieses Projekts waren
 **Regeln**, keine Android-Eigenheiten. Solche Regeln stehen deshalb in einem

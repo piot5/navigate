@@ -1,13 +1,16 @@
 # Konfiguration
 
-Einstellbar sind in Navigate **zwei Sachen**: die **Reihenfolge der Apps**
-(`navigate.conf`) und ob das **„Now Playing“-Feld** erscheint (`settings.conf`).
-Jede der beiden Dateien liegt an **zwei** Orten — der Unterschied ist wichtig:
+Einstellbar sind in Navigate **vier Sachen**: die **Reihenfolge der Apps**
+(`navigate.conf`), ob das **„Now Playing“-Feld** und die **Uhr** erscheinen und
+was **hinter dem Raster** liegt (`settings.conf`). Dazu kommt der **Verlauf**
+(`history.conf`) — was lief, neueste oben, dynamisch nachgeladen. Jede der
+Dateien liegt an **zwei** Orten — der Unterschied ist wichtig:
 
 | Datei | Inhalt | Quelle der Wahrheit (hier liest Navigate) | Import (`adb push`) |
 |---|---|---|---|
 | `navigate.conf` | Reihenfolge — eine Paketnamen-Zeile je Eintrag | `/data/data/com.piotv.navigate/files/navigate.conf` | `/storage/emulated/0/Android/data/com.piotv.navigate/files/navigate.conf` |
 | `settings.conf` | Einstellungen — `schlüssel=wert` | `/data/data/com.piotv.navigate/files/settings.conf` | `/storage/emulated/0/Android/data/com.piotv.navigate/files/settings.conf` |
+| `history.conf` | Verlauf — `zeit|paket|zeile`, neueste zuletzt | `/data/data/com.piotv.navigate/files/history.conf` | `/storage/emulated/0/Android/data/com.piotv.navigate/files/history.conf` (nur lesbar — ein `push` wird nur übernommen, wenn die Datei neuer ist) |
 
 Übernommen wird eine Import-Datei nur, wenn sie **neuer** ist als beim letzten
 Import. Beide Dateien benutzen dieselbe Mechanik (im Code
@@ -39,11 +42,17 @@ Eine Zeile pro Eintrag, Form `schlüssel=wert`:
 ```ini
 # Navigate — Einstellungen
 now_playing=on
+show_clock=on
+background=dark
+background_file=
 ```
 
 | Schlüssel | Werte | Wirkung |
 |---|---|---|
 | `now_playing` | `on` / `off` (auch `true`/`false`, `1`/`0`, `an`/`aus`, `ja`/`nein`, Groß-/Kleinschreibung egal) | zeigt das „Now Playing“-Feld oben links — seit 0.13 **eine Zeile je App** mit aktiver Media-Session, nur im zugeklappten Zustand |
+| `show_clock` | wie `now_playing` | zeigt die **Uhr** oben rechts (seit 0.14 abschaltbar; „aus“ heißt auch: kein Takt mehr) |
+| `background` | `dark` / `image` (auch `dunkel`, `bild`, `aus`) | was **hinter dem Raster** liegt: einfarbig (Standard) oder ein **Bild** (seit 0.14) |
+| `background_file` | Pfad oder blosser Name; **leer** = Standardname | die Mediendatei für `background=image` (seit 0.14) |
 
 Genau wie bei der Reihenfolge ist **Toleranz Absicht**: `#`-Zeilen, Leerzeilen,
 umgebende Leerzeichen, `now-playing` statt `now_playing` und unbekannte
@@ -60,6 +69,44 @@ adb shell 'printf "now_playing=on\n" > /sdcard/Android/data/com.piotv.navigate/f
 
 > **Ohne Benachrichtigungszugriff bleibt das Feld leer** — auch bei
 > `now_playing=on`. Warum, steht in [INSTALL.md](INSTALL.md), Schritt 5b.
+
+## Hintergrund — zwei Möglichkeiten (seit 0.14)
+
+Hinter dem Raster liegt entweder der einfarbige, sehr dunkle Hintergrund
+(Standard) oder ein **Bild**:
+
+| `background` | Was zu sehen ist | Datei |
+|---|---|---|
+| `dark` (Standard) | `@color/bg_home` — derselbe Ton wie das Startfenster | keine |
+| `image` | ein Bild, formatfüllend, auf Bildschirmgröße verkleinert | `background.jpg` |
+
+Ein **Video**-Hintergrund gab es in 0.14 als dritten Wert; er ist in 0.14.1
+entfernt. Ein `background=video` in einer alten Datei wird jetzt wie ein
+unbekannter Wert gelesen — der bisherige Stand bleibt stehen.
+
+Die Datei liegt im **externen App-Ordner** — derselbe Ordner, in den auch die
+Konfigurationsdateien gepusht werden:
+
+```bash
+# Bild
+adb push urlaub.jpg /sdcard/Android/data/com.piotv.navigate/files/background.jpg
+adb shell 'printf "background=image\n" > /sdcard/Android/data/com.piotv.navigate/files/settings.conf'
+```
+
+Ein **eigener** Pfad geht auch (`background_file=/sdcard/Pictures/wand.jpg`);
+`background_file=` **leer** nimmt den Standardnamen wieder. Fehlt die Datei oder
+ist sie kein lesbares Bild, bleibt es dunkel — die Einstellungsseite nennt
+den Pfad, auf dem Bildschirm gibt es keine Fehlermeldung.
+
+**Was es bewusst nicht gibt:** die Hintergründe, die Android TV „eingebaut“ hat.
+Die Bilder des Google-TV-Ambient-Modus („Backdrop“) liegen im privaten Speicher
+des Google-TV-Launchers, die Empfehlungs-/Kanalbilder aus `TvContract` verlangen
+eine TV-Input-Berechtigung, und `WallpaperManager` liefert auf dem Chromecast HD
+kein Bild. Ein normaler Launcher kommt an keines davon heran (Begründung und
+Belege: [LAST_SEEN_TITEL.md](LAST_SEEN_TITEL.md), Abschnitt „Hintergrund“).
+
+**Kosten, ehrlich:** Ein Bild ist billig (einmal dekodieren, dann eine Fläche).
+Deshalb ist `dark` der Standard und nicht `image`.
 
 ## navigate.conf — die Reihenfolge
 
@@ -114,3 +161,44 @@ adb push /dev/null /sdcard/Android/data/com.piotv.navigate/files/navigate.conf
 Der letzte Befehl schiebt eine **leere** Datei an den Import-Pfad; sie ist neuer
 als alles Vorherige und wird übernommen — eine leere Datei ergibt genau die
 Grundordnung.
+
+## history.conf — der Verlauf
+
+Was lief: ein Eintrag pro Zeile, `zeit|paket|zeile`, neueste zuletzt.
+
+```ini
+# Navigate — Verlauf (Now Playing)
+1730000000000|com.zdf|ZDF · Tagesschau
+1730000005000|com.spotify|Spotify · Der Weg
+```
+
+- Geschrieben wird die Datei von Navigate selbst: ersetzt ein neuer Titel die
+  Zeile einer App, wandert der alte hierher — statt zu verschwinden.
+- **Gelesen wird sie als „zuletzt gesehen“:** der **oberste** Eintrag ist der
+  *last seen*, alles darunter das *seen before* — dieselbe Reihenfolge, in der
+  ein Mensch zurückschaut. Die Live-Zeilen (Apps mit laufender Media-Session)
+  stehen über dem Verlauf; die neueste Zeile ist damit immer die, die gerade
+  läuft bzw. zuletzt lief.
+- **Gespeichert wird der Inhalt, nicht der Zustand.** Die Zeile im Verlauf trägt
+  **kein** „· pausiert“: sonst stünde derselbe Titel zweimal in der Liste — einmal
+  mit, einmal ohne Zusatz (genau so war es auf dem Zielgerät zu sehen). Die
+  Anzeige **über** dem Verlauf trägt den Zusatz weiter, weil eine pausierte
+  Session sonst aussähe wie eine laufende.
+- **Eine Regel für jede App.** Welche App die Session hält, steht im Feld
+  `paket`; die Zeilen-Regel (`NowPlayingText.content`) kennt keinen Paketnamen —
+  Netflix, Disney+, ZDF, WOW und Prime werden gleich behandelt. Sichtbar wird
+  eine App nur, wenn ihre Session **Metadaten** veröffentlicht: Netflix liefert
+  je nach Zustand gar keinen Titel, dann bleibt sie ohne Zeile (das ist eine
+  Grenze der App, nicht von Navigate).
+- Gezeigt wird neueste oben: Live-Zeilen zuerst, darunter der Verlauf. Ältere
+  Einträge werden beim Runterscrollen seitenweise (8) dynamisch nachgeladen —
+  die Datei wird nie am Stück in Views verwandelt. Der Block ist höchstens
+  260 dp hoch (rund sechs Zeilen auf 1080p), danach scrollt er in sich; die
+  Fernbedienung lädt die nächste Seite, wenn der Fokus auf der letzten
+  sichtbaren Verlaufszeile steht.
+- Höchstens 500 Einträge: ältere fallen beim Schreiben weg. Wer mehr will,
+  zieht per `adb pull` — die Datei ist lesbar:
+
+```bash
+adb pull /sdcard/Android/data/com.piotv.navigate/files/history.conf ./history.conf
+```

@@ -89,4 +89,35 @@ class NowPlayingTextTest {
     fun `ohne App-Name aendert sich nichts`() {
         assertEquals("A – B", NowPlayingText.line(NowPlayingInfo(title = "B", artist = "A", app = "  ")))
     }
+
+    // --- Inhalt (ohne Pausenzusatz) -----------------------------------------
+    //    Die Kennung für den Verlauf: „was lief", nicht „wie es gerade steht".
+
+    @Test
+    fun `der Inhalt traegt keinen Pausenzusatz`() {
+        val spielt = NowPlayingInfo(title = "B", artist = "A", app = "ZDF", playing = true)
+        val pausiert = NowPlayingInfo(title = "B", artist = "A", app = "ZDF", playing = false)
+        assertEquals("ZDF · A – B", NowPlayingText.content(spielt))
+        assertEquals("ZDF · A – B", NowPlayingText.content(pausiert))
+        // Und die Anzeigezeilen unterscheiden sich — genau darum geht es.
+        assertEquals("ZDF · A – B", NowPlayingText.line(spielt))
+        assertEquals("ZDF · A – B · pausiert", NowPlayingText.line(pausiert))
+    }
+
+    @Test
+    fun `der Inhalt ist ohne Session leer`() {
+        assertEquals("", NowPlayingText.content(null))
+        assertEquals("", NowPlayingText.content(NowPlayingInfo(playing = false)))
+    }
+
+    @Test
+    fun `der Inhalt ist nicht vom App-Namen abhaengig`() {
+        // Dieselbe Regel für jede App — der Name ist die Zutat, nicht die Regel.
+        for (app in listOf("Netflix", "Disney+", "ZDF", "WOW", "Prime Video", "ARD")) {
+            assertEquals(
+                "$app · A – B",
+                NowPlayingText.content(NowPlayingInfo(title = "B", artist = "A", app = app)),
+            )
+        }
+    }
 }

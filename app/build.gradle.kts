@@ -26,8 +26,8 @@ android {
         // was auf TV (keine Systembars) nur Risiko ohne Nutzen bringt. Das
         // Zielgerät (Chromecast HD) läuft auf API 34.
         targetSdk = 34
-        versionCode = 16
-        versionName = "0.13.3"
+        versionCode = 19
+        versionName = "0.15.0"
     }
 
     /**

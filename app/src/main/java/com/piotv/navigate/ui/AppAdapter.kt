@@ -24,47 +24,22 @@ import com.piotv.navigate.data.AppEntry
 class AppAdapter(
     private val iconLoader: IconLoader,
     private val iconSizePx: Int,
-    /** Beschriftungsfarbe einer App, die nicht aktiv ist. */
-    private val colorIdle: Int,
-    /** Beschriftungsfarbe einer aktiven App. */
-    private val colorActive: Int,
-    /** Beschriftungsfarbe der zuletzt geöffneten App. */
-    private val colorLast: Int,
 ) : BaseAdapter() {
 
     private var apps: List<AppEntry> = emptyList()
     private var limit = 0
 
-    /** Pakete, die aktiv sind — ihre Beschriftung wird grün. */
-    private var active: Set<String> = emptySet()
-
-    /** Das Paket der zuletzt geöffneten App — sie bekommt den helleren Grünton. */
-    private var lastPackage: String? = null
-
     /**
-     * Übernimmt Apps, Limit und den „aktiv“-Stand.
+     * Übernimmt Apps und Limit.
      *
      * @param limit Anzahl der Einträge, die gemeldet werden; `0` heißt alle.
      * @return `true`, wenn sich wirklich etwas geändert hat — das spart den
-     *   `notifyDataSetChanged()`-Relayout bei jedem HOME-Druck. Auch ein
-     *   geänderter „aktiv“-Stand zählt als Änderung: sonst bliebe eine
-     *   frisch beendete App grün.
+     *   `notifyDataSetChanged()`-Relayout bei jedem HOME-Druck.
      */
-    fun submit(
-        apps: List<AppEntry>,
-        limit: Int,
-        active: Set<String>,
-        lastPackage: String?,
-    ): Boolean {
-        if (this.limit == limit && this.active == active &&
-            this.lastPackage == lastPackage && sameAs(apps)
-        ) {
-            return false
-        }
+    fun submit(apps: List<AppEntry>, limit: Int): Boolean {
+        if (this.limit == limit && sameAs(apps)) return false
         this.apps = apps
         this.limit = limit
-        this.active = active
-        this.lastPackage = lastPackage
         notifyDataSetChanged()
         return true
     }
@@ -88,16 +63,11 @@ class AppAdapter(
         val entry = apps[position]
         holder.label.text = entry.label
         holder.icon.contentDescription = entry.label
-        // Die Beschriftung färbt sich nach dem Zustand der App — und **nicht**
-        // nach der Auswahl: ein grüner Name soll grün bleiben, wenn die Zelle
-        // markiert ist (die Auswahl zeigt der Rahmen, siehe bg_grid_item).
-        holder.label.setTextColor(
-            when {
-                entry.packageName == lastPackage -> colorLast
-                entry.packageName in active -> colorActive
-                else -> colorIdle
-            }
-        )
+        // Keine Farbe hier: die Beschriftung ist `text_primary` (item_app.xml) und
+        // für jede App gleich. Bis 0.13 stand an dieser Stelle eine Zustandsfarbe
+        // (grün für „in den letzten 24 h aktiv", hellgrün für „zuletzt geöffnet")
+        // — sie ist in 0.14 entfallen, samt dem Takt, der dafür alle 5 Sekunden
+        // die Nutzungsstatistik befragte (siehe CHANGELOG 0.14.0).
 
         val key = entry.iconKey(iconSizePx)
         holder.boundKey = key

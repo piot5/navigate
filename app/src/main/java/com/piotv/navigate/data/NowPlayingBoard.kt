@@ -55,8 +55,17 @@ class NowPlayingBoard {
         val ended: Boolean = false,
     )
 
-    /** Eine Zeile der Anzeige: die App und ihr fertiger Text. */
-    data class Row(val packageName: String, val line: String)
+    /**
+     * Eine Zeile der Anzeige: die App, ihr Anzeigetext und ihr **Inhalt**.
+     *
+     * [line] ist der Text, der in der Oberfläche steht (mit „· pausiert“).
+     * [content] ist derselbe Inhalt **ohne** den Pausenzusatz — er ist der
+     * Schlüssel für „hat sich für diese App etwas geändert?“ und das, was in den
+     * Verlauf wandert. Ohne diese Trennung wäre jeder Pause-Tipp ein neuer Titel
+     * und derselbe Film stünde zweimal in der Liste (einmal mit, einmal ohne
+     * „pausiert“).
+     */
+    data class Row(val packageName: String, val line: String, val content: String)
 
     private var rows: List<Row> = emptyList()
 
@@ -71,9 +80,16 @@ class NowPlayingBoard {
      *
      * @param observed `null` heißt „die Abfrage ist fehlgeschlagen“ (kein Zugriff,
      *   Session-Dienst antwortet nicht) — dann bleibt alles, wie es ist.
+     * @param history wohin neue Titel zusätzlich geschrieben werden (`null` heißt
+     *   „kein Verlauf“ — dann gilt das bisherige Verhalten: Zeile ersetzen).
+     * @param nowMillis Systemzeit für den Verlauf; `0` heißt „kein Verlauf“.
      * @return `true`, wenn sich die Anzeige ändern muss.
      */
-    fun observe(observed: List<Observed>?): Boolean {
+    fun observe(
+        observed: List<Observed>?,
+        history: HistoryStore? = null,
+        nowMillis: Long = 0L,
+    ): Boolean {
         if (observed == null) return false
 
         // 1. Was diese Abfrage über welche App sagt — je App **einmal**. Die erste
@@ -105,18 +121,35 @@ class NowPlayingBoard {
                 continue
             }
             endedPolls.remove(row.packageName)
+            val content = NowPlayingText.content(seen.info)
             val line = NowPlayingText.line(seen.info)
             // Nichts zu lesen (Ladescreen, Werbung): die Zeile bleibt, wie sie
             // ist — die App ist ja da und bringt denselben Titel zurück.
-            merged.add(if (line.isEmpty()) row else Row(row.packageName, line))
+            if (content.isEmpty()) {
+                merged.add(row)
+                continue
+            }
+            // Derselbe Inhalt: nur die **Anzeigezeile** kann sich geändert haben
+            // (der Pausenzustand — mit bzw. ohne „· pausiert“). Der Verlauf bleibt
+            // unangetastet, sonst stünde derselbe Titel zweimal darin.
+            if (content == row.content) {
+                merged.add(if (line == row.line) row else row.copy(line = line))
+                continue
+            }
+            // Neuer Inhalt für eine bekannte App: der alte wandert in den Verlauf
+            // (wenn einer geführt wird), die Zeile zeigt den neuen.
+            if (history != null && nowMillis > 0L) {
+                history.append(row.packageName, row.content, nowMillis)
+            }
+            merged.add(Row(row.packageName, line, content))
         }
 
         // 3. Apps, die es vorher nicht gab: nur mit Text ist das eine Zeile wert.
         for (seen in fresh.values) {
             if (seen.ended) continue
-            val line = NowPlayingText.line(seen.info)
-            if (line.isEmpty()) continue
-            merged.add(Row(seen.packageName, line))
+            val content = NowPlayingText.content(seen.info)
+            if (content.isEmpty()) continue
+            merged.add(Row(seen.packageName, NowPlayingText.line(seen.info), content))
         }
 
         // Zähler für Apps aufräumen, die keine Zeile mehr haben.

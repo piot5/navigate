@@ -36,6 +36,17 @@ adb shell cmd role add-role-holder android.app.role.HOME com.piotv.navigate
 adb shell cmd role get-role-holders android.app.role.HOME   # Kontrolle
 ```
 
+> **Nur eine Navigate-Variante auf dem Gerät.** Die Debug-APK
+> (`com.piotv.navigate.debug`) und die Release-APK (`com.piotv.navigate`)
+> tragen **beide** einen HOME-Filter. Liegen beide auf dem Gerät, zeigt der
+> HOME-Druck einen **Auswahldialog** statt des Rasters (gemessen am
+> 2026-10-29 auf dem Zielgerät: `topResumedActivity=…ResolverActivity`).
+> Vor dem Eintragen der Rolle also die jeweils andere Variante entfernen:
+>
+> ```bash
+> adb uninstall com.piotv.navigate.debug   # oder com.piotv.navigate
+> ```
+
 ## 3. Googles Home-Watchdog abschalten
 
 Ohne diesen Schritt holt sich `com.google.android.tungsten.setupwraith` die

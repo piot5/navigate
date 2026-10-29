@@ -3,7 +3,9 @@ package com.piotv.navigate.data
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
 /**
  * Die Regel hinter den „Now Playing“-Zeilen: **eine je App**, und sie bleiben
@@ -16,6 +18,10 @@ import org.junit.Test
  * einen Blick auf ein Gerät, das nicht am Schreibtisch steht.
  */
 class NowPlayingBoardTest {
+
+    @get:Rule
+    val folder = TemporaryFolder()
+
 
     private fun seen(
         packageName: String,
@@ -75,6 +81,74 @@ class NowPlayingBoardTest {
 
         board.observe(listOf(seen("com.zdf", "Tagesschau", playing = false)))
         assertEquals(listOf("com.zdf=Tagesschau · pausiert"), lines(board))
+    }
+
+    // --- Pausenzustand ist kein neuer Titel ---------------------------------
+    //    Der Fehler auf dem Zielgerät: derselbe Film stand zweimal in der Liste,
+    //    einmal mit und einmal ohne „· pausiert". Ursache war, dass die
+    //    Anzeigezeile (mit Zusatz) als Änderungsschlüssel diente.
+
+    @Test
+    fun `spielen und pausieren aendert die Zeile, aber schreibt keinen Verlauf`() {
+        val board = NowPlayingBoard()
+        val history = memoryHistory()
+        board.observe(listOf(seen("com.zdf", "Mumien")))
+
+        // Pause-Tipp: die Anzeige bekommt den Zusatz …
+        assertTrue(board.observe(listOf(seen("com.zdf", "Mumien", playing = false)), history, 2L))
+        assertEquals(listOf("com.zdf=Mumien · pausiert"), lines(board))
+        // … der Verlauf bleibt leer: derselbe Inhalt, nur anderer Zustand.
+        assertEquals(emptyList<HistoryEntry>(), history.current())
+
+        // Weiter-Tipp: der Zusatz fällt weg, der Verlauf bleibt leer.
+        assertTrue(board.observe(listOf(seen("com.zdf", "Mumien")), history, 3L))
+        assertEquals(listOf("com.zdf=Mumien"), lines(board))
+        assertEquals(emptyList<HistoryEntry>(), history.current())
+    }
+
+    @Test
+    fun `nur der Inhalt wandert in den Verlauf, nicht der Pausenzusatz`() {
+        val board = NowPlayingBoard()
+        val history = memoryHistory()
+        board.observe(listOf(seen("com.zdf", "Mumien", playing = false)))
+
+        // Ein anderer Inhalt ersetzt die Zeile — der alte wandert in den Verlauf,
+        // und zwar **ohne** „· pausiert".
+        assertTrue(board.observe(listOf(seen("com.zdf", "Frauen in der Armutsfalle")), history, 5L))
+        assertEquals(
+            listOf(HistoryEntry("com.zdf", "Mumien", 5L)),
+            history.current(),
+        )
+    }
+
+    @Test
+    fun `der Pausenzustand einer zweiten App aendert nichts am Verlauf`() {
+        // Nicht nur ZDF: dieselbe Regel für jede App, auch wenn mehrere Sessions
+        // gleichzeitig pausieren.
+        val board = NowPlayingBoard()
+        val history = memoryHistory()
+        board.observe(
+            listOf(
+                seen("com.netflix", "Eine Serie"),
+                seen("com.disney.disneyplus", "Vaiana"),
+            )
+        )
+
+        assertTrue(
+            board.observe(
+                listOf(
+                    seen("com.netflix", "Eine Serie", playing = false),
+                    seen("com.disney.disneyplus", "Vaiana", playing = false),
+                ),
+                history,
+                9L,
+            )
+        )
+        assertEquals(
+            listOf("com.netflix=Eine Serie · pausiert", "com.disney.disneyplus=Vaiana · pausiert"),
+            lines(board),
+        )
+        assertEquals(emptyList<HistoryEntry>(), history.current())
     }
 
     @Test
@@ -223,5 +297,82 @@ class NowPlayingBoardTest {
         board.observe(listOf(seen("com.spotify", "Ein neuer Titel")))
         board.observe(listOf(ended("com.spotify")))
         assertEquals(listOf("com.spotify=Ein neuer Titel"), lines(board))
+    }
+
+    // --- Verlauf ------------------------------------------------------------
+    //    Ein neuer Titel ersetzt die Zeile — der alte wandert in den Verlauf,
+    //    statt zu verschwinden.
+
+    private fun memoryHistory(): HistoryStore {
+        val dir = folder.root.resolve("history-${System.nanoTime()}")
+        dir.mkdirs()
+        return HistoryStore(
+            internalFile = java.io.File(dir, "history.conf"),
+            importFile = null,
+            elapsedRealtime = { 1_000L },
+        )
+    }
+
+    @Test
+    fun `ohne Verlauf wird die Zeile nur ersetzt`() {
+        val board = NowPlayingBoard()
+        board.observe(listOf(seen("com.zdf", "Tagesschau")))
+        assertTrue(board.observe(listOf(seen("com.zdf", "heute journal"))))
+        assertEquals(listOf("com.zdf=heute journal"), lines(board))
+    }
+
+    @Test
+    fun `ein neuer Titel schiebt den alten in den Verlauf`() {
+        val board = NowPlayingBoard()
+        val history = memoryHistory()
+        board.observe(listOf(seen("com.zdf", "Tagesschau")))
+
+        assertTrue(board.observe(listOf(seen("com.zdf", "heute journal")), history, 1730000000000L))
+        assertEquals(listOf("com.zdf=heute journal"), lines(board))
+        assertEquals(
+            listOf(HistoryEntry("com.zdf", "Tagesschau", 1730000000000L)),
+            history.current(),
+        )
+    }
+
+    @Test
+    fun `derselbe Titel schreibt keinen Verlauf`() {
+        // Der Takt läuft alle 5 Sekunden: ohne diese Zusage wüchse die Datei
+        // bei jedem Durchlauf um dieselbe Zeile.
+        val board = NowPlayingBoard()
+        val history = memoryHistory()
+        board.observe(listOf(seen("com.zdf", "Tagesschau")))
+        assertFalse(board.observe(listOf(seen("com.zdf", "Tagesschau")), history, 1730000000000L))
+        assertEquals(emptyList<HistoryEntry>(), history.current())
+    }
+
+    @Test
+    fun `eine Session ohne Titel schreibt keinen Verlauf`() {
+        val board = NowPlayingBoard()
+        val history = memoryHistory()
+        board.observe(listOf(seen("com.hbo", "Ein Film", artist = "HBO Max")))
+
+        assertFalse(board.observe(listOf(silent("com.hbo")), history, 1730000000000L))
+        assertEquals(listOf("com.hbo=HBO Max – Ein Film"), lines(board))
+        assertEquals(emptyList<HistoryEntry>(), history.current())
+    }
+
+    @Test
+    fun `drei Titel ergeben zwei Verlaufseintraege`() {
+        val board = NowPlayingBoard()
+        val history = memoryHistory()
+        board.observe(listOf(seen("com.zdf", "Eins")))
+        board.observe(listOf(seen("com.zdf", "Zwei")), history, 2L)
+        board.observe(listOf(seen("com.zdf", "Drei")), history, 3L)
+
+        assertEquals(listOf("com.zdf=Drei"), lines(board))
+        // Neueste zuerst: „Zwei“ steht über „Eins“.
+        assertEquals(
+            listOf(
+                HistoryEntry("com.zdf", "Zwei", 3L),
+                HistoryEntry("com.zdf", "Eins", 2L),
+            ),
+            history.latest(),
+        )
     }
 }

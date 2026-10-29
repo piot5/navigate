@@ -60,7 +60,7 @@ class ForegroundLogTest {
 
     // --- „aktiv?" (grüne Schrift im Raster) -------------------------------
     //    Die Frage selbst beantwortet die Nutzungsstatistik über Zeitstempel
-    //    (LastApp.recentlyUsed) — hier steht nur die Faltung für „welche App war
+    //    (LastApp.packageName) — hier steht nur die Faltung für „welche App war
     //    zuletzt vorne?".
 
     @Test

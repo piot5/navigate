@@ -41,6 +41,11 @@
          beginnt so tief, wie der Block hoch ist (LauncherActivity), plus dieser
          Abstand. -->
     <dimen name="now_playing_gap_bottom">8dp</dimen>
+    <!-- Höchstens so hoch wird der Now-Playing-Block (Live + Verlauf): danach
+         scrollt er in seiner ScrollView, statt das Raster endlos nach unten zu
+         schieben. ~5 Zeilen à 52 dp auf 1080p — zugeklappt bleibt das Raster
+         darunter bedienbar. -->
+    <dimen name="now_playing_max_height">260dp</dimen>
 
     <!-- Die Navigate-Einstellungen -->
     <dimen name="settings_padding_h">48dp</dimen>

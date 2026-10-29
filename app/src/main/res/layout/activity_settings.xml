@@ -43,14 +43,16 @@
         android:listSelector="@drawable/bg_item_selected"
         android:scrollbars="none" />
 
-    <!-- Nur sichtbar, wenn die Einstellung an ist und der Zugriff fehlt. -->
+    <!-- Nur sichtbar, wenn die Einstellung an ist und der Zugriff fehlt.
+         Farbe `text_dim` wie jeder Hinweis auf dieser Seite: die Zeile war bis
+         0.13 grün (`text_active`) — seit 0.14 gibt es keine grüne Schrift mehr. -->
     <TextView
         android:id="@+id/settings_warning"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:includeFontPadding="false"
         android:text="@string/settings_no_access"
-        android:textColor="@color/text_active"
+        android:textColor="@color/text_dim"
         android:textSize="@dimen/settings_hint_text_size"
         android:visibility="gone" />
 
@@ -76,4 +78,18 @@
         android:maxLines="1"
         android:textColor="@color/text_dim"
         android:textSize="@dimen/settings_path_text_size" />
+
+    <!-- Der Pfad der Hintergrund-Datei (0.14) — sichtbar nur, wenn ein Bild
+         gewählt ist, und dann mit der ehrlichen Antwort, ob die Datei da
+         ist. Nur `adb push` kann sie füllen. -->
+    <TextView
+        android:id="@+id/settings_background_path"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="middle"
+        android:includeFontPadding="false"
+        android:maxLines="2"
+        android:textColor="@color/text_dim"
+        android:textSize="@dimen/settings_path_text_size"
+        android:visibility="gone" />
 </LinearLayout>
