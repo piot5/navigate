@@ -8,6 +8,56 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 > Die Version wird in `app/build.gradle.kts` gepflegt (`versionCode`/`versionName`),
 > nicht hier.
 
+## 0.15.1
+
+### Behoben
+
+- **Der Now-Playing-Block wuchs mit dem Verlauf, bis die Apps aus dem Bild
+  waren.** Gemeldet als „die Steuerung per Pfeiltasten geht nicht mehr richtig,
+  weil Elemente nicht mehr im Bild sind" — und es waren zwei Ursachen am selben
+  Ort:
+
+  1. **`android:maxHeight` ist am `ScrollView` wirkungslos.** Die Plattform kennt
+     das Attribut nur für `ImageView`, `ExpandableListView` und das interne
+     `MaxHeightFrameLayout`; `<declare-styleable name="ScrollView">` enthält
+     ausschließlich `fillViewport`. aapt2 lässt es trotzdem durch — es *gibt* das
+     Attribut —, der ScrollView liest es nicht. Der Block wuchs also mit dem
+     Verlauf: 40 Einträge à 52 dp sind 2080 dp auf einem Bildschirm mit 540 dp.
+  2. **Die Höhe, die das Raster bekam, war die des Inhalts.** `NowPlayingPanel`
+     hing an der inneren Spalte (alle Zeilen) statt an der ScrollView (das, was zu
+     sehen ist). `grid.setPadding(top = …)` schob die App-Zeile damit unter den
+     Bildschirmrand.
+
+  Beides zusammen hieß: der Fokus landete auf Zeilen, die niemand sah — die
+  Steuerung war nicht kaputt, sie war unsichtbar.
+
+### Geändert
+
+- **Der Block ist ein begrenztes Fenster mit Scrollbar.** Höchstens
+  `now_playing_max_height` (260 dp) hoch, danach scrollt er **in sich**; die
+  Scrollbar steht **dauerhaft** und liegt innen (`insideInset`), damit sie keinen
+  Zeilentext überdeckt.
+- **`▲`/`▼` gehen zeilenweise durch den Block.** Die Taste setzt den Fokus auf
+  die nächste Zeile und scrollt sie **vorher** ins Fenster. Am Anfang und Ende der
+  Liste bleibt die Taste beim Framework — dort ist dessen Antwort richtig (`▼` auf
+  der letzten Zeile führt ins Raster, `▲` auf der ersten bleibt stehen).
+- **Abgeschnittene Zeilen sind keine Fokus-Kandidaten mehr.** Der Fokus-Sucher des
+  Frameworks kennt das Abschneiden einer ScrollView nicht: die Zeilen unterhalb
+  des Fensters liegen im Layout geometrisch dort, wo das Raster anfängt. Ein `▲`
+  aus dem Raster landete deshalb auf einer unsichtbaren Zeile.
+
+### Neu
+
+- `ui/PanelScrollView.kt` — die ScrollView des Blocks: Höhengrenze über ein
+  eigenes Attribut (`app:maxHeight`, deklariert in `res/values/attrs.xml`),
+  Scrollbar und die zeilenweise Pfeiltasten-Steuerung.
+- `ui/RowWindow.kt` — das sichtbare Fenster über den Zeilen als reine Rechnung
+  ohne Android-Typen, **9 neue Tests** (157 statt 148). Die Coverage sinkt
+  trotzdem leicht (25,7 % statt 26,0 %): die neue Ansichtsklasse steht im Nenner,
+  ist ohne Gerät aber nicht prüfbar (siehe
+  [docs/DEVICE_PERF.md](docs/DEVICE_PERF.md)).
+
+
 ## 0.15.0
 
 ### Neu

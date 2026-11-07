@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import com.piotv.navigate.R
 import com.piotv.navigate.data.AppEntry
@@ -44,6 +45,13 @@ import com.piotv.navigate.util.Background
  *    neueste-zuerst. Ältere Einträge werden beim Runterscrollen seitenweise
  *    ([HistoryStore.PAGE_SIZE]) nachgeladen — die Datei wird nie am Stück in
  *    Views verwandelt.
+ *  - **Ein Fenster, kein wachsender Block.** Der Block ist höchstens
+ *    `now_playing_max_height` hoch und scrollt danach in sich; die Scrollbar
+ *    steht dauerhaft, und ▲/▼ gehen zeilenweise durch den Block
+ *    ([PanelScrollView]). Das ist seit 0.15.1 auch **wirksam**: bis dahin stand
+ *    die Grenze als `android:maxHeight` an der ScrollView — ein Attribut, das es
+ *    dort nicht gibt. Der Verlauf wuchs deshalb, bis das Raster aus dem Bild war,
+ *    und die Pfeiltasten liefen ins Leere.
  *
  * Die Views werden je Zeile **einmal** gebaut und danach wiederverwendet
  * ([liveRows], [historyRows]) — dieselbe Idee wie `convertView` im Raster.
@@ -57,6 +65,17 @@ import com.piotv.navigate.util.Background
 class NowPlayingPanel(
     private val activity: Activity,
     private val container: LinearLayout,
+    /**
+     * Die ScrollView um [container] — die **sichtbare** Höhe des Blocks.
+     *
+     * Sie steht hier ausdrücklich und wird nicht über `container.parent`
+     * gesucht: an ihr hängen zwei Dinge, die man leicht verwechselt. Das Raster
+     * beginnt unter dem, was **zu sehen** ist, nicht unter dem, was der Block
+     * insgesamt enthält (mit 500 Verlaufseinträgen wäre das der ganze
+     * Bildschirm — genau der Fehler aus 0.15.0). Und sie begrenzt die Höhe
+     * (`app:maxHeight`, siehe [PanelScrollView]).
+     */
+    private val scroll: ScrollView,
     private val listener: Listener,
     private val source: NowPlaying,
     private val iconLoader: IconLoader,
@@ -88,7 +107,13 @@ class NowPlayingPanel(
         /** Der Block verschwindet, während er den Fokus hat. */
         fun onFocusLost()
 
-        /** So viel Höhe (px) braucht der Block; `0` heißt „er ist aus“. */
+        /**
+         * So viel Höhe (px) nimmt der Block **sichtbar** ein; `0` heißt „er ist
+         * aus“.
+         *
+         * Gemeint ist das Fenster (`NowPlayingPanel.scroll`), nicht der Inhalt:
+         * der Verlauf ist länger als das Fenster und wird gescrollt.
+         */
         fun onHeightChanged(heightPx: Int)
     }
 
@@ -118,7 +143,12 @@ class NowPlayingPanel(
         // Die Höhe des Blocks bestimmt, wo das Raster anfangen darf (siehe
         // LauncherActivity.onHeightChanged): zwei Now-Playing-Zeilen dürfen nicht
         // hinter der ersten App-Zeile liegen.
-        container.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+        //
+        // Gemessen wird die **ScrollView**, nicht ihr Inhalt: sie ist das
+        // Fenster. Der Inhalt ist beliebig lang (der Verlauf fasst 500 Einträge);
+        // würde seine Höhe ans Raster gemeldet, läge die erste App-Zeile hinter
+        // einem Bildschirm voller Verlauf.
+        scroll.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
             if (bottom - top != oldBottom - oldTop) reportHeight(bottom - top)
         }
     }
@@ -378,9 +408,8 @@ class NowPlayingPanel(
         // Verschwindet der Block, während er den Fokus hat, muss der Fokus
         // zurück ins Raster — sonst bedient die Fernbedienung ins Leere.
         if (!show && container.hasFocus()) listener.onFocusLost()
-        // Sichtbar wird die äußere ScrollView (activity_home.xml): der innere
-        // Container trägt die Zeilen, die ScrollView begrenzt die Höhe.
-        val scroll = (container.parent as? View) ?: container
+        // Sichtbar wird die ScrollView (activity_home.xml): der innere Container
+        // trägt die Zeilen, die ScrollView begrenzt die Höhe.
         scroll.visibility = if (show) View.VISIBLE else View.GONE
         if (!show) reportHeight(0)
     }

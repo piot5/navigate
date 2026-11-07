@@ -12,6 +12,11 @@
     <color name="item_idle_stroke">#33FFFFFF</color>
     <color name="icon_placeholder">#14FFFFFF</color>
 
+    <!-- Der Griff der Scrollbar im Now-Playing-Block (0.15.1): 40 % Weiß. Er
+         zeigt eine Position an und ist kein Bedienelement — sichtbar auf dem
+         dunklen Hintergrund, ohne mit der Fokus-Markierung zu konkurrieren. -->
+    <color name="scrollbar_thumb">#66FFFFFF</color>
+
     <!-- Die Abdunkelung über einem Bild-Hintergrund (0.14). Ohne sie
          konkurriert ein helles Foto mit den App-Beschriftungen — auf einem
          Fernseher aus drei Metern ist das der Unterschied zwischen „lesbar“ und

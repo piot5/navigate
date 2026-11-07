@@ -193,9 +193,14 @@ Was lief: ein Eintrag pro Zeile, `zeit|paket|zeile`, neueste zuletzt.
 - Gezeigt wird neueste oben: Live-Zeilen zuerst, darunter der Verlauf. Ältere
   Einträge werden beim Runterscrollen seitenweise (8) dynamisch nachgeladen —
   die Datei wird nie am Stück in Views verwandelt. Der Block ist höchstens
-  260 dp hoch (rund sechs Zeilen auf 1080p), danach scrollt er in sich; die
+  260 dp hoch (rund fünf Zeilen auf 1080p), danach scrollt er in sich; die
   Fernbedienung lädt die nächste Seite, wenn der Fokus auf der letzten
   sichtbaren Verlaufszeile steht.
+- **Die Scrollbar steht dauerhaft, und `▲`/`▼` gehen zeilenweise** (0.15.1):
+  jede Taste holt die nächste Zeile ins Bild, statt sie geometrisch zu erraten.
+  Am unteren Ende des Verlaufs führt `▼` zurück ins Raster. In 0.15.0 war die
+  Höhengrenze wirkungslos (`android:maxHeight` gibt es am `ScrollView` nicht) —
+  der Block wuchs mit dem Verlauf, bis die App-Zeile aus dem Bild war.
 - Höchstens 500 Einträge: ältere fallen beim Schreiben weg. Wer mehr will,
   zieht per `adb pull` — die Datei ist lesbar:
 

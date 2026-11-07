@@ -23,9 +23,9 @@ Rasters. Kein zweites Layout, kein zweites Fenster, keine Animation.
 ## Was seit 0.13 nicht mehr in der Activity steht
 
 Die Home-Seite war bis 0.12 **eine** Datei mit 769 Zeilen: Raster, Uhr, grüne
-Schrift, Now-Playing-Block und Kontextmenü in einer Klasse. Sie ist jetzt 596
-Zeilen — nicht, weil weniger Code da wäre, sondern weil drei Stücke einen eigenen
-Namen haben:
+Schrift, Now-Playing-Block und Kontextmenü in einer Klasse. Sie ist jetzt 695
+Zeilen (Stand 0.15.1) — nicht, weil weniger Code da wäre, sondern weil drei
+Stücke einen eigenen Namen haben:
 
 | Stück | Wo | Warum getrennt |
 |---|---|---|
@@ -250,7 +250,8 @@ Drei Entscheidungen, die daran hängen:
 - **Der Verlauf ist die vierte Antwort.** Live-Zeilen zuerst, darunter
   `history.conf` neueste-zuerst, höchstens 500 Einträge, seitenweise (8)
   nachgeladen beim Runterscrollen. Der Block ist höchstens 260 dp hoch, danach
-  scrollt er in sich — das Raster rutscht nicht endlos nach unten.
+  scrollt er in sich — das Raster rutscht nicht endlos nach unten. (In 0.15.0 war
+  diese Grenze **wirkungslos**; warum, steht im nächsten Abschnitt.)
 - **Der Preis, offen gesagt:** eine App, die ihre Session ohne `STOPPED` verliert,
   behält ihre Zeile bis zum Neustart des Launcher-Prozesses (auf 1,4 GB der
   Normalfall nach ein paar Stunden). Das ist die bewusste Entscheidung: eine Zeile,
@@ -262,14 +263,58 @@ NowPlayingBoard, [HistoryCodec](../app/src/main/java/com/piotv/navigate/data/His
 und [HistoryStore](../app/src/main/java/com/piotv/navigate/data/HistoryStore.kt)
 und kennen kein Android — dieselbe Trennung wie bei der
 Reihenfolge ([Order](../app/src/main/java/com/piotv/navigate/data/Order.kt)):
-geprüft wird die Regel (148 Tests, ohne Gerät), nicht die Eigenheit des Geräts.
+geprüft wird die Regel (157 Tests, ohne Gerät), nicht die Eigenheit des Geräts.
+
+## Das Fenster über den Zeilen — und warum die Pfeiltasten eine eigene Regel brauchen
+
+Der Block oben links ist der einzige Ort der Home-Seite, der **mehr Zeilen hat,
+als er zeigt**. Drei Dinge folgen daraus — und alle drei standen in 0.15.0 falsch:
+
+1. **`android:maxHeight` gibt es am `ScrollView` nicht.** Die Plattform kennt das
+   Attribut nur für `ImageView`, `ExpandableListView` und das interne
+   `MaxHeightFrameLayout`; `<declare-styleable name="ScrollView">` enthält
+   ausschließlich `fillViewport`. aapt2 prüft nur, ob es das Attribut **gibt** —
+   es wird still ignoriert, und der Block wuchs mit dem Verlauf: 40 Einträge à
+   52 dp sind 2080 dp auf einem Bildschirm mit 540 dp. [PanelScrollView](../app/src/main/java/com/piotv/navigate/ui/PanelScrollView.kt)
+   liest die Grenze deshalb als eigenes Attribut (`app:maxHeight`, deklariert in
+   `res/values/attrs.xml`) und wendet sie in `onMeasure` an.
+2. **Das Raster darf nicht die Höhe des Inhalts bekommen.** `grid_padding_top`
+   entsteht aus der Rückmeldung des Blocks (`NowPlayingPanel.Listener.onHeightChanged`).
+   Gemeldet wird die Höhe der **ScrollView** — das Fenster —, nicht die der inneren
+   Spalte mit allen Zeilen: sonst läge die App-Zeile hinter 500 Verlaufseinträgen
+   am unteren Bildrand.
+3. **Der Fokus-Sucher kennt das Abschneiden nicht.** `FocusFinder` arbeitet mit
+   den Layout-Rechtecken: die Zeilen unterhalb des Fensters liegen geometrisch
+   dort, wo das Raster anfängt. Ein `▲` aus dem Raster landete deshalb auf einer
+   Zeile, die niemand sieht — die Markierung war außerhalb des Bildes, und die
+   Steuerung fühlte sich kaputt an, ohne es zu sein.
+
+Was daraus folgt:
+
+- **Die Scrollbar steht dauerhaft** (`fadeScrollbars="false"`, eigener Griff,
+  `insideInset`). Sie ist hier kein Beiwerk, sondern die einzige Anzeige dafür,
+  dass der Verlauf weitergeht und wo man darin steht.
+- **`▲`/`▼` bewegen den Fokus zeilenweise** ([PanelScrollView](../app/src/main/java/com/piotv/navigate/ui/PanelScrollView.kt),
+  `dispatchKeyEvent`): die nächste Zeile im Baum, **vorher** ins Fenster
+  gescrollt. Am Anfang und Ende der Liste wird die Taste **nicht** verbraucht —
+  dort ist die Antwort des Frameworks richtig (`▼` auf der letzten Zeile führt
+  ins Raster, `▲` auf der ersten bleibt stehen).
+- **Abgeschnittene Zeilen sind keine Fokus-Kandidaten** (`addFocusables` fragt
+  `RowWindow.isVisible`). Der eigene Fokuswechsel ruft `requestFocus()` direkt
+  auf und erreicht sie weiterhin — sie sind dann ja schon hereingescrollt.
+- **Die Rechnung ist eine reine Regel.** [RowWindow](../app/src/main/java/com/piotv/navigate/ui/RowWindow.kt)
+  sagt, wann eine Zeile ganz sichtbar ist und wohin gescrollt werden muss —
+  dieselbe Rechnung wie `ScrollView.computeScrollDeltaToGetChildRectOnScreen`,
+  aber ohne Android-Typen und damit ohne Gerät prüfbar (`RowWindowTest`, neun
+  Tests).
+
 
 ## Was ohne Gerät prüfbar ist (und was nicht)
 
 | | Beispiele | Prüfbar |
 |---|---|---|
-| **reine Regeln**, kein Android-Typ | `AppCatalog`, `Order`, `OrderCodec`, `OrderStore` (Datei-Semantik), `NowPlayingBoard`, `NowPlayingText`, `HistoryCodec`, `HistoryStore` (Datei-Semantik), `BackgroundPlan`, `SettingsCodec`, `GridColumns`, `IconGeometry`, `IconCacheKeys` | Unit-Test ohne Gerät — 148 Tests; die ohne Gerät prüfbaren Klassen liegen bei 100 % Zeilen-Coverage. Die Zahl selbst ist keine Prosa: `tools/check_docs_drift.sh` vergleicht sie mit dem gebauten Testset |
-| **Android-Verdrahtung** | `LauncherActivity` (inkl. Hintergrund-Ebenen), `NowPlayingPanel`, `AppMenu`, `Ticker`, `AppAdapter`, `HomeGridView`, `IconLoader`, `IconDiskCache`, `AppRepository`, `NowPlaying` | nur auf einem Gerät; hier zählt die Messung ([DEVICE_PERF.md](DEVICE_PERF.md)) |
+| **reine Regeln**, kein Android-Typ | `AppCatalog`, `Order`, `OrderCodec`, `OrderStore` (Datei-Semantik), `NowPlayingBoard`, `NowPlayingText`, `HistoryCodec`, `HistoryStore` (Datei-Semantik), `BackgroundPlan`, `SettingsCodec`, `GridColumns`, `IconGeometry`, `IconCacheKeys`, `RowWindow` | Unit-Test ohne Gerät — 157 Tests; die ohne Gerät prüfbaren Klassen liegen bei 100 % Zeilen-Coverage. Die Zahl selbst ist keine Prosa: `tools/check_docs_drift.sh` vergleicht sie mit dem gebauten Testset |
+| **Android-Verdrahtung** | `LauncherActivity` (inkl. Hintergrund-Ebenen), `NowPlayingPanel`, `PanelScrollView`, `AppMenu`, `Ticker`, `AppAdapter`, `HomeGridView`, `IconLoader`, `IconDiskCache`, `AppRepository`, `NowPlaying` | nur auf einem Gerät; hier zählt die Messung ([DEVICE_PERF.md](DEVICE_PERF.md)) |
 
 Der Grund ist die Fehlerhistorie: die teuersten Fehler dieses Projekts waren
 **Regeln**, keine Android-Eigenheiten. Solche Regeln stehen deshalb in einem

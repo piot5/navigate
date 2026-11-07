@@ -31,6 +31,7 @@ import com.piotv.navigate.ui.AppMenu
 import com.piotv.navigate.ui.GridColumns
 import com.piotv.navigate.ui.IconLoader
 import com.piotv.navigate.ui.NowPlayingPanel
+import com.piotv.navigate.ui.PanelScrollView
 import com.piotv.navigate.ui.SettingsActivity
 import com.piotv.navigate.ui.Ticker
 import com.piotv.navigate.util.Background
@@ -49,6 +50,12 @@ import kotlin.math.max
  * Einstellbar ist die Reihenfolge der Apps ([OrderStore], per langem Drücken oder
  * per `adb push`) und ob das Now-Playing-Feld erscheint ([SettingsStore], langes
  * OK auf „…“ öffnet die Einstellungen).
+ *
+ * Der Now-Playing-Block ist seit 0.15.1 ein **begrenztes Fenster**: er wird
+ * höchstens `now_playing_max_height` hoch und scrollt danach in sich, mit
+ * dauerhaft sichtbarer Scrollbar ([PanelScrollView]). Das Raster beginnt unter
+ * der Höhe, die der Block **sichtbar** einnimmt ([onHeightChanged]) — sonst
+ * schöbe der Verlauf die App-Zeile aus dem Bild.
  *
  * ## Was hier steht — und was seit 0.13 ausgelagert ist
  *
@@ -158,6 +165,7 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
         nowPlayingPanel = NowPlayingPanel(
             activity = this,
             container = findViewById(R.id.now_playing),
+            scroll = findViewById(R.id.now_playing_scroll),
             listener = this,
             source = NowPlaying(this),
             iconLoader = iconLoader,

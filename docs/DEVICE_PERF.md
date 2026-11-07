@@ -14,6 +14,50 @@ auf dem Zielgerät gemessen, nicht geschätzt.
 | RAM | 1.439.332 kB total, ~200 MB verfügbar im Betrieb |
 | Heap-Limit | 256 MB |
 
+## 0.15.1 (Now-Playing-Block: Fenster statt wachsender Block)
+
+| | 0.15.0 | 0.15.1 |
+|---|---|---|
+| Release-APK (signiert) | 82.329 B | **84.196 B** |
+| Release-APK (unsigniert) | 69.960 B | **75.764 B** |
+| `classes.dex` | 84.068 B | **85.920 B** |
+| Dateien im APK | 32 | **33** |
+| Unit-Tests | 148 | **157** |
+| Coverage (Zeilen / Zweige) | 26,0 % / 36,5 % | **25,7 % / 35,7 %** |
+
+Zwei Fehler, die zusammen dafür sorgten, dass die Pfeiltasten ins Leere liefen,
+sobald der Verlauf wuchs (auf dem Zielgerät gemeldet):
+
+1. **`android:maxHeight` ist am `ScrollView` wirkungslos.** Die Plattform kennt
+   das Attribut nur für `ImageView`, `ExpandableListView` und das interne
+   `MaxHeightFrameLayout`; `<declare-styleable name="ScrollView">` enthält
+   ausschließlich `fillViewport`. aapt2 lässt es trotzdem durch — es *gibt* das
+   Attribut —, der ScrollView liest es nicht. Die Ansicht wuchs deshalb mit dem
+   Verlauf: bei 40 Einträgen à 52 dp war der Block 2080 dp hoch, der Bildschirm
+   hat 540 dp.
+2. **Das Raster bekam die Höhe des Inhalts gemeldet, nicht die des Fensters.**
+   `NowPlayingPanel` hing an `container` (alle Zeilen) statt an der ScrollView
+   (das, was zu sehen ist). `grid.setPadding(top = …)` schob damit die App-Zeile
+   unter den Bildschirmrand — die Steuerung war intakt, aber unsichtbar.
+
+Die Änderung: `ui/PanelScrollView.kt` (Höhengrenze über ein eigenes Attribut
+`app:maxHeight` in `res/values/attrs.xml`), dauerhaft sichtbare Scrollbar
+(`scrollbar_thumb`, `insideInset`), und die Pfeiltasten gehen **zeilenweise**
+durch den Block — `▲`/`▼` setzen den Fokus auf die nächste Zeile und scrollen sie
+vorher ins Fenster, abgeschnittene Zeilen sind keine Fokus-Kandidaten mehr
+(`addFocusables`). Die Rechnung steht als reine Regel in `ui/RowWindow.kt`.
+
+Die APK wächst um ~1,9 KB, das Dex um ~1,8 KB: die neue Ansichtsklasse, das
+Attribut und die Scrollbar-Ressourcen. Die Coverage sinkt leicht und **nur**, weil
+der Nenner wächst: `PanelScrollView` steht mit 48 Zeilen darin, die ohne Gerät
+nicht laufen können (wie `NowPlayingPanel`, `HomeGridView`, `AppAdapter` — sie
+brauchen eine Oberfläche, nicht ein Coverage-Werkzeug). `RowWindow` ist mit 11
+Zeilen vollständig abgedeckt.
+
+**Nicht neu gemessen** (unverändert übernommen, siehe unten): Startzeit und
+Speicher. Die Änderung berührt den HOME-Pfad nicht — sie begrenzt eine Ansicht
+und beantwortet zwei Tastendrücke.
+
 ## 0.15.0 (Now-Playing-Verlauf)
 
 | | 0.14.1 | 0.15.0 |
@@ -30,6 +74,11 @@ kostet ~3,8 KB APK und ~7,5 KB Dex: drei neue Dateien (`HistoryEntry`,
 Verlauf-Rendering im Panel plus ScrollView im Layout. Die Coverage steigt,
 weil die neuen Regeln vollständig getestet sind (18 neue Tests) — der Nenner
 wächst um getestete Zeilen.
+
+> Die ScrollView aus 0.15.0 war dabei **wirkungslos begrenzt**: ihr
+> `android:maxHeight` wurde ignoriert (siehe 0.15.1). Der Verlauf stand damit
+> schon in 0.15.0 über den ganzen Bildschirm, sobald genug Titel durchgelaufen
+> waren.
 
 **Nicht neu gemessen** (unverändert übernommen, siehe unten): Startzeit und
 Speicher. Der Verlauf wird im Hintergrund-Thread geschrieben und seitenweise
@@ -495,15 +544,15 @@ byte-gleich (`release_dex_bytes`), weil die Signatur nur Einträge in `META-INF`
 hinzufügt.
 
 ```
-release_apk_bytes=82329
-apk_files=32
-release_apk_unsigned_bytes=69960
-apk_unsigned_files=29
-release_dex_bytes=84068
+release_apk_bytes=84196
+apk_files=33
+release_apk_unsigned_bytes=75764
+apk_unsigned_files=30
+release_dex_bytes=85920
 release_dex_files=1
-unit_tests=148
-coverage_lines_percent=26,0
-coverage_branches_percent=36,5
+unit_tests=157
+coverage_lines_percent=25,7
+coverage_branches_percent=35,7
 ```
 
 Warum die APK-Größe reproduzierbar ist: die VCS-Info-Datei

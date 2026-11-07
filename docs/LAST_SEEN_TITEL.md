@@ -77,7 +77,11 @@ Favorit" ohne neue Datenquelle erfüllt, und sie kostet nur eine Zeile in
 5. **Platz.** Der Block meldet seine Höhe, das Raster rutscht nach unten
    (`grid_padding_top`). Zugeklappt ist auf dem Chromecast HD (1080p) Platz für
    ~4 Zeilen à 52 dp; ab drei Now-Playing-Zeilen plus Titelzeilen wird es eng, dann
-   muss die Titelzeile weichen (z. B. nur die erste Zeile bekommt sie).
+   muss die Titelzeile weichen (z. B. nur die erste Zeile bekommt sie). **Seit
+   0.15.1 ist der Block auf 260 dp begrenzt (≈5 Zeilen) und scrollt danach in
+   sich** — gemeldet wird dem Raster nur die *sichtbare* Höhe. Eine zusätzliche
+   Titelzeile kostet damit keine App-Zeile mehr, sie schiebt nur den Verlauf
+   weiter nach unten.
 
 ## 5. Was für die Umsetzung konkret zu tun wäre
 

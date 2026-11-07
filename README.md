@@ -18,8 +18,8 @@ und **was hinter dem Raster liegt** (einfarbig oder Bild).
 
 | | |
 |---|---|
-| **Release-APK** | 80 KB / 82.329 B signiert · davon 82 KB / 84.068 B `classes.dex` — eine einzige Dex-Datei |
-| **Unit-Tests** | 148, ohne Gerät lauffähig · Coverage-Gate 18 % Zeilen / 25 % Zweige (gemessen 26,0 % / 36,5 %) |
+| **Release-APK** | 82 KB / 84.196 B signiert · davon 84 KB / 85.920 B `classes.dex` — eine einzige Dex-Datei |
+| **Unit-Tests** | 157, ohne Gerät lauffähig · Coverage-Gate 18 % Zeilen / 25 % Zweige (gemessen 25,7 % / 35,7 %) |
 | **Abhängigkeiten zur Laufzeit** | keine — nur Android-Framework + Kotlin-Stdlib |
 | **Berechtigungen** | `QUERY_ALL_PACKAGES` (ohne sie wären leanback-only Apps unsichtbar); `PACKAGE_USAGE_STATS` optional, nur für „zurück in die letzte App“; dazu optional der **Benachrichtigungszugriff** für „Now Playing“ (keine Manifest-Berechtigung, sondern eine Freigabe per adb — siehe unten) |
 | **Startzeit / Speicher** | 128 ms / ~56 MB PSS — gemessen mit 0.1, für 0.15 **nicht** neu gemessen ([docs/DEVICE_PERF.md](docs/DEVICE_PERF.md)) |
@@ -51,6 +51,11 @@ und **was hinter dem Raster liegt** (einfarbig oder Bild).
   mitliefert (sonst das App-Symbol). Läuft ein Hörbuch pausiert und daneben ein
   Radiosender, stehen beide Zeilen da; was **spielt**, steht oben. Sichtbar nur im
   zugeklappten Zustand — aufgeklappt gehört der Platz den Apps.
+  **Der Block ist ein begrenztes Fenster (0.15.1):** er wird höchstens 260 dp hoch
+  und scrollt danach in sich, mit **dauerhaft sichtbarer Scrollbar**; `▲`/`▼`
+  gehen **zeilenweise** durch den Block und holen jede Zeile ins Bild, `OK`
+  öffnet sie. Am unteren Ende führt `▼` zurück ins Raster. Vorher wuchs der Block
+  mit dem Verlauf, bis die App-Zeile nicht mehr zu sehen war.
   **OK auf einer Zeile holt genau diese App zurück** (erst ihr „Jetzt läuft“-Bildschirm,
   sonst die App selbst). Eingeschaltet wird es in den Einstellungen; ohne
   **Benachrichtigungszugriff** bleibt es leer (eine normale App darf die
@@ -127,7 +132,7 @@ Voraussetzungen: JDK 17, Android SDK mit Plattform 36 und Build-Tools
 Vier Prüfungen, alle auch in der CI (`.github/workflows/ci.yml`):
 
 ```bash
-sh gradlew :app:testDebugUnitTest              # 148 Unit-Tests (ohne Gerät)
+sh gradlew :app:testDebugUnitTest              # 157 Unit-Tests (ohne Gerät)
 sh gradlew :app:unitTestCoverageVerification   # Coverage-Gate (Bericht: unitTestCoverageReport)
 sh gradlew :app:lintDebug                      # Lint — Warnungen sind Fehler
 bash tools/check_docs_drift.sh                 # Messwerte der Doku ↔ gebautes APK
@@ -139,14 +144,15 @@ Testbericht, Coverage-Bericht, Lint-Bericht und APK als Artefakte ab. Ein Tag
 ein GitHub-Release mit dem APK — signiert, wenn das Secret
 `NAVIGATE_KEYSTORE_BASE64` gesetzt ist.
 
-Die 148 Tests laufen **ohne Gerät**: App-Auswahl (`AppCatalog`), die
+Die 157 Tests laufen **ohne Gerät**: App-Auswahl (`AppCatalog`), die
 Anzeige-Reihenfolge (`Order`), die Konfigurationsdateien (`OrderCodec`,
 `OrderStore`, `SettingsCodec`, `SettingsStore`, `ConfigFile`), die
 Now-Playing-Zeilen (`NowPlayingText`, `NowPlayingBoard`), der Verlauf
 (`HistoryCodec`, `HistoryStore`), die Hintergrund-Regel
-(`BackgroundPlan`), Raster-Spalten, Symbol-Einpassung, Cache-Schlüssel. Diese
+(`BackgroundPlan`), Raster-Spalten, Symbol-Einpassung, Cache-Schlüssel, das
+sichtbare Fenster über den Now-Playing-Zeilen (`RowWindow`). Diese
 Klassen liegen bei 100 % Zeilen-Coverage; die Gesamtquote
-(26,0 % Zeilen / 36,5 % Zweige) enthält auch die Android-Klassen und steht mit
+(25,7 % Zeilen / 35,7 % Zweige) enthält auch die Android-Klassen und steht mit
 Begründung in [docs/DEVICE_PERF.md](docs/DEVICE_PERF.md).
 
 ## Installieren und als Home-App einrichten
@@ -263,6 +269,8 @@ app/src/main/java/com/piotv/navigate/
   ui/IconDiskCache.kt        WebP-Symbole im internen Speicher (+ Schlüssel, getestet)
   ui/SettingsActivity.kt     die Einstellungsseite (langes OK auf „…“)
   ui/NowPlayingPanel.kt      die Zeilen oben links: Live + Verlauf, takten, nachladen
+  ui/PanelScrollView.kt      ScrollView des Blocks: Höhengrenze, Scrollbar, ▲/▼ zeilenweise
+  ui/RowWindow.kt            das sichtbare Fenster über den Zeilen (getestet)
   ui/AppMenu.kt              das Kontextmenü (langes OK auf einer App)
   ui/Ticker.kt               ein Takt auf dem Main-Thread (Uhr · grün · Now Playing)
 tools/make_assets.py         Icon-Vektoren + TV-Banner generieren

@@ -44,8 +44,18 @@
     <!-- Höchstens so hoch wird der Now-Playing-Block (Live + Verlauf): danach
          scrollt er in seiner ScrollView, statt das Raster endlos nach unten zu
          schieben. ~5 Zeilen à 52 dp auf 1080p — zugeklappt bleibt das Raster
-         darunter bedienbar. -->
+         darunter bedienbar.
+
+         **Wirksam seit 0.15.1.** Bis dahin stand der Wert als `android:maxHeight`
+         an der ScrollView — ein Attribut, das es dort nicht gibt (die Plattform
+         kennt es nur für ImageView, ExpandableListView und MaxHeightFrameLayout).
+         aapt2 ließ es durch, weil es das Attribut gibt; der ScrollView war es
+         egal. Jetzt liest PanelScrollView den Wert als `app:maxHeight`. -->
     <dimen name="now_playing_max_height">260dp</dimen>
+    <!-- Der Griff der Scrollbar im Block: so breit, dass er aus drei Metern als
+         Position zu erkennen ist, und abgerundet wie die übrigen Flächen. -->
+    <dimen name="now_playing_scrollbar_size">6dp</dimen>
+    <dimen name="now_playing_scrollbar_radius">3dp</dimen>
 
     <!-- Die Navigate-Einstellungen -->
     <dimen name="settings_padding_h">48dp</dimen>

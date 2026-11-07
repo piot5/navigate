@@ -15,7 +15,8 @@
      Inhalts-Container der Activity. Der Hintergrund steht im Theme
      (`Theme.Navigate → android:windowBackground`) — ihn zusätzlich hier zu
      malen wäre Overdraw. -->
-<merge xmlns:android="http://schemas.android.com/apk/res/android">
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <!-- Der Hintergrund (0.14) — zwei Möglichkeiten, siehe data/Background.kt.
          Die View liegt **hinter** dem Raster: Kinder eines `<merge>` landen in
@@ -121,9 +122,14 @@
          (item_now_playing.xml). Ein eigener Block war es bis 0.12 — damals gab
          es genau eine Zeile, und die konnte im Layout stehen.
 
-         Der Verlauf wächst dynamisch: die äußere ScrollView nimmt höchstens
-         `now_playing_max_height` ein, danach scrollt der Block — das Raster
-         rutscht nicht endlos nach unten.
+         Der Verlauf wächst dynamisch: die ScrollView (`PanelScrollView`) nimmt
+         höchstens `now_playing_max_height` ein, danach scrollt der Block — das
+         Raster rutscht nicht endlos nach unten. **Das gilt erst seit 0.15.1:**
+         bis dahin stand der Wert als `android:maxHeight` an der ScrollView, und
+         dieses Attribut gibt es dort nicht — die Ansicht wuchs mit dem Verlauf,
+         bis das Raster aus dem Bild war. Der Wert kommt jetzt als `app:maxHeight`
+         aus dem eigenen Namensraum (`res/values/attrs.xml`), und die Scrollbar
+         steht dauerhaft, damit sichtbar ist, dass es weitergeht.
 
          Die Uhr wird im Minutentakt aktualisiert (ein Sekundentakt wäre ein Timer
          pro Sekunde — auf dem Chromecast messbar, ohne Mehrwert). -->
@@ -138,22 +144,38 @@
         android:paddingTop="@dimen/top_row_padding_top"
         android:paddingEnd="@dimen/clock_margin">
 
-        <ScrollView
+        <!-- PanelScrollView statt ScrollView: die Höhengrenze (app:maxHeight),
+             die das Framework am ScrollView nicht kennt, und die zeilenweise
+             Pfeiltasten-Steuerung stehen in ui/PanelScrollView.kt.
+
+             focusable="false": nicht die Fläche soll den Fokus bekommen, sondern
+             eine Zeile. Sonst gäbe es beim ▲ aus dem Raster einen Fokus ohne
+             Markierung.
+
+             Die Scrollbar steht dauerhaft (fadeScrollbars="false") und liegt
+             innen (scrollbarStyle="insideInset"), damit sie den Zeilentext nicht
+             überdeckt. -->
+        <com.piotv.navigate.ui.PanelScrollView
             android:id="@+id/now_playing_scroll"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginEnd="@dimen/now_playing_end_margin"
             android:layout_weight="1"
-            android:maxHeight="@dimen/now_playing_max_height"
-            android:scrollbars="none"
-            android:visibility="gone">
+            android:fadeScrollbars="false"
+            android:focusable="false"
+            android:scrollbarSize="@dimen/now_playing_scrollbar_size"
+            android:scrollbarStyle="insideInset"
+            android:scrollbarThumbVertical="@drawable/scrollbar_thumb"
+            android:scrollbars="vertical"
+            android:visibility="gone"
+            app:maxHeight="@dimen/now_playing_max_height">
 
             <LinearLayout
                 android:id="@+id/now_playing"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
-        </ScrollView>
+        </com.piotv.navigate.ui.PanelScrollView>
 
         <TextView
             android:id="@+id/clock"
