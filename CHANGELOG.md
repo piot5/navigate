@@ -657,7 +657,7 @@ memory values still come from 0.1.
   marker was at `Long.MIN_VALUE`; `now - Long.MIN_VALUE` overflows and goes
   negative, so the "within the interval" condition was **always** true —
   the import path was never reached. Found by the test rewritten in 0.4
-  (`FavoritesConfigTest.eine neuere Import-Datei wird uebernommen`), i.e.
+  (today `OrderStoreTest.a newer import file is adopted`), i.e.
   exactly the check that didn't exist before. Only the path described in
   docs/CONFIG.md was affected; the internal file and the Navigate settings
   were never affected.

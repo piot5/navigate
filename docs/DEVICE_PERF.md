@@ -199,6 +199,49 @@ occupies a hardware decoder on this device for as long as the home screen is
 visible. The default is therefore `dark`, and leaving the home screen pauses
 it (`onPause`).
 
+## 0.13.3 (the entry stays put)
+
+| | 0.13.0 | 0.13.3 |
+|---|---|---|
+| Release APK | 76,187 B | **76,481 B** |
+| `classes.dex` | 73,112 B | **73,652 B** |
+| Files in the APK | 32 | **32** |
+| Unit tests | 108 | **111** |
+| Coverage (lines / branches) | 20.8 % / 28.9 % | **21.2 % / 29.3 %** |
+
+Fixed: **the Now Playing entry vanished after a few seconds** although the
+app kept running (seen and reported on the target device: "the entry of e.g.
+right now hbo is gone after a few sec"). The cause was a rule that treated
+**three different things alike**: "title present", "session present but
+without a title" (loading screen, ads) and "no session" (app in background,
+title change) were all read as "nothing to show" and deleted the row.
+
+Measured on the target device (2026-10-17), as proof of the third case:
+
+```
+--- t=1 ---  package=com.wbd.stream  state=PLAYING(3)  metadata: Return to Silent Hill
+--- t=6 ---  (no more entry for com.wbd.stream)
+```
+
+The WOW session was **completely gone** after the film — without ever
+reporting `STOPPED`. Whoever reads that as "the app is gone" deletes a row
+the user is just reading.
+
+Since 0.13.3 this holds ([NowPlayingBoard](../app/src/main/java/com/piotv/navigate/data/NowPlayingBoard.kt)):
+
+| What the query says | What happens |
+|---|---|
+| A title (playing or paused) | Create the row, or rewrite it only on **changed text** |
+| Session present, but **without a title** | The row stays as it is |
+| **No** session | The row stays |
+| Session reports **ended** (`STOPPED`/`ERROR`) | The row disappears after two queries (10 s) |
+| Query **failed** (`null`) | nothing changes |
+
+The price, openly stated: an app that loses its session without `STOPPED`
+keeps its row until the launcher process restarts (on 1.4 GB, the normal
+case after a few hours). This is the deliberate choice — a row you are
+reading must not vanish while you read it.
+
 ## 0.13 (one Now Playing line per app, extracted components)
 
 | | 0.12 | 0.13 |
