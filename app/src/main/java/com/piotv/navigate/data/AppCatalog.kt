@@ -1,27 +1,26 @@
 package com.piotv.navigate.data
 
 /**
- * Auswahl und Reihenfolge der App-Liste — reine Regeln, keine Android-Typen,
- * deshalb ohne Gerät prüfbar (AppCatalogTest).
+ * Selection and order of the app list — pure rules, no Android types, so
+ * testable without a device (AppCatalogTest).
  *
- * Warum das herausgezogen wurde: die Regeln hier sind die Ursache des Fehlers,
- * der auf dem Zielgerät am meisten gekostet hat — Prime Video, WOW und ARD
- * fehlten im Raster, weil sie **nur** `CATEGORY_LEANBACK_LAUNCHER` tragen.
- * Vorher standen sie zwischen PackageManager-Aufrufen in [AppRepository] und
- * waren damit ungetestet.
+ * Why this was pulled out: these rules caused the bug that cost the most on
+ * the target device — Prime Video, WOW and ARD were missing from the grid
+ * because they carry **only** `CATEGORY_LEANBACK_LAUNCHER`. They used to sit
+ * between PackageManager calls in [AppRepository] and were thus untested.
  *
- * Die Reihenfolge der Eingabe ist Teil der Regel: wer zuerst kommt, gewinnt.
- * [AppRepository] sammelt deshalb erst `LAUNCHER`, dann `LEANBACK_LAUNCHER` —
- * Apps mit beiden Kategorien landen so über ihren LAUNCHER-Eintrag, denselben,
- * den der Hersteller-Launcher benutzt.
+ * The order of the input is part of the rule: first come, first served.
+ * [AppRepository] therefore collects `LAUNCHER` first, then
+ * `LEANBACK_LAUNCHER` — apps with both categories land via their LAUNCHER
+ * entry, the same one the vendor launcher uses.
  */
 object AppCatalog {
 
-    /** Der Debug-Build läuft neben dem Release-Build und ist für sich selbst
-     *  keine startbare App — beide Varianten fallen aus dem eigenen Raster. */
+    /** The debug build runs alongside the release build and is not itself a
+     *  launchable app — both variants drop out of our own grid. */
     const val DEBUG_SUFFIX = ".debug"
 
-    /** Ein Kandidat, wie ihn eine PackageManager-Abfrage liefert. */
+    /** A candidate as returned by a PackageManager query. */
     data class Candidate(
         val packageName: String,
         val activityName: String,
@@ -30,14 +29,14 @@ object AppCatalog {
     )
 
     /**
-     * Wendet die Regeln an und sortiert:
+     * Applies the rules and sorts:
      *
-     *  1. deaktivierte Apps fallen weg (sie ließen sich nicht starten),
-     *  2. der eigene Launcher fällt weg — Release **und** Debug-Variante,
-     *  3. je Paket gewinnt der **erste** Kandidat (siehe Klassenkommentar),
-     *  4. eine leere Beschriftung wird durch den Paketnamen ersetzt,
-     *  5. sortiert wird über [labelOrder] (im Produktivpfad ein `Collator`,
-     *     also sprachabhängig — im Test ein fester Vergleicher).
+     *  1. disabled apps drop out (they could not be started),
+     *  2. our own launcher drops out — release **and** debug variant,
+     *  3. per package the **first** candidate wins (see class comment),
+     *  4. an empty label is replaced by the package name,
+     *  5. sorting uses [labelOrder] (a `Collator` in production, i.e.
+     *     language-aware — a fixed comparator in tests).
      */
     fun select(
         candidates: List<Candidate>,

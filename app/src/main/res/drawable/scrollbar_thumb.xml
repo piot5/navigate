@@ -1,15 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Der Griff der Scrollbar im Now-Playing-Block (seit 0.15.1).
+<!-- The scrollbar thumb in the Now Playing block (since 0.15.1).
 
-     Die Scrollbar ist hier **kein Beiwerk**: der Block oben links ist die einzige
-     Fläche der Home-Seite, die mehr Zeilen hat, als sie zeigt. Ohne den Griff
-     sieht man nicht, dass der Verlauf weitergeht und wo man darin steht.
+     The scrollbar here is **not a garnish**: the block at the top left is the
+     only area of the home screen that has more rows than it shows. Without the
+     thumb you cannot see that the history continues and where you are in it.
 
-     Deshalb ist er dauerhaft zu sehen (`fadeScrollbars="false"` in
-     activity_home.xml) — und deshalb ist er zurückhaltend: er zeigt eine
-     Position an, er ist kein Bedienelement. 40 % Weiß reicht auf dem dunklen
-     Hintergrund, ohne mit der Fokus-Markierung (item_focus_stroke) zu
-     konkurrieren. -->
+     That is why it is always visible (`fadeScrollbars="false"` in
+     activity_home.xml) — and why it is restrained: it shows a
+     position, it is not a control. 40% white is enough on the dark
+     background, without competing with the focus marker (item_focus_stroke). -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="@color/scrollbar_thumb" />

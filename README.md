@@ -1,170 +1,185 @@
 # Navigate
 
-Ein Android-TV-Launcher in Kotlin. Ziel: **minimale Oberfläche, maximale
-Performance** — entwickelt und gemessen auf einem **Chromecast HD (Google TV)**.
+An Android TV launcher in Kotlin. Goal: **minimal UI, maximum
+performance** — developed and measured on a **Chromecast HD (Google TV)**.
 
 ```
-HOME-Taste drücken
-   →  unten eine Zeile mit den ersten Apps
-   →  darunter der „…“-Knopf  →  OK: ganzes Raster auf-/zuklappen
+Press HOME
+   →  a row with the first apps at the bottom
+   →  below it the "…" button  →  OK: expand/collapse the whole grid
 ```
 
-Mehr tut dieser Launcher nicht. Die Home-Seite ist ein App-Raster, von dem
-zunächst **nur die untere Zeile** sichtbar ist; darunter, in der Zeile darunter,
-sitzt der „…“-Knopf und klappt den Rest auf. Oben stehen die Uhr rechts und —
-wenn eingeschaltet — „Now Playing“ links. Einzustellen gibt es drei Sachen:
-**die Reihenfolge der Apps**, **ob das Now-Playing-Feld und die Uhr erscheinen**
-und **was hinter dem Raster liegt** (einfarbig oder Bild).
+That is all this launcher does. The home screen is an app grid of which
+initially **only the bottom row** is visible; below it, in the next row down,
+sits the "…" button and expands the rest. At the top are the clock on the
+right and — if enabled — "Now Playing" on the left. Three things can be
+configured: **the app order**, **whether the Now Playing panel and the clock
+appear**, and **what sits behind the grid** (solid color or image).
 
 | | |
 |---|---|
-| **Release-APK** | 82 KB / 84.196 B signiert · davon 84 KB / 85.920 B `classes.dex` — eine einzige Dex-Datei |
-| **Unit-Tests** | 157, ohne Gerät lauffähig · Coverage-Gate 18 % Zeilen / 25 % Zweige (gemessen 25,7 % / 35,7 %) |
-| **Abhängigkeiten zur Laufzeit** | keine — nur Android-Framework + Kotlin-Stdlib |
-| **Berechtigungen** | `QUERY_ALL_PACKAGES` (ohne sie wären leanback-only Apps unsichtbar); `PACKAGE_USAGE_STATS` optional, nur für „zurück in die letzte App“; dazu optional der **Benachrichtigungszugriff** für „Now Playing“ (keine Manifest-Berechtigung, sondern eine Freigabe per adb — siehe unten) |
-| **Startzeit / Speicher** | 128 ms / ~56 MB PSS — gemessen mit 0.1, für 0.15 **nicht** neu gemessen ([docs/DEVICE_PERF.md](docs/DEVICE_PERF.md)) |
+| **Release APK** | 84 KB / 85,836 B signed · of that 87 KB / 89,096 B `classes.dex` — a single dex file |
+| **Unit tests** | 164 unit tests, runnable without a device · coverage gate 18 % lines / 25 % branches (measured 24.8 % / 34.6 %) |
+| **Runtime dependencies** | none — only the Android framework + Kotlin stdlib |
+| **Permissions** | `QUERY_ALL_PACKAGES` (without it, leanback-only apps would be invisible); `PACKAGE_USAGE_STATS` optional, only for "back to the last app"; plus optional **notification access** for "Now Playing" (not a manifest permission but a grant via adb — see below) |
+| **Start time / memory** | 128 ms / ~56 MB PSS — measured with 0.1, **not** re-measured for 0.15 ([docs/DEVICE_PERF.md](docs/DEVICE_PERF.md)) |
 
-> APK-Größe, Dex-Größe, Testzahl **und** die Coverage-Zahlen werden von
-> [`tools/check_docs_drift.sh`](tools/check_docs_drift.sh) gegen das gebaute APK
-> bzw. den JaCoCo-Bericht geprüft — sie können deshalb nicht still veralten. Das
-> Skript prüft außerdem, dass in README und Architektur **keine andere Testzahl**
-> steht als im gebauten Testset. Startzeit und Speicher sind bewusst als **alte**
-> Messwerte gekennzeichnet: sie stammen aus der Fassung mit der unteren Zeile, die
-> es seit 0.7 nicht mehr gibt.
+> APK size, dex size, test count **and** the coverage numbers are checked by
+> [`tools/check_docs_drift.sh`](tools/check_docs_drift.sh) against the built APK
+> and the JaCoCo report — they therefore cannot silently go stale. The script
+> also checks that README and the architecture doc contain **no test count other
+> than** the one in the built test set. Start time and memory are deliberately
+> marked as **old** metrics: they come from the version with the bottom row,
+> which no longer exists as of 0.7.
 
-## Funktionen
+## Features
 
-- **Home-Taste:** die Home-Seite mit der unteren App-Zeile erscheint.
-- **HOME erneut oder BACK:** holt die zuletzt benutzte App zurück — die Home-Seite
-  ist damit ein Umschalter, keine Sackgasse. Mit Nutzungszugriff ist die Antwort
-  exakt; ohne ihn greift die zuletzt über Navigate gestartete App.
-- **„…“ (Zeile unter der App-Zeile):** klappt das restliche Raster auf — und
-  wieder zu. BACK tut dasselbe, wenn aufgeklappt ist.
-- **OK auf einer App:** starten.
-- **Langes OK auf einer App:** schiebt sie **eine Position nach vorne** und
-  speichert die Reihenfolge. Der Weg, die Reihenfolge auf dem Fernseher zu
-  ändern; der andere ist die Konfigurationsdatei (`adb push`).
-- **Uhr** oben rechts, im Minutentakt.
-- **„Now Playing“ oben links** (0.12, mehrzeilig seit 0.13, optional): **eine Zeile
-  je App mit aktiver Media-Session** — **App-Name, Interpret und Titel**, dazu
-  `· pausiert`, wenn sie pausiert ist, und das **Cover**, wenn die Session eines
-  mitliefert (sonst das App-Symbol). Läuft ein Hörbuch pausiert und daneben ein
-  Radiosender, stehen beide Zeilen da; was **spielt**, steht oben. Sichtbar nur im
-  zugeklappten Zustand — aufgeklappt gehört der Platz den Apps.
-  **Der Block ist ein begrenztes Fenster (0.15.1):** er wird höchstens 260 dp hoch
-  und scrollt danach in sich, mit **dauerhaft sichtbarer Scrollbar**; `▲`/`▼`
-  gehen **zeilenweise** durch den Block und holen jede Zeile ins Bild, `OK`
-  öffnet sie. Am unteren Ende führt `▼` zurück ins Raster. Vorher wuchs der Block
-  mit dem Verlauf, bis die App-Zeile nicht mehr zu sehen war.
-  **OK auf einer Zeile holt genau diese App zurück** (erst ihr „Jetzt läuft“-Bildschirm,
-  sonst die App selbst). Eingeschaltet wird es in den Einstellungen; ohne
-  **Benachrichtigungszugriff** bleibt es leer (eine normale App darf die
-  Media-Sessions nicht abfragen, siehe [docs/INSTALL.md](docs/INSTALL.md)
-  Schritt 5b). Die Abfrage läuft alle 5 Sekunden im Hintergrund-Thread, nur
-  solange die Home-Seite sichtbar ist.
-- **Eine Zeile bleibt stehen, bis sich für diese App etwas ändert — und nichts
-  geht verloren.** Drei Fälle werden auseinandergehalten (die Regel steht in
-  `data/NowPlayingBoard.kt` und ist ohne Gerät geprüft): ein neuer **Titel**
-  ersetzt den alten — der alte wandert dabei in den Verlauf (`history.conf`,
-  neueste oben, dynamisch nachgeladen beim Scrollen); eine Session **ohne
-  Titel** (Ladescreen, Werbung) oder **gar keine** Session (App im Hintergrund)
-  lässt die Zeile samt Cover stehen; nur ein **ausdrückliches Ende**
-  (`STOPPED`/`ERROR`, zweimal in Folge) nimmt sie weg. Ein **fehlgeschlagener**
-  Blick (kein Zugriff, Dienst antwortet nicht) löscht ebenfalls nichts.
-  Ehrlich dazu: eine App, die ihre Session ohne `STOPPED` verliert, behält ihre
-  Zeile bis zum Neustart des Launchers — auf dem Chromecast der Normalfall nach ein
-  paar Stunden.
-- **Einstellungen (langes OK auf „…“):** eine Seite mit **drei Zeilen** — *Now
-  Playing anzeigen* (An/Aus), *Uhr anzeigen* (An/Aus) und *Hintergrund*
-  (Dunkel · Bild) — mit der Fernbedienung bedient (`▲ ▼` wählt, `OK`
-  schaltet um, `◀`/`BACK` zurück). Sie schreibt sofort in die Datei und nennt die
-  Pfade — die Einstellungen sind damit auch per `adb push` zu setzen
-  ([docs/CONFIG.md](docs/CONFIG.md)). „Uhr aus“ heißt auch: **kein Takt mehr**.
-- **Zwei Hintergründe (0.14):** hinter dem Raster liegt entweder der einfarbige,
-  sehr dunkle Ton (Standard) oder ein **Bild** (formatfüllend). Es kommt aus
-  einer Mediendatei im externen App-Ordner (`background.jpg`, per `adb push`);
-  über dem Bild liegt eine Abdunkelung, damit die Beschriftungen lesbar bleiben.
-  Das Bild wird auf Bildschirmgröße verkleinert im Hintergrund-Thread dekodiert.
-  Die Hintergründe, die Android TV „eingebaut“ hat (Ambient/„Backdrop“,
-  Empfehlungsbilder, Wallpaper), sind für einen Launcher **nicht erreichbar** —
-  die Prüfung steht in [docs/LAST_SEEN_TITEL.md](docs/LAST_SEEN_TITEL.md).
-- **Keine grüne Schrift (0.14):** bis 0.13 waren App-Beschriftungen grün
-  („in den letzten 24 Stunden aktiv“) bzw. hellgrün („zuletzt geöffnet“). Die
-  Farben sind entfallen — jede Beschriftung ist gleich hell, und der Takt, der
-  sie alle 5 Sekunden auffrischte, mit ihnen. Die Nutzungsstatistik bleibt nur
-  für **HOME/BACK → zurück in die letzte App**.
-- **Kontextmenü (langes OK):** Position nach vorne/hinten, App deinstallieren
-  (System-Dialog), App schließen, alle Apps schließen. Schließen wirkt nur auf
-  Apps im Hintergrund — mehr erlaubt Android einer normalen App nicht.
-- **Die Beschriftung steht zentriert unter dem Symbol** (bis 0.8 nicht: ohne
-  `gravity` setzt Android Text linksbündig in die Zelle).
-- **Alle Apps, wirklich alle:** das Raster vereinigt `CATEGORY_LAUNCHER` und
-  `CATEGORY_LEANBACK_LAUNCHER`. Auf dem Testgerät fehlten ohne diesen Schritt
-  Prime Video, WOW und ARD — sie tragen nur den Leanback-Eintrag.
-- **Live-Aktualisierung:** App installiert/deinstalliert → das Raster zieht nach.
-- **Symbole liegen auf der Platte:** jedes einmal dekodierte Symbol wird als
-  kleine WebP-Datei im app-internen Speicher gehalten. Nach einem
-  Prozess-Neustart (auf einem 1,4-GB-Gerät der Normalfall) muss keine fremde
-  APK mehr gemappt werden — das war der größte Einzelposten im Speicher.
-- Kein Netzwerk, keine Werbung, keine Analyse, kein Konto.
+- **HOME key:** the home screen appears with the bottom app row.
+- **HOME again or BACK:** brings back the last app used — the home screen is
+  thus a switcher, not a dead end. With usage access the answer is exact;
+  without it, the app last started via Navigate is used.
+- **"…" (the row below the app row):** expands the rest of the grid — and
+  collapses it again. BACK does the same while expanded.
+- **OK on an app:** launches it.
+- **Long OK on an app:** moves it **forward one position** and saves the order.
+  One way to change the order on the TV; the other is the config file
+  (`adb push`).
+- **Clock** top right — since 0.17 at the **very top** of the row (previously
+  centered next to the "Last seen" content), updated every minute.
+- **"Now Playing" top left** (0.12, multiple lines since 0.13, optional): **one
+  line per app with an active media session** — **app name, artist and title**,
+  plus `· paused` when it is paused, and the **cover art** if the session
+  provides one (otherwise the app icon). If an audiobook is paused while a
+  radio station plays alongside, both lines are shown; the one that is
+  **playing** is on top. Visible only while collapsed — expanded, the space
+  belongs to the apps.
+  **The panel is a bounded window (0.15.1):** it grows at most 260 dp tall and
+  then scrolls within itself, with a **permanently visible scrollbar**;
+  `▲`/`▼` move **line by line** through the panel and bring every line into
+  view, `OK` opens it. At the bottom, `▼` returns to the grid. Previously the
+  panel grew with the history until the app row was no longer visible.
+  **The history is one line plus an archive on demand (0.16):** below the live
+  lines sits only the **newest entry that is not currently playing**
+  ("Last seen"); everything older is shown by the **context menu on long OK
+  on that line** (newest first) — OK on an entry brings the app back. The
+  panel does not grow with the archive.
+  **OK on a line brings back exactly that app** (first to its "now playing"
+  screen, otherwise the app itself). It is switched on in the settings; without
+  **notification access** it stays empty (a normal app may not query the media
+  sessions, see [docs/INSTALL.md](docs/INSTALL.md) step 5b). The query runs
+  every 5 seconds on a background thread, only while the home screen is
+  visible.
+- **A line stays until something changes for that app — and nothing is
+  lost.** Three cases are kept apart (the rule lives in
+  `data/NowPlayingBoard.kt` and is tested without a device): a new **title**
+  replaces the old one — the old one moves into the history (`history.conf`,
+  newest first; the newest entry is visible, everything older sits behind
+  long OK on the Last seen line); a session **without a title** (loading
+  screen, ads) or **no** session at all (app in the background) leaves the
+  line and its cover in place; only an **explicit end**
+  (`STOPPED`/`ERROR`, twice in a row) removes it. A **failed** look (no
+  access, service not responding) also deletes nothing. To be honest about
+  it: an app that loses its session without `STOPPED` keeps its line until
+  the launcher restarts — on the Chromecast the normal case after a few
+  hours.
+- **Settings (long OK on "…"):** a page with **three rows** — *Show Now
+  Playing* (on/off), *Show clock* (on/off) and *Background*
+  (dark · image · focus) — operated with the remote control (`▲ ▼` selects,
+  `OK` toggles, `◀`/`BACK` goes back). It writes to the file immediately and
+  names the paths — so the settings can also be set via `adb push`
+  ([docs/CONFIG.md](docs/CONFIG.md)). "Clock off" also means: **no more
+  ticking**.
+- **Three backgrounds (0.14/0.17):** behind the grid sits the solid, very
+  dark tone (default), an **image** (filling the frame) or the
+  **focus banner**: the TV artwork (`android:banner`) of the app under the
+  focus — the same one the system launcher shows behind the focused app; apps
+  without a banner leave it dark. The image comes from a media file in the
+  app's external folder (`background.jpg`, via `adb push`); a darkening layer
+  sits over the background so the labels stay readable. Decoding happens on a
+  background thread.
+  The backgrounds Android TV has "built in" (Ambient/"Backdrop",
+  recommendation images, wallpaper) are **out of reach** for a launcher — the
+  investigation is in [docs/LAST_SEEN_TITEL.md](docs/LAST_SEEN_TITEL.md)
+  (section "Background"); the one exception is the **banner** — it sits in
+  the app manifest itself and needs no special permission.
+- **No green text (0.14):** up to 0.13, app labels were green ("active in the
+  last 24 hours") or light green ("last opened"). The colors are gone — every
+  label is equally bright, and so is the tick that refreshed them every
+  5 seconds. The usage statistics remain only for
+  **HOME/BACK → back to the last app**.
+- **Context menu (long OK):** move forward/back, uninstall app (system
+  dialog), close app, close all apps. Closing only affects apps in the
+  background — Android allows a normal app nothing beyond that.
+- **The label sits centered below the icon** (not before 0.8: without
+  `gravity`, Android places text left-aligned in the cell).
+- **All apps, really all:** the grid merges `CATEGORY_LAUNCHER` and
+  `CATEGORY_LEANBACK_LAUNCHER`. On the test device, without this step Prime
+  Video, WOW and ARD were missing — they only carry the leanback entry.
+- **Live updates:** app installed/uninstalled → the grid follows.
+- **Icons are kept on disk:** every icon, once decoded, is kept as a small
+  WebP file in the app-internal storage. After a process restart (the normal
+  case on a 1.4 GB device) no foreign APK needs to be mapped anymore — that
+  was the largest single item in memory.
+- No network, no ads, no analytics, no account.
 
-## Bedienung
+## Controls
 
-| Taste | Wirkung |
+| Key | Effect |
 |---|---|
-| HOME | von einer App: Home-Seite (untere Zeile) · auf der Home-Seite: zurück in die letzte App |
-| ◀ ▶ ▲ ▼ | Fokus im Raster |
-| OK | App starten · auf „…“ das Raster auf-/zuklappen · auf einer „Now Playing“-Zeile zurück in die spielende App |
-| BACK | aufgeklapptes Raster zuklappen · sonst zurück in die letzte App |
-| langes OK | auf einer App: Kontextmenü (Position nach vorne/hinten · deinstallieren · schließen · alle schließen) · auf „…“: Einstellungen |
+| HOME | from an app: home screen (bottom row) · on the home screen: back to the last app |
+| ◀ ▶ ▲ ▼ | move the focus in the grid |
+| OK | launch an app · on "…": expand/collapse the grid · on a "Now Playing" line: back to the playing app |
+| BACK | collapse the expanded grid · otherwise back to the last app |
+| long OK | on an app: context menu (move forward/back · uninstall · close · close all) · on "…": settings · on the "Last seen" line: older history entries |
 
-## Bauen
+## Building
 
 ```bash
 cd projects/navigate
-bash build_navigate.sh            # Debug-APK
-bash build_navigate.sh release    # Release-APK (R8, signiert wenn keystore/ vorhanden)
+bash build_navigate.sh            # debug APK
+bash build_navigate.sh release    # release APK (R8, signed if keystore/ exists)
 ```
 
-Voraussetzungen: JDK 17, Android SDK mit Plattform 36 und Build-Tools
-(`local.properties` → `sdk.dir`). Gradle kommt über den Wrapper (8.14.3).
+Prerequisites: JDK 17, an Android SDK with platform 36 and build tools
+(`local.properties` → `sdk.dir`). Gradle comes via the wrapper (8.14.3).
 
-Vier Prüfungen, alle auch in der CI (`.github/workflows/ci.yml`):
+Four checks, all also in CI (`.github/workflows/ci.yml`):
 
 ```bash
-sh gradlew :app:testDebugUnitTest              # 157 Unit-Tests (ohne Gerät)
-sh gradlew :app:unitTestCoverageVerification   # Coverage-Gate (Bericht: unitTestCoverageReport)
-sh gradlew :app:lintDebug                      # Lint — Warnungen sind Fehler
-bash tools/check_docs_drift.sh                 # Messwerte der Doku ↔ gebautes APK
+sh gradlew :app:testDebugUnitTest              # 164 unit tests (no device)
+sh gradlew :app:unitTestCoverageVerification   # coverage gate (report: unitTestCoverageReport)
+sh gradlew :app:lintDebug                      # lint — warnings are errors
+bash tools/check_docs_drift.sh                 # doc metrics ↔ built APK
 ```
 
-Die CI läuft auf jedem Push dieselben Schritte (plus Release-Build) und legt
-Testbericht, Coverage-Bericht, Lint-Bericht und APK als Artefakte ab. Ein Tag
-`v*` löst zusätzlich `.github/workflows/release.yml` aus: dieselben Gates, danach
-ein GitHub-Release mit dem APK — signiert, wenn das Secret
-`NAVIGATE_KEYSTORE_BASE64` gesetzt ist.
+On every push, CI runs the same steps (plus a release build) and stores the
+test report, coverage report, lint report and APK as artifacts. A tag `v*`
+additionally triggers `.github/workflows/release.yml`: the same gates, then a
+GitHub release with the APK — signed if the secret `NAVIGATE_KEYSTORE_BASE64`
+is set.
 
-Die 157 Tests laufen **ohne Gerät**: App-Auswahl (`AppCatalog`), die
-Anzeige-Reihenfolge (`Order`), die Konfigurationsdateien (`OrderCodec`,
-`OrderStore`, `SettingsCodec`, `SettingsStore`, `ConfigFile`), die
-Now-Playing-Zeilen (`NowPlayingText`, `NowPlayingBoard`), der Verlauf
-(`HistoryCodec`, `HistoryStore`), die Hintergrund-Regel
-(`BackgroundPlan`), Raster-Spalten, Symbol-Einpassung, Cache-Schlüssel, das
-sichtbare Fenster über den Now-Playing-Zeilen (`RowWindow`). Diese
-Klassen liegen bei 100 % Zeilen-Coverage; die Gesamtquote
-(25,7 % Zeilen / 35,7 % Zweige) enthält auch die Android-Klassen und steht mit
-Begründung in [docs/DEVICE_PERF.md](docs/DEVICE_PERF.md).
+The 164 tests run **without a device**: app selection (`AppCatalog`), the
+display order (`Order`), the config files (`OrderCodec`, `OrderStore`,
+`SettingsCodec`, `SettingsStore`, `ConfigFile`), the Now Playing lines
+(`NowPlayingText`, `NowPlayingBoard`), the history (`HistoryCodec`,
+`HistoryStore`) and its split — one line visible, the older ones in the menu
+(`LastSeen`) —, the background rule (`BackgroundPlan`), grid columns, icon
+fitting, cache keys, the visible window over the Now Playing lines
+(`RowWindow`), the target size of the focus banners (`BannerGeometry`). These
+classes are at 100 % line coverage; the overall figure
+(24.8 % lines / 34.6 % branches) also includes the Android classes and is
+documented with its reasoning in [docs/DEVICE_PERF.md](docs/DEVICE_PERF.md).
 
-## Installieren und als Home-App einrichten
+## Install and set up as the home app
 
 ```bash
-bash install_navigate.sh          # installiert auf dem Fernseher (nur dort)
+bash install_navigate.sh          # installs on the TV (only there)
 ```
 
-Der Installer sucht sich das erste erreichbare **Fernsehgerät** — Telefone und
-Emulatoren werden übersprungen. Ein anderes Ziel: `NAVIGATE_DEVICE=<ip>:5555`.
+The installer picks the first reachable **TV device** — phones and emulators
+are skipped. A different target: `NAVIGATE_DEVICE=<ip>:5555`.
 
-Danach zwei Befehle auf dem Gerät (Details und Rückweg in
+Then two commands on the device (details and the way back in
 [docs/INSTALL.md](docs/INSTALL.md)):
 
 ```bash
@@ -172,142 +187,145 @@ adb shell cmd role add-role-holder android.app.role.HOME com.piotv.navigate
 adb shell pm disable-user --user 0 com.google.android.tungsten.setupwraith
 ```
 
-Ohne den zweiten Befehl holt sich der Google-TV-Watchdog die HOME-Taste zurück.
+Without the second command, the Google TV watchdog takes the HOME key back.
 
-Optional, damit „zurück in die letzte App“ **exakt** antwortet (statt sich die
-zuletzt hier gestartete App zu merken):
+Optional, so that "back to the last app" answers **exactly** (instead of
+remembering the app last started here):
 
 ```bash
 adb shell appops set com.piotv.navigate GET_USAGE_STATS allow
 ```
 
-Optional, für das „Now Playing“-Feld oben links (ohne diese Freigabe bleibt es
-leer, siehe [docs/INSTALL.md](docs/INSTALL.md) Schritt 5b):
+Optional, for the "Now Playing" panel top left (without this grant it stays
+empty, see [docs/INSTALL.md](docs/INSTALL.md) step 5b):
 
 ```bash
 adb shell cmd notification allow_listener com.piotv.navigate/.NowPlayingListener
 ```
 
-## Konfiguration
+## Configuration
 
-Einstellbar sind **zwei Sachen**: die Reihenfolge der Apps und ob das
-„Now Playing“-Feld erscheint. Beides steht in einer Datei:
+Two things are configurable: the app order and whether the "Now Playing"
+panel appears. Each is set in a file:
 
 ```
-/data/data/com.piotv.navigate/files/navigate.conf                          (Reihenfolge)
-/data/data/com.piotv.navigate/files/settings.conf                          (Einstellungen)
-/storage/emulated/0/Android/data/com.piotv.navigate/files/…                (adb push, beide)
+/data/data/com.piotv.navigate/files/navigate.conf                          (order)
+/data/data/com.piotv.navigate/files/settings.conf                          (settings)
+/storage/emulated/0/Android/data/com.piotv.navigate/files/…                (adb push, both)
 ```
 
 ```ini
-# navigate.conf — Reihenfolge der Apps
+# navigate.conf — app order
 com.netflix.ninja
 de.swr.avp.ard.tv
 ```
 
 ```ini
-# settings.conf — Einstellungen
+# settings.conf — settings
 now_playing=on
 ```
 
-Eine Paketnamen-Zeile pro Eintrag, in Anzeige-Reihenfolge. Nicht (mehr)
-installierte Einträge fallen still weg, der Rest folgt sprachsortiert. Format,
-Grenzen und Beispiele für beide Dateien: [docs/CONFIG.md](docs/CONFIG.md).
+One package name per line, in display order. Entries no longer installed drop
+out silently, the rest follows in locale-sorted order. Format, limits and
+examples for both files: [docs/CONFIG.md](docs/CONFIG.md).
 
 
 
-## Architektur in fünf Sätzen
+## Architecture in five sentences
 
-1. **Eine** Activity, **ein** Zustand: das Raster. Zwei Home-Activities in einer
-   App machen die HOME-Auflösung mehrdeutig — der HOME-Druck zeigt dann einen
-   Auswahldialog.
-2. Der „zugeklappt / aufgeklappt“-Umschalter ist **kein zweites Layout**: der
-   Adapter meldet zugeklappt nur eine Zeile, das Raster hängt unten am Rand und
-   ist eine Zeile hoch. Beim Aufklappen wird nichts umgebaut — es kommen Zellen
-   hinzu.
-3. **Ein opakes, gewöhnliches Fenster.** Das Theme setzt nur
-   `windowBackground`/`colorBackground`: keine Translucenz, keine eigenen
-   Fenster-Animationen, keine Fenstergrößen-Tricks. Der Grund steht in
-   [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — die translucenten Fassungen bis
-   0.6 waren auf dem Zielgerät bedienbar, aber unsichtbar.
-4. Keine AndroidX, kein Compose, kein Hilt, keine Coroutines: `GridView`,
-   `LauncherApps`, `LruCache`, ein Executor, ein Handler. Was fehlt, kostet
-   nichts.
-5. **Symbole liegen zusätzlich auf der Platte** (WebP): nach einem
-   Prozess-Neustart muss keine fremde APK mehr gemappt werden — auf einem
-   1,4-GB-Gerät war das der größte Einzelposten im Speicher.
+1. **One** activity, **one** state: the grid. Two home activities in one app
+   make HOME resolution ambiguous — pressing HOME then shows a chooser
+   dialog.
+2. The collapsed/expanded switch is **not a second layout**: when collapsed,
+   the adapter reports only one row, the grid sits at the bottom edge and is
+   one row tall. Expanding rebuilds nothing — cells are added.
+3. **An opaque, ordinary window.** The theme sets only
+   `windowBackground`/`colorBackground`: no translucency, no custom window
+   animations, no window-size tricks. The reason is in
+   [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — the translucent versions up
+   to 0.6 were operable on the target device but invisible.
+4. No AndroidX, no Compose, no Hilt, no coroutines: `GridView`,
+   `LauncherApps`, `LruCache`, one executor, one handler. What is missing
+   costs nothing.
+5. **Icons are also kept on disk** (WebP): after a process restart no foreign
+   APK needs to be mapped anymore — on a 1.4 GB device that was the largest
+   single item in memory.
 
-Ausführlich: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+In full: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Projektstruktur
+## Project structure
 
 ```
 app/src/main/java/com/piotv/navigate/
-  LauncherActivity.kt        die Home-Seite: Raster, „…“, Reihenfolge, Starten, Lebenszyklus
-  NowPlayingListener.kt      der Dienst, der den Blick in die Media-Sessions erlaubt
-  data/AppRepository.kt      App-Liste (zwei Kategorien), Prozess-Singleton
-  data/AppEntry.kt           ein startbarer Eintrag
-  data/AppCatalog.kt         Auswahl und Grundordnung der App-Liste (getestet)
-  data/Order.kt              Anzeige-Reihenfolge, „eine Position nach vorne“ (getestet)
-  data/OrderCodec.kt         Parser/Serializer der Reihenfolge-Datei (getestet)
-  data/OrderStore.kt         die Datei selbst, mit Import über adb push
-  data/ConfigFile.kt         Datei an zwei Orten: lesen, schreiben, Import (getestet)
-  data/NavigateSettings.kt   die Einstellungen als Wert (heute: nowPlaying)
-  data/SettingsCodec.kt      Parser/Serializer der Einstellungsdatei (getestet)
-  data/SettingsStore.kt      settings.conf — dieselbe Mechanik wie OrderStore
-  data/NowPlaying.kt         die laufende Media-Session lesen (MediaSessionManager)
-  data/NowPlayingText.kt     daraus eine Zeile machen (getestet)
-  data/NowPlayingBoard.kt    eine Zeile je App (+ Verlauf) — und wann sie sich ändert (getestet)
-   data/HistoryEntry.kt       ein Verlaufseintrag (Paket, Zeile, Zeit)
-   data/HistoryCodec.kt       Parser/Serializer der Verlauf-Datei (getestet)
-   data/HistoryStore.kt       history.conf — Verlauf mit Seiten-Blättern (getestet)
-  ui/AppAdapter.kt           Rasterzellen (Apps; `limit` = eine Zeile oder alle)
-  ui/HomeGridView.kt         GridView + Fokus-Korrektur (Markierung beim Fokusverlust)
-  ui/GridColumns.kt          Spaltenzahl des Rasters (getestet)
-  ui/IconGeometry.kt         Einpassung der Symbole in die Zelle (getestet)
-  ui/IconLoader.kt           Symbole: Speicher-Cache → Platte → Ressourcen
-  ui/IconDiskCache.kt        WebP-Symbole im internen Speicher (+ Schlüssel, getestet)
-  ui/SettingsActivity.kt     die Einstellungsseite (langes OK auf „…“)
-  ui/NowPlayingPanel.kt      die Zeilen oben links: Live + Verlauf, takten, nachladen
-  ui/PanelScrollView.kt      ScrollView des Blocks: Höhengrenze, Scrollbar, ▲/▼ zeilenweise
-  ui/RowWindow.kt            das sichtbare Fenster über den Zeilen (getestet)
-  ui/AppMenu.kt              das Kontextmenü (langes OK auf einer App)
-  ui/Ticker.kt               ein Takt auf dem Main-Thread (Uhr · grün · Now Playing)
-tools/make_assets.py         Icon-Vektoren + TV-Banner generieren
-tools/check_docs_drift.sh    Doku-Gate: dokumentierte Messwerte ↔ gebautes APK
+  LauncherActivity.kt        the home screen: grid, "…", order, launching, lifecycle
+  NowPlayingListener.kt      the service that allows the look into the media sessions
+  data/AppRepository.kt      app list (two categories), process singleton
+  data/AppEntry.kt           a launchable entry
+  data/AppCatalog.kt         selection and base order of the app list (tested)
+  data/Order.kt              display order, "one position forward" (tested)
+  data/OrderCodec.kt         parser/serializer for the order file (tested)
+  data/OrderStore.kt         the file itself, with import via adb push
+  data/ConfigFile.kt         file in two places: read, write, import (tested)
+  data/NavigateSettings.kt   the settings as a value (today: nowPlaying)
+  data/SettingsCodec.kt      parser/serializer for the settings file (tested)
+  data/SettingsStore.kt      settings.conf — the same mechanics as OrderStore
+  data/NowPlaying.kt         read the active media session (MediaSessionManager)
+  data/NowPlayingText.kt     turn that into a line (tested)
+  data/NowPlayingBoard.kt    one line per app (+ history) — and when it changes (tested)
+   data/HistoryEntry.kt       a history entry (package, line, time)
+   data/HistoryCodec.kt       parser/serializer for the history file (tested)
+   data/HistoryStore.kt       history.conf — history: append, newest first (tested)
+  ui/AppAdapter.kt           grid cells (apps; `limit` = one row or all)
+  ui/HomeGridView.kt         GridView + focus correction (marking on focus loss)
+  ui/GridColumns.kt          number of grid columns (tested)
+  ui/IconGeometry.kt         fitting the icons into the cell (tested)
+  ui/IconLoader.kt           icons: memory cache → disk → resources
+  ui/IconDiskCache.kt        WebP icons in internal storage (+ key, tested)
+  ui/BannerLoader.kt         the focus banners: TV artwork per app (memory cache)
+  ui/BannerGeometry.kt       target size of a focus banner (tested)
+  ui/SettingsActivity.kt     the settings page (long OK on "…")
+  ui/NowPlayingPanel.kt      the lines top left: live + Last seen, ticking, context menu of the older ones
+  ui/PanelScrollView.kt      the panel's ScrollView: height limit, scrollbar, ▲/▼ line by line
+  ui/RowWindow.kt            the visible window over the lines (tested)
+  ui/LastSeen.kt             the history split: one line visible, the older ones in the menu (tested)
+  ui/HistoryMenu.kt          the context menu of the Last seen line: the older entries (long OK)
+  ui/AppMenu.kt              the context menu (long OK on an app)
+  ui/Ticker.kt               a tick on the main thread (clock · green · Now Playing)
+tools/make_assets.py         generate icon vectors + TV banners
+tools/check_docs_drift.sh    docs gate: documented metrics ↔ built APK
 docs/                        ARCHITECTURE · CONFIG · INSTALL · DEVICE_PERF
 ```
 
-## Bekannte offene Punkte
+## Known open issues
 
-Ehrlich aufgeführt, weil sie beim Lesen der Doku sonst überraschen:
+Listed honestly, because they would otherwise surprise while reading the docs:
 
-1. **Startzeit und Speicher sind alte Werte.** Die dokumentierten 128 ms und
-   ~56 MB stammen aus 0.1, der Fassung mit der unteren Zeile. Für 0.13 sind sie
-   **nicht** neu gemessen. Messbefehle: [docs/DEVICE_PERF.md](docs/DEVICE_PERF.md).
-2. **Der Grund der früheren Unsichtbarkeit ist eine Korrelation, kein Beweis.**
-   Alle translucenten Fassungen waren auf dem Zielgerät unsichtbar, alle dort
-   sichtbaren Apps haben opake Fenster, und ein translucentes Fenster hält die
-   App darunter am Leben (nur pausiert). 0.7 nimmt deshalb ein opakes Fenster —
-   ob genau das die Ursache war, zeigt erst der Blick auf das Gerät.
-3. **Die Reihenfolge auf dem Fernseher ändert sich nur schrittweise.** Langes
-   Drücken schiebt eine App *eine* Position nach vorne; für einen großen Umbau
-   ist die Datei der bequemere Weg.
-4. **BACK auf der Home-Seite geht in die letzte App** (ohne bekannte App: ohne
-   Wirkung). `finish()` wäre der naheliegende Weg, aber das System startet eine
-   Home-Activity danach sofort neu (gemessen: der Task wechselte von t2667 auf
-   t2668) — nur ein Flackern.
-5. **Die exakte „letzte App“ braucht den Nutzungszugriff.** Ohne ihn entscheidet
-   der Merker (die zuletzt über Navigate gestartete App) — richtig im Normalfall,
-   blind, wenn die App von woanders kam (Fernbedienungstaste, Google-TV-Zeile).
-6. **Die Einrichtung braucht ADB.** Home-Rolle und Google-TV-Watchdog sind zwei
-   Befehle (docs/INSTALL.md) — ein Launcher kann keine Berechtigungsdialoge
-   zeigen.
-7. **Eine Konfigurationsdatei aus einer älteren Fassung bleibt liegen.** Auf dem
-   Testgerät lag noch eine `navigate.conf` der 0.4-Reihe
-   (`favorites=…`, `max_favorites=6`, `columns=0`, `show_clock=false`). Die
-   Reihenfolge-Datei liest sie als Paketnamen-Liste: die Favoriten-Zeile wirkt
-   damit als Reihenfolge (das ist brauchbar), die drei Einstellungszeilen landen
-   als unsichtbarer Müll (`6`, `0`, `false`) in der Liste und werden beim
-   nächsten Speichern mitgeschrieben. Aufräumen:
-   `adb push` einer Datei mit einer Paketnamen-Zeile pro Eintrag (docs/CONFIG.md).
+1. **Start time and memory are old figures.** The documented 128 ms and
+   ~56 MB come from 0.1, the version with the bottom row. For 0.13 they were
+   **not** re-measured. Measurement commands:
+   [docs/DEVICE_PERF.md](docs/DEVICE_PERF.md).
+2. **The reason for the earlier invisibility is a correlation, not proof.**
+   All translucent versions were invisible on the target device, all apps
+   visible there have opaque windows, and a translucent window keeps the app
+   below it alive (only paused). 0.7 therefore uses an opaque window —
+   whether that was exactly the cause only a look at the device shows.
+3. **The order on the TV changes only gradually.** A long press moves an app
+   *one* position forward; for a big rearrangement the file is the more
+   convenient way.
+4. **BACK on the home screen goes to the last app** (with no known app: no
+   effect). `finish()` would be the obvious way, but the system immediately
+   starts a home activity again afterwards (measured: the task switched from
+   t2667 to t2668) — just a flicker.
+5. **The exact "last app" needs usage access.** Without it, the marker
+   decides (the app last started via Navigate) — right in the normal case,
+   blind when the app came from elsewhere (remote control key, Google TV row).
+6. **Setup needs ADB.** The home role and the Google TV watchdog are two
+   commands (docs/INSTALL.md) — a launcher cannot show permission dialogs.
+7. **A config file from an older version sticks around.** On the test device
+   there was still a `navigate.conf` from the 0.4 series
+   (`favorites=…`, `max_favorites=6`, `columns=0`, `show_clock=false`). The
+   order file reads it as a list of package names: the favorites line then
+   acts as the order (which works), while the three settings lines end up as
+   invisible junk (`6`, `0`, `false`) in the list and are written back on the
+   next save. To clean up:
+   `adb push` a file with one package name per line (docs/CONFIG.md).

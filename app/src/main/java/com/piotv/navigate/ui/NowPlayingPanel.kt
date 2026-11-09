@@ -19,61 +19,63 @@ import com.piotv.navigate.data.NowPlayingTrack
 import com.piotv.navigate.util.Background
 
 /**
- * Die „Now Playing“-Zeilen oben links: **aktuelle je App** mit aktiver
- * Media-Session, darunter der **Verlauf** aus `history.conf` — neueste oben,
- * ältere werden beim Scrollen dynamisch nachgeladen.
+ * The "Now Playing" rows at the top left: **one per app** with an active media
+ * session, below it **one** history row from `history.conf` — the newest entry
+ * not currently playing ("Last seen"); everything older sits behind a long
+ * press of OK on that row.
  *
- * Bis 0.12 war das ein einzelner Block mit einer Zeile — der Session, die „den
- * Ton macht“. Läuft ein Hörbuch pausiert und daneben ein Radiosender, verschwand
- * damit eine der beiden Angaben; außerdem wurde der Block bei jedem Durchlauf neu
- * geschrieben. Seit 0.13 gilt:
+ * Until 0.12 this was a single block with one row — the session that "makes
+ * the sound". If an audiobook played paused next to a radio station, one of
+ * the two pieces of information disappeared; moreover the block was rewritten
+ * on every pass. Since 0.13 the rule is:
  *
- *  - **Eine Zeile je App.** Welche Session einer App zählt (die spielende, sonst
- *    die erste mit Titel), entscheidet [NowPlaying.active].
- *  - **Eine Zeile ändert sich nur, wenn sich für diese App etwas ändert.** Der
- *    Vergleich steht in [bind] (Text gegen Text), die Regel dahinter in
- *    [NowPlayingBoard]. Ohne sie würde alle fünf Sekunden dieselbe Zeile neu
- *    gesetzt und ein neues Cover geholt.
- *  - **Ein fehlgeschlagener Blick löscht nichts**: [NowPlaying.active] gibt dann
- *    `null` statt einer leeren Liste.
+ *  - **One row per app.** Which session of an app counts (the playing one,
+ *    else the first with a title) is decided by [NowPlaying.active].
+ *  - **A row changes only when something changes for that app.** The
+ *    comparison lives in [bind] (text against text), the rule behind it in
+ *    [NowPlayingBoard]. Without them the same row would be set again every
+ *    five seconds and a new cover fetched.
+ *  - **A failed look deletes nothing**: [NowPlaying.active] then returns
+ *    `null` instead of an empty list.
  *
- * Seit der Verlauf-Fassung gilt zusätzlich:
+ * Since the history version, additionally:
  *
- *  - **Nichts geht verloren.** Ersetzt ein neuer Titel die Zeile einer App,
- *    wandert der alte in den Verlauf ([HistoryStore]) — statt zu verschwinden.
- *  - **Neueste oben.** Die Anzeige zeigt Live-Zeilen zuerst, darunter den Verlauf
- *    neueste-zuerst. Ältere Einträge werden beim Runterscrollen seitenweise
- *    ([HistoryStore.PAGE_SIZE]) nachgeladen — die Datei wird nie am Stück in
- *    Views verwandelt.
- *  - **Ein Fenster, kein wachsender Block.** Der Block ist höchstens
- *    `now_playing_max_height` hoch und scrollt danach in sich; die Scrollbar
- *    steht dauerhaft, und ▲/▼ gehen zeilenweise durch den Block
- *    ([PanelScrollView]). Das ist seit 0.15.1 auch **wirksam**: bis dahin stand
- *    die Grenze als `android:maxHeight` an der ScrollView — ein Attribut, das es
- *    dort nicht gibt. Der Verlauf wuchs deshalb, bis das Raster aus dem Bild war,
- *    und die Pfeiltasten liefen ins Leere.
+ *  - **Nothing is lost.** When a new title replaces an app's row, the old one
+ *    moves into the history ([HistoryStore]) — instead of disappearing.
+ *  - **Only the newest entry is visible.** The block shows live rows first,
+ *    below them **one** history row: the newest entry not already standing as
+ *    a live row ([LastSeen.visible]). Everything older sits behind a **long
+ *    press of OK** on that row — the context menu ([HistoryMenu]) unfolds the
+ *    older entries and brings the chosen app back. Until 0.15.1 the whole
+ *    history stood there and was paged in; a list you first have to leaf
+ *    through is not a list on a TV.
+ *  - **A window, not a growing block.** The block is at most
+ *    `now_playing_max_height` tall and then scrolls within itself; the
+ *    scrollbar is permanent, and ▲/▼ walk the block row by row
+ *    ([PanelScrollView]). Since 0.15.1 this is also **effective**: until then
+ *    the limit stood as `android:maxHeight` on the ScrollView — an attribute
+ *    that does not exist there. The history therefore grew until the grid was
+ *    pushed off screen, and the arrow keys did nothing.
  *
- * Die Views werden je Zeile **einmal** gebaut und danach wiederverwendet
- * ([liveRows], [historyRows]) — dieselbe Idee wie `convertView` im Raster.
- * Eine neue App reiht sich hinten ein, eine verschwundene Zeile fällt aus dem
- * Baum.
+ * The views are built **once** per row and reused afterwards ([liveRows],
+ * [historyRows]) — the same idea as `convertView` in the grid. A new app joins
+ * at the end, a disappeared row drops out of the tree.
  *
- * Was diese Klasse **nicht** weiß: welche App-Namen es gibt ([Listener.entryOf]),
- * was ein Klick auf eine Zeile tun soll ([Listener.openRow]) und wie viel Platz
- * das Raster darüber braucht ([Listener.onHeightChanged]).
+ * What this class does **not** know: which app names exist
+ * ([Listener.entryOf]), what a click on a row should do ([Listener.openRow]),
+ * and how much space the grid above needs ([Listener.onHeightChanged]).
  */
 class NowPlayingPanel(
     private val activity: Activity,
     private val container: LinearLayout,
     /**
-     * Die ScrollView um [container] — die **sichtbare** Höhe des Blocks.
+     * The ScrollView around [container] — the **visible** height of the block.
      *
-     * Sie steht hier ausdrücklich und wird nicht über `container.parent`
-     * gesucht: an ihr hängen zwei Dinge, die man leicht verwechselt. Das Raster
-     * beginnt unter dem, was **zu sehen** ist, nicht unter dem, was der Block
-     * insgesamt enthält (mit 500 Verlaufseinträgen wäre das der ganze
-     * Bildschirm — genau der Fehler aus 0.15.0). Und sie begrenzt die Höhe
-     * (`app:maxHeight`, siehe [PanelScrollView]).
+     * It is declared here explicitly and not looked up via `container.parent`:
+     * two easily-confused things hang on it. The grid starts below what is
+     * **seen**, not below what the block contains in total (with 500 history
+     * entries that would be the whole screen — exactly the bug from 0.15.0).
+     * And it caps the height (`app:maxHeight`, see [PanelScrollView]).
      */
     private val scroll: ScrollView,
     private val listener: Listener,
@@ -84,70 +86,67 @@ class NowPlayingPanel(
 ) {
 
     /**
-     * Was die Home-Seite beisteuern muss.
+     * What the home screen must contribute.
      *
-     * Bewusst ein Zuhörer und keine Activity-Referenz: App-Liste, Starten und
-     * Fokus liegen dort, und der Block soll nicht mit ihnen zusammenwachsen
-     * (genau daran saß die 769-Zeilen-Activity von 0.12).
+     * Deliberately a listener and not an activity reference: the app list,
+     * launching and focus live there, and the block should not grow together
+     * with them (that is exactly what bogged down the 769-line activity of 0.12).
      */
     interface Listener {
-        /** Ist das Feld eingeschaltet **und** das Raster zugeklappt? */
+        /** Is the field enabled **and** the grid collapsed? */
         fun isEnabled(): Boolean
 
-        /** Der Eintrag einer App — für den Namen und das Symbol als Rückfall. */
+        /** An app's entry — for the name and the icon as a fallback. */
         fun entryOf(packageName: String): AppEntry?
 
         /**
-         * OK auf einer Zeile: die Session anspringen, sonst die App starten.
+         * OK on a row: jump into the session, else start the app.
          *
-         * @param sessionActivity der „Jetzt läuft“-Bildschirm der App oder `null`.
+         * @param sessionActivity the app's "Now playing" screen, or `null`.
          */
         fun openRow(packageName: String, sessionActivity: PendingIntent?)
 
-        /** Der Block verschwindet, während er den Fokus hat. */
+        /** The block disappears while it has the focus. */
         fun onFocusLost()
 
         /**
-         * So viel Höhe (px) nimmt der Block **sichtbar** ein; `0` heißt „er ist
-         * aus“.
+         * How much height (px) the block **visibly** occupies; `0` means "it is
+         * off".
          *
-         * Gemeint ist das Fenster (`NowPlayingPanel.scroll`), nicht der Inhalt:
-         * der Verlauf ist länger als das Fenster und wird gescrollt.
+         * This means the window (`NowPlayingPanel.scroll`), not the content:
+         * the history is longer than the window and is scrolled.
          */
         fun onHeightChanged(heightPx: Int)
     }
 
     private val ticker = Ticker(intervalMs) { refresh() }
 
-    /** Die Regel dahinter, welche Zeilen es gibt und wann sie sich ändern. */
+    /** The rule behind which rows exist and when they change. */
     private val board = NowPlayingBoard()
 
-    /** Die Live-Zeilen-Views, nach Paket — gebaut wird jede genau einmal. */
+    /** The live row views, by package — each is built exactly once. */
     private val liveRows = LinkedHashMap<String, View>()
 
-    /** Die Verlauf-Zeilen-Views, nach Zeit+Paket+Zeile — gebaut wird jede genau einmal. */
+    /** The history row views, by time+package+line — each is built exactly once. */
     private val historyRows = LinkedHashMap<String, View>()
 
-    /** Wie viele Verlaufseinträge gerade gezeigt werden (Seiten à PAGE_SIZE). */
-    private var historyShown = HistoryStore.PAGE_SIZE
+    /** The context menu of the Last-seen row: the older entries (long press of OK). */
+    private val historyMenu = HistoryMenu(activity)
 
-    /** Der Stand des Verlaufs, für den [historyShown] gilt — sonst zurücksetzen. */
-    private var historyRevision = -1
-
-    /** Die zuletzt gesehenen Angaben je App — für „OK“ und das Cover. */
+    /** The last seen info per app — for OK and the cover art. */
     private val tracks = HashMap<String, NowPlayingTrack>()
 
     private var reportedHeight = -1
 
     init {
-        // Die Höhe des Blocks bestimmt, wo das Raster anfangen darf (siehe
-        // LauncherActivity.onHeightChanged): zwei Now-Playing-Zeilen dürfen nicht
-        // hinter der ersten App-Zeile liegen.
+        // The height of the block decides where the grid may start (see
+        // LauncherActivity.onHeightChanged): two Now Playing rows must not sit
+        // behind the first app row.
         //
-        // Gemessen wird die **ScrollView**, nicht ihr Inhalt: sie ist das
-        // Fenster. Der Inhalt ist beliebig lang (der Verlauf fasst 500 Einträge);
-        // würde seine Höhe ans Raster gemeldet, läge die erste App-Zeile hinter
-        // einem Bildschirm voller Verlauf.
+        // Measured is the **ScrollView**, not its content: it is the window.
+        // The content can be longer than the window (one row per app with an
+        // active session); if its height were reported to the grid, the first
+        // app row would sit behind the block.
         scroll.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
             if (bottom - top != oldBottom - oldTop) reportHeight(bottom - top)
         }
@@ -157,19 +156,19 @@ class NowPlayingPanel(
 
     fun stop() = ticker.stop()
 
-    /** Zeichnet den gespeicherten Stand und regelt die Sichtbarkeit. */
+    /** Draws the stored state and regulates visibility. */
     fun refreshVisibility() {
         render()
         updateVisibility()
     }
 
     /**
-     * Fragt die Media-Sessions ab und stellt die Zeilen danach ein.
+     * Queries the media sessions and arranges the rows accordingly.
      *
-     * Abgefragt wird nur, wenn der Block überhaupt erscheinen kann
-     * ([Listener.isEnabled]) — ausgeschaltet oder aufgeklappt wäre jeder Aufruf
-     * ein Binder-Aufruf für nichts. Die Abfrage läuft im Hintergrund-Thread, wie
-     * die Nutzungsstatistik und aus demselben Grund.
+     * Querying happens only when the block can appear at all
+     * ([Listener.isEnabled]) — disabled or expanded, every call would be a
+     * binder call for nothing. The query runs on the background thread, like
+     * the usage stats and for the same reason.
      */
     private fun refresh() {
         if (!listener.isEnabled()) {
@@ -184,10 +183,10 @@ class NowPlayingPanel(
                     refreshVisibility()
                     return@post
                 }
-                // Der App-Name kommt aus der App-Liste und wird deshalb auf dem
-                // Main-Thread geholt — dort lebt die Liste. Ist die Zeile leer
-                // (Ladescreen, Werbung), wird `info = null` übergeben: die Anzeige
-                // behält dann, was sie hatte, statt die Zeile zu löschen.
+                // The app name comes from the app list and is therefore fetched
+                // on the main thread — the list lives there. If the line is
+                // empty (loading screen, ads), `info = null` is passed: the
+                // display keeps what it had instead of deleting the row.
                 val observed = found?.map { track ->
                     val label = listener.entryOf(track.packageName)?.label ?: track.packageName
                     NowPlayingBoard.Observed(
@@ -197,8 +196,8 @@ class NowPlayingPanel(
                         ended = track.ended,
                     )
                 }
-                // `null` heißt „Abfrage fehlgeschlagen“: die Zeilen bleiben, wie
-                // sie sind, und auch die Cover werden nicht neu geholt.
+                // `null` means "the query failed": the rows stay as they are,
+                // and the covers are not fetched again either.
                 found?.forEach { tracks[it.packageName] = it }
                 history.reloadIfChanged()
                 board.observe(observed, history, System.currentTimeMillis())
@@ -209,12 +208,12 @@ class NowPlayingPanel(
     }
 
     /**
-     * Bringt die Views in die Reihenfolge des Boards — und nur den Text neu.
+     * Puts the views into the board's order — and only refreshes the text.
      *
-     * Darunter der Verlauf: Live-Zeilen zuerst (aktuelle Titel), dann die
-     * Verlaufseinträge neueste-zuerst. Gezeigt werden höchstens [historyShown];
-     * der Rest kommt beim Runterscrollen dazu ([loadMoreIfNeeded]) — die Datei
-     * wird nie am Stück in Views verwandelt.
+     * Below it **one** history row: the newest entry not currently standing as
+     * a live row ([LastSeen.visible]). Everything older sits behind a long
+     * press of OK on that row ([LastSeen.older] → [HistoryMenu]) — the block
+     * does not grow with the archive.
      */
     private fun render() {
         val current = board.rows()
@@ -231,44 +230,27 @@ class NowPlayingPanel(
             bindLive(view, row)
             index++
         }
-        // Verlaufseinträge, die gerade als Live-Zeile zu sehen sind, nicht
-        // doppelt zeigen: derselbe Text stünde sonst zweimal da. Verglichen wird
-        // der **Inhalt** (ohne „· pausiert“) — der Verlauf speichert ihn so, die
-        // Live-Zeile trägt den Pausenzusatz nur in der Anzeige.
+        // One history row: the newest entry not currently playing ("Last
+        // seen"). The comparison uses the **content** (without "· paused") —
+        // the same text never appears twice on screen, neither among the live
+        // rows nor in the menu. Everything older sits behind a long press of
+        // OK on this row ([LastSeen.older] → [HistoryMenu]): the block does not
+        // grow with the archive.
         val liveContent = current.map { it.packageName to it.content }.toSet()
         val allHistory = history.latest()
-        if (allHistory.hashCode() != historyRevision) {
-            historyRevision = allHistory.hashCode()
-            historyShown = HistoryStore.PAGE_SIZE
-        }
-        val visible = allHistory.filterNot { liveContent.contains(it.packageName to it.line) }
-            .take(historyShown)
-        for (entry in visible) {
-            val key = historyKey(entry)
-            val view = historyRows[key] ?: inflateHistory(key, entry)
+        val newest = LastSeen.visible(allHistory, liveContent)
+        if (newest != null) {
+            val key = historyKey(newest)
+            val view = historyRows[key] ?: inflateHistory(key, newest)
             if (container.getChildAt(index) !== view) {
                 container.removeView(view)
                 container.addView(view, index)
             }
             (view.layoutParams as? LinearLayout.LayoutParams)?.topMargin = spacing
-            bindHistory(view, entry)
+            bindHistory(view, newest, LastSeen.older(allHistory, liveContent))
             index++
         }
-        // Die letzte sichtbare Verlaufzeile lädt beim Fokus die nächste Seite
-        // nach — auf der Fernbedienung gibt es kein Scroll-Ende, nur ▲ ▼.
-        // Deshalb Fokus, nicht Scroll-Listener. Der Listener steht nur auf der
-        // letzten Zeile; alle anderen tragen keinen (sonst würde jede
-        // fokussierte Zeile nachladen).
-        for ((key, view) in historyRows) {
-            view.onFocusChangeListener = null
-        }
-        visible.lastOrNull()?.let { last ->
-            historyRows[historyKey(last)]?.onFocusChangeListener =
-                android.view.View.OnFocusChangeListener { _, hasFocus ->
-                    if (hasFocus) loadMoreIfNeeded(allHistory.size)
-                }
-        }
-        // Zeilen, die es nicht mehr gibt, aus dem Baum und aus den Karten nehmen.
+        // Remove rows that no longer exist from the tree and from the maps.
         while (container.childCount > index) {
             val stale = container.getChildAt(index)
             container.removeViewAt(index)
@@ -276,18 +258,6 @@ class NowPlayingPanel(
             historyRows.entries.removeAll { it.value === stale }
         }
         tracks.keys.retainAll(current.map { it.packageName }.toSet())
-    }
-
-    /**
-     * Lädt die nächste Seite des Verlaufs nach — wenn es noch etwas gibt.
-     *
-     * @param total wie viele Verlaufseinträge es insgesamt gibt.
-     */
-    private fun loadMoreIfNeeded(total: Int) {
-        if (historyShown >= total) return
-        historyShown = minOf(historyShown + HistoryStore.PAGE_SIZE, total)
-        render()
-        updateVisibility()
     }
 
     private fun historyKey(entry: HistoryEntry): String =
@@ -305,38 +275,48 @@ class NowPlayingPanel(
             .inflate(R.layout.item_now_playing, container, false)
         view.alpha = HISTORY_ALPHA
         historyRows[key] = view
-        view.setOnClickListener { open(entry.packageName) }
         view.contentDescription = entry.line
         return view
     }
 
     /**
-     * Schreibt die Live-Zeile — **nur wenn sich für diese App etwas geändert hat**.
+     * Writes the live row — **only if something changed for this app**.
      *
-     * Der Text ist der Vergleichsschlüssel: er enthält App, Interpret, Titel und
-     * den Pausenzustand. Ist er gleich, bleibt auch das Cover stehen (und wird
-     * nicht neu geholt) — das ist die Zusage „die Zeile ändert sich nur, wenn Now
-     * Playing sich für diese App ändert“.
+     * The text is the comparison key: it contains app, artist, title and the
+     * pause state. If it is equal, the cover stays in place too (and is not
+     * fetched again) — that is the promise "the row changes only when Now
+     * Playing changes for this app".
      */
     private fun bindLive(view: View, row: NowPlayingBoard.Row) {
         val text = view.findViewById<TextView>(R.id.now_playing_row_text)
         view.setOnClickListener { open(row.packageName) }
         if (text.text?.toString() == row.line) return
         text.text = row.line
-        // Für Screenreader ist die Zeile eine Zeile, kein Knopf.
+        // For screen readers the row is a row, not a button.
         view.contentDescription = row.line
         applyArt(view.findViewById(R.id.now_playing_row_art), row.packageName)
     }
 
     /**
-     * Schreibt die Verlauf-Zeile — einmal, danach bleibt sie.
+     * Writes the history row — once, and then it stays.
      *
-     * Kein Cover aus der Session (die ist längst weg), nur das App-Symbol als
-     * Rückfall. Die Zeile ist gedimmt ([HISTORY_ALPHA]): sie ist Vergangenheit,
-     * nicht Gegenwart.
+     * No cover from the session (that is long gone), only the app icon as a
+     * fallback. The row is dimmed ([HISTORY_ALPHA]): it is the past, not the
+     * present. OK brings the app back; a **long press of OK** unfolds the older
+     * entries ([HistoryMenu]) — that route exists only when there are older
+     * ones.
      */
-    private fun bindHistory(view: View, entry: HistoryEntry) {
+    private fun bindHistory(view: View, entry: HistoryEntry, older: List<HistoryEntry>) {
         val text = view.findViewById<TextView>(R.id.now_playing_row_text)
+        view.setOnClickListener { open(entry.packageName) }
+        if (older.isEmpty()) {
+            view.setOnLongClickListener(null)
+        } else {
+            view.setOnLongClickListener {
+                historyMenu.show(older) { packageName -> open(packageName) }
+                true
+            }
+        }
         if (text.text?.toString() != entry.line) {
             text.text = entry.line
         }
@@ -361,7 +341,7 @@ class NowPlayingPanel(
         art.visibility = View.VISIBLE
     }
 
-    /** Cover aus der Session, sonst das App-Symbol aus dem eigenen Cache. */
+    /** Cover from the session, else the app icon from our own cache. */
     private fun applyArt(art: ImageView, packageName: String) {
         val cover = tracks[packageName]?.art
         if (cover != null) {
@@ -375,8 +355,8 @@ class NowPlayingPanel(
             hideArt(art)
             return
         }
-        // Derselbe Merker (`tag`) wie im Raster: die Anfrage nach einem Symbol
-        // kann später zurückkommen, während die Zeile längst etwas anderes zeigt.
+        // The same flag (`tag`) as in the grid: an icon request can come back
+        // later while the row already shows something else.
         val size = activity.resources.getDimensionPixelSize(R.dimen.now_playing_art_size)
         val key = entry.iconKey(size)
         art.tag = key
@@ -398,30 +378,31 @@ class NowPlayingPanel(
     }
 
     /**
-     * Sichtbar sind die Zeilen nur, wenn das Feld eingeschaltet ist, das Raster
-     * **zugeklappt** ist (aufgeklappt gehört der Platz den Apps) und es etwas zu
-     * zeigen gibt. Der gespeicherte Stand bleibt dabei erhalten: beim Zuklappen
-     * steht er sofort wieder da, statt auf die nächste Abfrage zu warten.
+     * The rows are visible only when the field is enabled, the grid is
+     * **collapsed** (expanded, the space belongs to the apps) and there is
+     * something to show. The stored state is preserved throughout: on
+     * collapsing it is there again immediately instead of waiting for the next
+     * query.
      */
     private fun updateVisibility() {
         val show = listener.isEnabled() && (board.rows().isNotEmpty() || history.current().isNotEmpty())
-        // Verschwindet der Block, während er den Fokus hat, muss der Fokus
-        // zurück ins Raster — sonst bedient die Fernbedienung ins Leere.
+        // If the block disappears while it has the focus, the focus must go back
+        // to the grid — otherwise the remote control fires into the void.
         if (!show && container.hasFocus()) listener.onFocusLost()
-        // Sichtbar wird die ScrollView (activity_home.xml): der innere Container
-        // trägt die Zeilen, die ScrollView begrenzt die Höhe.
+        // The ScrollView becomes visible (activity_home.xml): the inner
+        // container holds the rows, the ScrollView caps the height.
         scroll.visibility = if (show) View.VISIBLE else View.GONE
         if (!show) reportHeight(0)
     }
 
-    /** OK auf einer Zeile: erst der „Jetzt läuft“-Bildschirm, sonst die App. */
+    /** OK on a row: first the "Now playing" screen, else the app. */
     private fun open(packageName: String) {
         listener.openRow(packageName, tracks[packageName]?.activity)
     }
 
     /**
-     * Meldet die Höhe des Blocks, wenn sie sich ändert. Das Raster beginnt
-     * darunter — sonst läge die erste App-Zeile hinter der zweiten Zeile.
+     * Reports the height of the block when it changes. The grid starts below it
+     * — otherwise the first app row would sit behind the second row.
      */
     private fun reportHeight(heightPx: Int) {
         if (heightPx == reportedHeight) return
@@ -431,16 +412,16 @@ class NowPlayingPanel(
 
     companion object {
         /**
-         * Takt des Feldes. Fünf Sekunden sind der Kompromiss: ein Titelwechsel
-         * soll zügig ankommen, und ein Binder-Aufruf in diesem Takt ist auf dem
-         * Zielgerät nichts — die Nutzungsstatistik daneben ist die teurere von
-         * beiden. Läuft nur, solange die Home-Seite sichtbar ist.
+         * Ticker interval of the field. Five seconds are the compromise: a
+         * track change should arrive promptly, and a binder call at this rate
+         * is nothing on the target device — the usage stats next to it are the
+         * more expensive of the two. Runs only while the home screen is visible.
          */
         const val NOW_PLAYING_INTERVAL_MS = 5_000L
 
         /**
-         * Verlauf ist Vergangenheit: gedimmt, aber lesbar. 60 % Deckkraft
-         * trennen „läuft“ von „lief“, ohne dass die Zeile verschwindet.
+         * History is the past: dimmed, but readable. 60% opacity separates
+         * "playing" from "played" without the row disappearing.
          */
         const val HISTORY_ALPHA = 0.6f
     }

@@ -4,14 +4,13 @@ import android.content.ComponentName
 import android.content.pm.ApplicationInfo
 
 /**
- * Ein startbarer Eintrag im Raster.
+ * A launchable entry in the grid.
  *
- * Warum [ApplicationInfo] und keine [android.content.pm.LauncherActivityInfo]:
- * die App-Liste entsteht aus zwei PackageManager-Abfragen (siehe
- * [AppRepository]), weil LauncherApps auf Android TV leanback-only Apps
- * verschweigt. Die LauncherApps-Variante hätte den passenderen Symbolpfad
- * geliefert, aber ein unvollständiges Raster ist schlimmer als ein Symbol,
- * das eine Spur anders skaliert wird.
+ * Why [ApplicationInfo] and not [android.content.pm.LauncherActivityInfo]:
+ * the app list comes from two PackageManager queries (see [AppRepository]),
+ * because LauncherApps on Android TV omits leanback-only apps. The
+ * LauncherApps variant would have provided the more fitting icon path, but
+ * an incomplete grid is worse than an icon scaled a hair differently.
  */
 class AppEntry(
     val packageName: String,
@@ -20,12 +19,12 @@ class AppEntry(
     val appInfo: ApplicationInfo,
 ) {
 
-    /** Ziel für `startActivity` — der Komponentenname ist eindeutig. */
+    /** Target for `startActivity` — the component name is unique. */
     val component: ComponentName
         get() = ComponentName(packageName, activityName)
 
-    /** Schlüssel für den Symbol-Cache. Die Größe gehört dazu: wird die
-     *  Rastergröße geändert (andere Dichte, `configChanges`), entsteht ein
-     *  zweiter Eintrag statt einer hochskalierten Bitmap. */
+    /** Key for the icon cache. The size is part of it: when the grid size
+     *  changes (different density, `configChanges`), a second entry appears
+     *  instead of an upscaled bitmap. */
     fun iconKey(sizePx: Int): String = "$packageName@$sizePx"
 }

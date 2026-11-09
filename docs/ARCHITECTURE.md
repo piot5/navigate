@@ -1,65 +1,69 @@
-# Architektur
+# Architecture
 
-Zielsetzung: **minimale Oberfläche, maximale Performance** auf einem
-Chromecast HD (1,4 GB RAM, 32-bit-ABI, Android 14). Jede Entscheidung unten
-folgt aus dieser Vorgabe — und, wo eine Zahl steht, aus einer Messung.
+Goal: **minimal UI, maximum performance** on a
+Chromecast HD (1.4 GB RAM, 32-bit ABI, Android 14). Every decision below
+follows from this premise — and, wherever there is a number, from a measurement.
 
-## Ein Zustand, eine Activity
+## One state, one Activity
 
 ```
-HOME-Druck  →  untere Zeile mit den ersten Apps  +  „…“ in der Zeile darunter
+HOME press  →  bottom row with the first apps  +  "…" on the row below
                     │
-                    └── OK auf „…“  →  ganzes Raster (scrollbar), „…“ klappt zurück
+                    └── OK on "…"  →  the full grid (scrollable), "…" folds back
 ```
 
-Eine Activity, ein Fenster, keine Mehrdeutigkeit: zwei HOME-Activities in einer
-App würden die Auflösung des Systems mehrdeutig machen (Auswahldialog statt
-Direktstart).
+One Activity, one window, no ambiguity: two HOME Activities in one
+app would make the system's resolution ambiguous (a selection dialog instead of
+a direct launch).
 
-Es gibt **keinen zweiten Zustand** — „zugeklappt“ und „aufgeklappt“ unterscheiden
-sich nur in der Menge, die der Adapter meldet (`limit`), und in der Höhe des
-Rasters. Kein zweites Layout, kein zweites Fenster, keine Animation.
+There is **no second state** — "collapsed" and "expanded" differ only in the
+amount the adapter reports (`limit`) and in the height of the
+grid. No second layout, no second window, no animation.
 
-## Was seit 0.13 nicht mehr in der Activity steht
+## What is no longer in the Activity since 0.13
 
-Die Home-Seite war bis 0.12 **eine** Datei mit 769 Zeilen: Raster, Uhr, grüne
-Schrift, Now-Playing-Block und Kontextmenü in einer Klasse. Sie ist jetzt 695
-Zeilen (Stand 0.15.1) — nicht, weil weniger Code da wäre, sondern weil drei
-Stücke einen eigenen Namen haben:
+Until 0.12, the home screen was **one** file of 769 lines: grid, clock, green
+text, Now-Playing block and context menu in a single class. It is now 789
+lines (as of 0.17.0) — not because there is less code, but because the
+pieces have their own names:
 
-| Stück | Wo | Warum getrennt |
+| Piece | Where | Why separated |
 |---|---|---|
-| Zeittakt (Uhr · grün · Now Playing) | [Ticker](../app/src/main/java/com/piotv/navigate/ui/Ticker.kt) | drei `Handler` und drei `Runnable` waren dreimal derselbe Code mit einem anderen Intervall |
-| die Now-Playing-Zeilen | [NowPlayingPanel](../app/src/main/java/com/piotv/navigate/ui/NowPlayingPanel.kt) | Live je App plus Verlauf, Persistenz, Höhenmeldung ans Raster |
-| Kontextmenü | [AppMenu](../app/src/main/java/com/piotv/navigate/ui/AppMenu.kt) | kennt nur Dialog, Intents und Toasts — den Rasterzustand kennt der Aufrufer |
+| Clock tick (clock · green · Now Playing) | [Ticker](../app/src/main/java/com/piotv/navigate/ui/Ticker.kt) | three `Handler`s and three `Runnable`s were the same code three times with a different interval |
+| the Now-Playing lines | [NowPlayingPanel](../app/src/main/java/com/piotv/navigate/ui/NowPlayingPanel.kt) | live per app plus a last-seen line, persistence, height reporting to the grid |
+| the split of the history | [LastSeen](../app/src/main/java/com/piotv/navigate/ui/LastSeen.kt) | one line visible, the older ones in the menu — pure computation, verifiable without a device |
+| the menu of older entries | [HistoryMenu](../app/src/main/java/com/piotv/navigate/ui/HistoryMenu.kt) | knows only the dialog — which entries are older is known to the panel |
+| the focus banner | [BannerLoader](../app/src/main/java/com/piotv/navigate/ui/BannerLoader.kt) | knows only cache and decoding — when it is shown is decided by the Activity |
+| context menu | [AppMenu](../app/src/main/java/com/piotv/navigate/ui/AppMenu.kt) | knows only dialog, intents and toasts — the grid state is known to the caller |
 
-Die Activity hält weiterhin den **einen** Zustand (Raster, Reihenfolge, Fokus) und
-beantwortet als `Listener` die Fragen der ausgezogenen Teile: „ist das Feld
-eingeschaltet?“, „wie heißt diese App?“, „wie hoch bist du?“. Dieselbe Trennung wie
-zwischen `AppAdapter` und der Home-Seite — nur mit Zuhörer statt Rückgriff.
+The Activity continues to hold the **one** state (grid, order, focus) and,
+as the `Listener`, answers the questions of the extracted pieces: "is the field
+switched on?", "what is this app called?", "how tall are you?". The same
+separation as between `AppAdapter` and the home screen — only with a listener
+instead of reaching back in.
 
-## Das Fenster: opak, und warum das die eigentliche Korrektur war
+## The window: opaque, and why that was the real fix
 
-Bis 0.6 war das Theme translucide (damit beim HOME-Druck kein schwarzer Blitz
-kommt) und setzte alle Fenster-Animationen auf `@null`. Auf dem Zielgerät war das
-Fenster damit:
+Until 0.6, the theme was translucent (so that no black flash would appear on a
+HOME press) and set all window animations to `@null`. On the target device the
+window was therefore:
 
 ```
 mAttrs={(0,0)(fillxfill) … fmt=TRANSPARENT}      mHasSurface=true
 mDrawState=HAS_DRAWN   mLastHidden=false   Surface: shown=true alpha=1.0
-input_focus: [Focus entering … LauncherActivity]   ← bedienbar!
+input_focus: [Focus entering … LauncherActivity]   ← operable!
 ```
 
-… und trotzdem **nicht zu sehen**: nur bei einem Klick blitzte kurz etwas auf.
-Die Eingabe kam an (der Nutzer konnte „blind“ Apps starten), der Inhalt blieb
-unsichtbar. Alle SurfaceFlinger-Ebenen meldeten dabei `alpha=1.000000`.
+… and yet **not visible**: only on a click did something flash up briefly.
+Input arrived (the user could launch apps "blind"), the content stayed
+invisible. All SurfaceFlinger layers reported `alpha=1.000000`.
 
-Was der Fall zeigt: ein **translucentes Fenster lässt die App darunter am Leben**
-(sie wird nur pausiert, ihr Fenster bleibt), und jede auf diesem Fernseher
-sichtbare App hat ein **opakes** Fenster, bei dem die App darunter gestoppt wird.
-Die Korrelation war eindeutig, der Mechanismus dahinter nicht nachweisbar
-(video-/DRM-Ebenen des Geräts). 0.7 zieht daraus die einzige belastbare
-Konsequenz: das gewöhnlichste Theme, das es gibt.
+What the case shows: a **translucent window keeps the app below it alive**
+(it is only paused, its window remains), and every app visible on this TV
+has an **opaque** window, one in which the app below is stopped. The
+correlation was unmistakable, the mechanism behind it not provable
+(the device's video/DRM layers). 0.7 draws the only solid conclusion
+from this: the most ordinary theme there is.
 
 ```xml
 <style name="Theme.Navigate" parent="@android:style/Theme.Material.NoActionBar">
@@ -68,99 +72,100 @@ Konsequenz: das gewöhnlichste Theme, das es gibt.
 </style>
 ```
 
-Kein `windowIsTranslucent`, kein `windowDisablePreview`, kein eigener
-`windowAnimationStyle`, keine Fenstergrößen-Tricks. `windowBackground` ist
-derselbe Farbton wie die Home-Seite — das Starting-Window ist damit ein dunkles
-Rechteck statt eines weißen Blitzes.
+No `windowIsTranslucent`, no `windowDisablePreview`, no custom
+`windowAnimationStyle`, no window-size tricks. `windowBackground` is
+the same shade as the home screen — the starting window is thus a dark
+rectangle instead of a white flash.
 
-> **Was daran Hypothese ist:** dass genau die Translucenz die Ursache war, ist
-> aus der Korrelation geschlossen, nicht bewiesen. Bewiesen ist: das Fenster war
-> gezeichnet, fokussiert, bedienbar und unsichtbar.
+> **What is hypothesis here:** that it was precisely the translucency that
+> caused it is inferred from the correlation, not proven. What is proven: the
+> window was drawn, focused, operable, and invisible.
 
-## Erste Zeile und „…“: eine Ansicht, kein Umbau
+## First row and "…": one view, no rebuild
 
-Der Aufbau ist eine senkrechte `LinearLayout`-Spalte, die am **unteren** Rand
-hängt:
+The structure is a vertical `LinearLayout` column hanging at the **bottom**
+edge:
 
 ```
 ┌──────────────────────────────────┐
-│                            [Uhr] │
-│                                  │   ← leer (zugeklappt)
-│  [App][App][App][App][App][App]  │   ← das Raster, zugeklappt eine Zeile hoch
-│                          [ ••• ] │   ← die Zeile darunter: der „…“-Knopf
+│                          [Clock] │
+│                                  │   ← empty (collapsed)
+│  [App][App][App][App][App][App]  │   ← the grid, one row tall when collapsed
+│                          [ ••• ] │   ← the row below: the "…" button
 └──────────────────────────────────┘
 ```
 
-- **Zugeklappt:** `limit = columns` — der Adapter meldet genau eine Zeile; das
-  Raster ist `wrap_content` hoch und hängt mit der Spalte unten. Der „…“-Knopf
-  steht in der Zeile darunter, rechtsbündig unter der letzten Zelle (gleiche
-  Ränder wie das Raster).
-- **Aufgeklappt:** `limit = 0` (alle Apps), das Raster bekommt per
-  `layout_weight = 1` den ganzen Platz über dem Knopf und scrollt. Der Knopf
-  bleibt an derselben Stelle.
+- **Collapsed:** `limit = columns` — the adapter reports exactly one row; the
+  grid is `wrap_content` tall and hangs at the bottom with the column. The "…"
+  button sits in the row below, right-aligned under the last cell (same
+  margins as the grid).
+- **Expanded:** `limit = 0` (all apps), the grid gets the whole space above
+  the button via `layout_weight = 1` and scrolls. The button
+  stays in the same place.
 
-`layout_weight` statt `match_parent`, weil ein `match_parent`-Kind in einer
-senkrechten `LinearLayout` den Knopf darunter aus dem Bild schieben würde.
+`layout_weight` instead of `match_parent`, because a `match_parent` child in a
+vertical `LinearLayout` would push the button below out of view.
 
-## Die Auswahl-Markierung
+## The selection highlight
 
-Zwei Dinge, die auf dem Gerät zu sehen waren und die es so nicht bleiben sollten:
+Two things that were visible on the device and should not stay that way:
 
-- **Der orange Auswahl-Hintergrund** kam vom **Theme** (`listSelector`), nicht
-  vom Layout: `android:listSelector="@null"` schaltet ihn nicht ab. Deshalb steht
-  jetzt `@android:color/transparent` im Layout — ausdrücklich, mit Begründung an
-  der Fundstelle.
-- **Der abgerundete blaue Rahmen bleibt** — er ist die Markierung, und er kommt
-  aus einer einzigen Zeichenfläche (`bg_grid_item.xml`: `state_selected` →
-  `item_focus_fill` + 2dp `item_focus_stroke`, 12dp Radius). Der „…“-Knopf
-  benutzt dieselbe Sprache (`bg_more_item.xml`, dort auf `state_focused`, weil er
-  eine echte View ist).
+- **The orange selection background** came from the **theme** (`listSelector`),
+  not from the layout: `android:listSelector="@null"` does not switch it off.
+  That is why `@android:color/transparent` now stands in the layout —
+  explicitly, with the reason noted at the spot.
+- **The rounded blue border stays** — it is the highlight, and it comes
+  from a single drawable (`bg_grid_item.xml`: `state_selected` →
+  `item_focus_fill` + 2dp `item_focus_stroke`, 12dp radius). The "…"
+  button uses the same language (`bg_more_item.xml`, there on
+  `state_focused`, because it is a real View).
 
-`HomeGridView` räumt zusätzlich die Markierung ab, wenn der Fokus das Raster
-verlässt (GridView lässt `state_selected` stehen): sonst bliebe eine Zelle blau
-umrahmt, während der Fokus auf dem „…“-Knopf steht.
+`HomeGridView` additionally clears the highlight when the focus leaves the
+grid (GridView leaves `state_selected` set): otherwise a cell would stay
+framed in blue while the focus is on the "…" button.
 
 
-## „Zurück in die letzte App“ — und warum es einen Merker braucht
+## "Back to the last app" — and why it needs a marker
 
-Auf der schon sichtbaren Home-Seite holen HOME und BACK die zuletzt benutzte App
-zurück. Der Unterschied zwischen „erster HOME-Druck“ (Home-Seite zeigen) und
-„zweiter HOME-Druck“ (zurück in die App) hängt an `homeOnScreen`: gesetzt in
-`onResume`, gelöscht in `onStop` — und zusätzlich beim Start einer App aus dieser
-Oberfläche heraus (eine durchsichtige App würde uns nur pausieren, `onStop` käme
-dann nicht).
+On the already visible home screen, HOME and BACK bring back the last used
+app. The difference between a "first HOME press" (show the home screen) and a
+"second HOME press" (back into the app) hinges on `homeOnScreen`: set in
+`onResume`, cleared in `onStop` — and additionally when an app is launched
+from this UI (a translucent app would only pause us, so `onStop` would not
+come).
 
-Warum kein Lebenszyklus-Flag: das System pausiert die Activity bei **jedem**
-HOME-Druck, *bevor* es den Intent zustellt (gemessen: onPause → onNewIntent →
-onResume). `isResumed` ist dort immer schon `false` — genau daran ist die erste
-Fassung dieses Verhaltens in 0.1 gescheitert.
+Why no lifecycle flag: the system pauses the Activity on **every** HOME
+press, *before* it delivers the intent (measured: onPause → onNewIntent →
+onResume). `isResumed` is already `false` there — this is exactly what the
+first version of this behavior failed on in 0.1.
 
-Woher „die letzte App“ kommt ([LastApp](../app/src/main/java/com/piotv/navigate/data/LastApp.kt)),
-in dieser Reihenfolge:
+Where "the last app" comes from ([LastApp](../app/src/main/java/com/piotv/navigate/data/LastApp.kt)),
+in this order:
 
-1. **Nutzungsstatistik** (`queryEvents`, 5-Minuten-Fenster, sonst 6 Stunden):
-   exakt, braucht aber den App-Op `GET_USAGE_STATS`. Zwei Fenster, weil nicht die
-   Abfrage kostet, sondern die **Ereignismenge** — ein 6-Stunden-Fenster enthält
-   auf einem benutzten Gerät Tausende Ereignisse.
-2. **Merker** (`SharedPreferences`): die zuletzt über Navigate gestartete App,
-   nach einem Systemstart verworfen. Ohne Zugriff die ehrliche Näherung — und
-   `null`, wenn nichts bekannt ist; dann bleibt die Home-Seite stehen.
+1. **Usage stats** (`queryEvents`, a 5-minute window, otherwise 6 hours):
+   exact, but it needs the app op `GET_USAGE_STATS`. Two windows because it is
+   not the query that is expensive but the **event set** — on a used device, a
+   6-hour window contains thousands of events.
+2. **Marker** (`SharedPreferences`): the app last launched via Navigate,
+   discarded after a system boot. Without access, this is the honest
+   approximation — and `null` when nothing is known; then the home screen
+   stays put.
 
-Warum nicht `ActivityManager.getRunningTasks`: seit Android 5 liefert das
-normalen Apps nur noch die eigenen Tasks — für einen Launcher wertlos.
+Why not `ActivityManager.getRunningTasks`: since Android 5 this returns to
+normal apps only their own tasks — useless for a launcher.
 
-Die Faltung der Ereignisse (`ForegroundLog.lastResumed`) ist reine Logik ohne
-Android-Typen und getestet; `LastApp` selbst ist Verdrahtung und läuft nur auf
-einem Gerät.
+The folding of the events (`ForegroundLog.lastResumed`) is pure logic without
+Android types and is tested; `LastApp` itself is wiring and only runs on a
+device.
 
-## Grüne Schrift: was „aktiv“ heißt
+## Green text: what "active" means
 
-Die App-Beschriftungen sind grün, solange die App **aktiv** ist. Was „aktiv“ auf
-diesem Gerät bedeutet, ist gemessen, nicht angenommen.
+The app labels are green as long as the app is **active**. What "active"
+means on this device was measured, not assumed.
 
-Weil unser Fenster **opak** ist, stoppt die Plattform die App darunter, sobald die
-Home-Seite erscheint — ihre Activity bekommt `ACTIVITY_STOPPED`. Ihr **Prozess**
-lebt aber weiter. Direkt nach einem HOME-Druck nachgemessen:
+Because our window is **opaque**, the platform stops the app below it as soon
+as the home screen appears — its Activity receives `ACTIVITY_STOPPED`. Its
+**process**, however, stays alive. Re-measured right after a HOME press:
 
 ```
 *APP* UID 10101 ProcessRecord{… com.netflix.ninja/u0a101}
@@ -169,188 +174,198 @@ lebt aber weiter. Direkt nach einem HOME-Druck nachgemessen:
 *APP* UID 10064 ProcessRecord{… com.android.vending/u0a64}
 ```
 
-Die richtige Frage ist deshalb nicht „läuft die Activity?“ (Antwort: nein),
-sondern **„war die App zuletzt im Vordergrund?“** — und die beantwortet die
-Nutzungsstatistik mit einem Zeitstempel je Paket (`UsageStats.getLastTimeUsed`):
+The right question is therefore not "is the Activity running?" (answer: no)
+but **"was the app last in the foreground?"** — and the usage stats answer
+that with a timestamp per package (`UsageStats.getLastTimeUsed`):
 
-- grün = in den letzten **24 Stunden** im Vordergrund, nie vor dem letzten
-  Systemstart ([LastApp.recentlyUsed](../app/src/main/java/com/piotv/navigate/data/LastApp.kt));
-- die Abfrage läuft im Hintergrund-Thread und höchstens alle 30 Sekunden — ein
-  6-Stunden-Fenster auf dem HOME-Pfad wäre genau der Posten, den 0.2 dort entfernt
-  hat;
-- ohne Nutzungszugriff bleibt der letzte bekannte Stand stehen (beim ersten Mal
-  eine leere Menge: nichts grün statt falsch grün).
+- green = in the foreground within the last **24 hours**, never before the
+  last boot ([LastApp.recentlyUsed](../app/src/main/java/com/piotv/navigate/data/LastApp.kt));
+- the query runs on a background thread and at most every 30 seconds — a
+  6-hour window on the HOME path would be exactly the bottleneck that 0.2
+  removed from there;
+- without usage access, the last known state stays in place (the first time:
+  an empty set — nothing green instead of wrongly green).
 
-Ehrlich dazu: „Prozess lebt“ ist **angenähert**. Eine App, die vor 23 Stunden
-benutzt und inzwischen vom System beendet wurde, ist grün — das Fenster ist der
-Kompromiss zwischen „alles Aktive“ und „nichts Falsches“.
+To be honest about it: "process alive" is an **approximation**. An app used
+23 hours ago and since then killed by the system is green — the window is the
+compromise between "everything active" and "nothing wrong".
 
-## „Now Playing“: aktuelle je App plus Verlauf, alles anspringbar
+## "Now Playing": current per app plus history, everything jumpable
 
-Oben links stehen im zugeklappten Zustand die laufenden Sessions — **aktuelle
-je App**, jede als **App · Interpret – Titel**, dazu `· pausiert` und das Cover.
-Darunter der **Verlauf** aus `history.conf`: was lief, neueste oben, gedimmt,
-ältere werden beim Runterscrollen seitenweise nachgeladen. Der Block ist der
-einzige Teil der Home-Seite, der etwas anderes tut als „starte diese
-App“: **OK auf einer Zeile holt genau diese App zurück** (Verlauf: die App
-selbst).
+Top left, in the collapsed state, are the running sessions — the **current
+one per app**, each as **App · Artist – Title**, plus `· paused` and the
+cover art. Below it, **one** history line from `history.conf`: the newest
+entry not currently playing ("Last seen"), dimmed. Everything older sits
+behind a **long OK press on this line** — the context menu
+([HistoryMenu](../app/src/main/java/com/piotv/navigate/ui/HistoryMenu.kt))
+unfolds the older entries and brings back the selected app; the block
+does not grow with the archive. The block is the only part of the home
+screen that does anything other than "launch this app": **OK on a line
+brings back exactly that app** (in the history: the app itself).
 
-Bis 0.12 war es **eine** Zeile: die Session, die „den Ton macht“. Das war eine
-Auswahl, die niemand getroffen hat — läuft ein Hörbuch pausiert und daneben ein
-Radiosender, verschwand eine der beiden Angaben.
+Until 0.12 it was **one** line: the session that "has the sound". That was a
+choice nobody had made — with an audiobook paused next to a radio station,
+one of the two pieces of information disappeared.
 
-Woher die Angaben kommen:
+Where the information comes from:
 
-| Angabe | Quelle |
+| Information | Source |
 |---|---|
-| Titel, Interpret, Zustand | `MediaMetadata` der Session (`METADATA_KEY_TITLE`/`_ARTIST`) und `PlaybackState` |
-| Cover | `MediaMetadata.getBitmap()`: erst `METADATA_KEY_ALBUM_ART`, dann `_ART`, dann `_DISPLAY_ICON`. Mehr bietet die API nicht — die `*_URI`-Varianten gäbe es zusätzlich, sie verlangen aber einen Content-Resolver für ein Bild, das meist schon mitkommt |
-| App-Name | **nicht** aus der Session, sondern aus der eigenen App-Liste (`sessionActivity`-Paket → `AppEntry.label`): dieselben Namen wie im Raster |
-| welche Session einer App | die **spielende**, sonst die erste mit Titel ([NowPlaying.active](../app/src/main/java/com/piotv/navigate/data/NowPlaying.kt)) |
-| „wohin zurück“ | `MediaController.getSessionActivity()` — der „Jetzt läuft“-Bildschirm, den die App selbst anbietet. Setzt sie ihn nicht, greift ihr Launcher-Intent, wie aus dem Raster |
+| Title, artist, state | the session's `MediaMetadata` (`METADATA_KEY_TITLE`/`_ARTIST`) and `PlaybackState` |
+| Cover art | `MediaMetadata.getBitmap()`: first `METADATA_KEY_ALBUM_ART`, then `_ART`, then `_DISPLAY_ICON`. That is all the API offers — the `*_URI` variants exist too, but they require a content resolver for an image that usually comes along anyway |
+| App name | **not** from the session but from our own app list (`sessionActivity` package → `AppEntry.label`): the same names as in the grid |
+| which session belongs to an app | the **playing** one, otherwise the first with a title ([NowPlaying.active](../app/src/main/java/com/piotv/navigate/data/NowPlaying.kt)) |
+| where to return to | `MediaController.getSessionActivity()` — the "now playing" screen the app itself provides. If it does not set one, its launcher intent applies, as from the grid |
 
-Drei Entscheidungen, die daran hängen:
+Three decisions that depend on this:
 
-1. **Ohne Benachrichtigungszugriff gibt es kein Feld.** `getActiveSessions` ist
-   für normale Apps gesperrt; [NowPlayingListener](../app/src/main/java/com/piotv/navigate/NowPlayingListener.kt)
-   ist der Ausweis — ein leerer Dienst, der nichts liest. Die entstehende
-   `SecurityException` wird geschluckt, der Block bleibt leer: dieselbe Haltung
-   wie bei „ohne Nutzungszugriff ist nichts grün“.
-2. **Die Cover liegen in einem LRU (4 MB).** Ohne den Cache würde alle 5 Sekunden
-   dasselbe Bild geholt und skaliert (ein 1000×1000-Cover sind 4 MB); der
-   Schlüssel ist das **Lied**, nicht das Bitmap-Objekt — jede Abfrage liefert ein
-   neues. Bis 0.12 war das **ein** Platz (es gab nur eine Zeile); mit einer Zeile
-   je App hält der Cache mehrere. Fehlt ein Cover, steht dort das App-Symbol aus
-   dem eigenen Symbol-Cache.
-3. **Kein Rückkanal.** Kein `addOnActiveSessionsChangedListener`, kein
-   `MediaController.Callback`: die Home-Seite fragt im Takt ihres eigenen Timers
-   (5 s, nur sichtbar und zugeklappt). Ein Listener wäre genauer und wäre
-   zusätzlicher Zustand — für ein paar Zeilen mit Cover lohnt er nicht.
+1. **Without notification access there is no field.** `getActiveSessions` is
+   blocked for normal apps; [NowPlayingListener](../app/src/main/java/com/piotv/navigate/NowPlayingListener.kt)
+   is the credentials — an empty service that reads nothing. The resulting
+   `SecurityException` is swallowed, the block stays empty: the same stance
+   as with "without usage access nothing is green".
+2. **The cover art lives in an LRU (4 MB).** Without the cache, the same image
+   would be fetched and scaled every 5 seconds (a 1000×1000 cover is 4 MB);
+   the key is the **song**, not the bitmap object — every query returns a
+   new one. Until 0.12 that was **one** slot (there was only one line); with
+   a line per app the cache holds several. If a cover is missing, the app
+   icon from our own icon cache stands there.
+3. **No callback channel.** No `addOnActiveSessionsChangedListener`, no
+   `MediaController.Callback`: the home screen polls on the beat of its own
+   timer (5 s, only when visible and collapsed). A listener would be more
+   precise and would be extra state — not worth it for a few lines with
+   cover art.
 
-**Wann sich eine Zeile ändert** — die Regel steht in
+**When a line changes** — the rule lives in
 [NowPlayingBoard](../app/src/main/java/com/piotv/navigate/data/NowPlayingBoard.kt):
 
-- **Eine Zeile je App.** Zwei Sessions derselben App ergeben eine Zeile (die
-  spielende gewinnt), eine App ohne Titel und Interpret gar keine.
-- **Sie bleibt stehen, wie sie ist.** Der Vergleich ist der fertige Text: ist er
-  gleich, wird nichts geschrieben und kein neues Cover geholt — sonst würde jeder
-  Takt die Anzeige neu setzen (auf dem Gerät als Flackern sichtbar).
-- **Nur ein ausdrückliches Ende nimmt sie weg.** Drei Dinge werden
-  auseinandergehalten: ein neuer **Titel** ersetzt den alten — der alte wandert
-  dabei in den Verlauf ([HistoryStore](../app/src/main/java/com/piotv/navigate/data/HistoryStore.kt));
-  eine Session **ohne Titel** (Ladescreen, Werbung) oder **gar keine** Session
-  (App im Hintergrund, Titelwechsel) lässt die Zeile stehen; erst
-  `STOPPED`/`ERROR` — zweimal in Folge, also zehn Sekunden — entfernt sie. Auf
-  dem Zielgerät war die Session von WOW nach dem Film **ganz weg**, ohne je
-  `STOPPED` zu melden: genau daran ist die erste Fassung dieser Regel (0.13.2)
-  gescheitert, der Eintrag verschwand nach wenigen Sekunden.
-- **Ein fehlgeschlagener Blick löscht nichts.** [NowPlaying.active] gibt dann
-  `null` statt einer leeren Liste — „ich weiß es nicht“ ist etwas anderes als „es
-  läuft nichts“.
-- **Der Verlauf ist die vierte Antwort.** Live-Zeilen zuerst, darunter
-  `history.conf` neueste-zuerst, höchstens 500 Einträge, seitenweise (8)
-  nachgeladen beim Runterscrollen. Der Block ist höchstens 260 dp hoch, danach
-  scrollt er in sich — das Raster rutscht nicht endlos nach unten. (In 0.15.0 war
-  diese Grenze **wirkungslos**; warum, steht im nächsten Abschnitt.)
-- **Der Preis, offen gesagt:** eine App, die ihre Session ohne `STOPPED` verliert,
-  behält ihre Zeile bis zum Neustart des Launcher-Prozesses (auf 1,4 GB der
-  Normalfall nach ein paar Stunden). Das ist die bewusste Entscheidung: eine Zeile,
-  die man gerade liest, darf nicht unter dem Lesen verschwinden.
+- **One line per app.** Two sessions of the same app make one line (the
+  playing one wins), an app without title and artist makes none.
+- **It stays as it is.** The comparison is the finished text: if it is
+  equal, nothing is written and no new cover is fetched — otherwise every
+  tick would reset the display (visible on the device as flicker).
+- **Only an explicit end removes it.** Three things are
+  kept apart: a new **title** replaces the old one — the old one moves
+  into the history in the process ([HistoryStore](../app/src/main/java/com/piotv/navigate/data/HistoryStore.kt));
+  a session **without a title** (loading screen, ads) or **no** session
+  at all (app in the background, title change) leaves the line standing; only
+  `STOPPED`/`ERROR` — twice in a row, i.e. ten seconds — removes it. On
+  the target device, WOW's session after the film was **gone entirely**,
+  without ever reporting
+  `STOPPED`: the first version of this rule (0.13.2) failed on exactly
+  that, the entry vanished after a few seconds.
+- **A failed look deletes nothing.** [NowPlaying.active] then returns
+  `null` instead of an empty list — "I don't know" is something different
+  from "nothing is playing".
+- **The history is the fourth answer — as one line plus an archive.** Live lines
+  first, below them the **newest** entry from `history.conf` that is not
+  currently playing; the file holds at most 500 entries, and of them exactly
+  one is shown — everything older sits behind a long OK press on this line
+  ([HistoryMenu](../app/src/main/java/com/piotv/navigate/ui/HistoryMenu.kt)).
+  The block is at most 260 dp tall, after that it scrolls within itself — the
+  grid does not slide down. (In 0.15.0 this limit was **ineffective**; why,
+  is explained in the next section.)
+- **The price, to say it openly:** an app that loses its session without
+  `STOPPED` keeps its line until the launcher process is restarted (on 1.4 GB
+  the normal case after a few hours). That is the deliberate decision: a line
+  you are just reading must not vanish while you read it.
 
-Die Regeln liegen in
+The rules live in
 [NowPlayingText](../app/src/main/java/com/piotv/navigate/data/NowPlayingText.kt),
-NowPlayingBoard, [HistoryCodec](../app/src/main/java/com/piotv/navigate/data/HistoryCodec.kt)
-und [HistoryStore](../app/src/main/java/com/piotv/navigate/data/HistoryStore.kt)
-und kennen kein Android — dieselbe Trennung wie bei der
-Reihenfolge ([Order](../app/src/main/java/com/piotv/navigate/data/Order.kt)):
-geprüft wird die Regel (157 Tests, ohne Gerät), nicht die Eigenheit des Geräts.
+NowPlayingBoard, [HistoryCodec](../app/src/main/java/com/piotv/navigate/data/HistoryCodec.kt),
+[HistoryStore](../app/src/main/java/com/piotv/navigate/data/HistoryStore.kt)
+and [LastSeen](../app/src/main/java/com/piotv/navigate/ui/LastSeen.kt) and
+know no Android — the same separation as for the
+order ([Order](../app/src/main/java/com/piotv/navigate/data/Order.kt)):
+what is tested is the rule (164 unit tests, without a device), not the device's quirks.
 
-## Das Fenster über den Zeilen — und warum die Pfeiltasten eine eigene Regel brauchen
+## The window above the lines — and why the arrow keys need a rule of their own
 
-Der Block oben links ist der einzige Ort der Home-Seite, der **mehr Zeilen hat,
-als er zeigt**. Drei Dinge folgen daraus — und alle drei standen in 0.15.0 falsch:
+The block top left is the only place on the home screen that **has more lines
+than it shows**. Three things follow from that — and all three were wrong in
+0.15.0:
 
-1. **`android:maxHeight` gibt es am `ScrollView` nicht.** Die Plattform kennt das
-   Attribut nur für `ImageView`, `ExpandableListView` und das interne
-   `MaxHeightFrameLayout`; `<declare-styleable name="ScrollView">` enthält
-   ausschließlich `fillViewport`. aapt2 prüft nur, ob es das Attribut **gibt** —
-   es wird still ignoriert, und der Block wuchs mit dem Verlauf: 40 Einträge à
-   52 dp sind 2080 dp auf einem Bildschirm mit 540 dp. [PanelScrollView](../app/src/main/java/com/piotv/navigate/ui/PanelScrollView.kt)
-   liest die Grenze deshalb als eigenes Attribut (`app:maxHeight`, deklariert in
-   `res/values/attrs.xml`) und wendet sie in `onMeasure` an.
-2. **Das Raster darf nicht die Höhe des Inhalts bekommen.** `grid_padding_top`
-   entsteht aus der Rückmeldung des Blocks (`NowPlayingPanel.Listener.onHeightChanged`).
-   Gemeldet wird die Höhe der **ScrollView** — das Fenster —, nicht die der inneren
-   Spalte mit allen Zeilen: sonst läge die App-Zeile hinter 500 Verlaufseinträgen
-   am unteren Bildrand.
-3. **Der Fokus-Sucher kennt das Abschneiden nicht.** `FocusFinder` arbeitet mit
-   den Layout-Rechtecken: die Zeilen unterhalb des Fensters liegen geometrisch
-   dort, wo das Raster anfängt. Ein `▲` aus dem Raster landete deshalb auf einer
-   Zeile, die niemand sieht — die Markierung war außerhalb des Bildes, und die
-   Steuerung fühlte sich kaputt an, ohne es zu sein.
+1. **`android:maxHeight` does not exist on `ScrollView`.** The platform knows
+   the attribute only for `ImageView`, `ExpandableListView` and the internal
+   `MaxHeightFrameLayout`; `<declare-styleable name="ScrollView">` contains
+   nothing but `fillViewport`. aapt2 only checks that the attribute **exists** —
+   it is silently ignored, and the block grew with the history: 40 entries at
+   52 dp each are 2080 dp on a 540 dp screen. [PanelScrollView](../app/src/main/java/com/piotv/navigate/ui/PanelScrollView.kt)
+   therefore reads the limit as its own attribute (`app:maxHeight`, declared in
+   `res/values/attrs.xml`) and applies it in `onMeasure`.
+2. **The grid must not be given the height of the content.** `grid_padding_top`
+   comes from the block's feedback (`NowPlayingPanel.Listener.onHeightChanged`).
+   What is reported is the height of the **ScrollView** — the window —, not that
+   of the inner column with all the lines: otherwise the app row would sit
+   behind 500 history entries at the bottom edge of the screen.
+3. **The focus finder knows nothing about clipping.** `FocusFinder` works with
+   the layout rectangles: the lines below the window geometrically sit
+   where the grid starts. A `▲` from the grid therefore landed on a
+   line nobody sees — the highlight was outside the picture, and the
+   control felt broken without being so.
 
-Was daraus folgt:
+What follows from this:
 
-- **Die Scrollbar steht dauerhaft** (`fadeScrollbars="false"`, eigener Griff,
-  `insideInset`). Sie ist hier kein Beiwerk, sondern die einzige Anzeige dafür,
-  dass der Verlauf weitergeht und wo man darin steht.
-- **`▲`/`▼` bewegen den Fokus zeilenweise** ([PanelScrollView](../app/src/main/java/com/piotv/navigate/ui/PanelScrollView.kt),
-  `dispatchKeyEvent`): die nächste Zeile im Baum, **vorher** ins Fenster
-  gescrollt. Am Anfang und Ende der Liste wird die Taste **nicht** verbraucht —
-  dort ist die Antwort des Frameworks richtig (`▼` auf der letzten Zeile führt
-  ins Raster, `▲` auf der ersten bleibt stehen).
-- **Abgeschnittene Zeilen sind keine Fokus-Kandidaten** (`addFocusables` fragt
-  `RowWindow.isVisible`). Der eigene Fokuswechsel ruft `requestFocus()` direkt
-  auf und erreicht sie weiterhin — sie sind dann ja schon hereingescrollt.
-- **Die Rechnung ist eine reine Regel.** [RowWindow](../app/src/main/java/com/piotv/navigate/ui/RowWindow.kt)
-  sagt, wann eine Zeile ganz sichtbar ist und wohin gescrollt werden muss —
-  dieselbe Rechnung wie `ScrollView.computeScrollDeltaToGetChildRectOnScreen`,
-  aber ohne Android-Typen und damit ohne Gerät prüfbar (`RowWindowTest`, neun
-  Tests).
+- **The scrollbar stays up permanently** (`fadeScrollbars="false"`, its own
+  grip, `insideInset`). Here it is no ornament but the only indication
+  that the history continues and where you are in it.
+- **`▲`/`▼` move the focus line by line** ([PanelScrollView](../app/src/main/java/com/piotv/navigate/ui/PanelScrollView.kt),
+  `dispatchKeyEvent`): the next line in the tree, scrolled **beforehand** into
+  the window. At the start and end of the list the key is **not** consumed —
+  there the framework's answer is right (`▼` on the last line leads
+  into the grid, `▲` on the first stays put).
+- **Clipped lines are not focus candidates** (`addFocusables` asks
+  `RowWindow.isVisible`). Our own focus change calls `requestFocus()` directly
+  and still reaches them — they are already scrolled in by then.
+- **The computation is a pure rule.** [RowWindow](../app/src/main/java/com/piotv/navigate/ui/RowWindow.kt)
+  says when a line is fully visible and where one must scroll to —
+  the same computation as `ScrollView.computeScrollDeltaToGetChildRectOnScreen`,
+  but without Android types and therefore verifiable without a device
+  (`RowWindowTest`, nine unit tests).
 
 
-## Was ohne Gerät prüfbar ist (und was nicht)
+## What can be verified without a device (and what cannot)
 
-| | Beispiele | Prüfbar |
+| | Examples | Verifiable |
 |---|---|---|
-| **reine Regeln**, kein Android-Typ | `AppCatalog`, `Order`, `OrderCodec`, `OrderStore` (Datei-Semantik), `NowPlayingBoard`, `NowPlayingText`, `HistoryCodec`, `HistoryStore` (Datei-Semantik), `BackgroundPlan`, `SettingsCodec`, `GridColumns`, `IconGeometry`, `IconCacheKeys`, `RowWindow` | Unit-Test ohne Gerät — 157 Tests; die ohne Gerät prüfbaren Klassen liegen bei 100 % Zeilen-Coverage. Die Zahl selbst ist keine Prosa: `tools/check_docs_drift.sh` vergleicht sie mit dem gebauten Testset |
-| **Android-Verdrahtung** | `LauncherActivity` (inkl. Hintergrund-Ebenen), `NowPlayingPanel`, `PanelScrollView`, `AppMenu`, `Ticker`, `AppAdapter`, `HomeGridView`, `IconLoader`, `IconDiskCache`, `AppRepository`, `NowPlaying` | nur auf einem Gerät; hier zählt die Messung ([DEVICE_PERF.md](DEVICE_PERF.md)) |
+| **pure rules**, no Android type | `AppCatalog`, `Order`, `OrderCodec`, `OrderStore` (file semantics), `NowPlayingBoard`, `NowPlayingText`, `HistoryCodec`, `HistoryStore` (file semantics), `LastSeen`, `BackgroundPlan`, `SettingsCodec`, `GridColumns`, `IconGeometry`, `IconCacheKeys`, `RowWindow`, `BannerGeometry` | unit test without a device — 164 unit tests; the classes verifiable without a device sit at 100 % line coverage. The number itself is not prose: `tools/check_docs_drift.sh` compares it against the built test set |
+| **Android wiring** | `LauncherActivity` (incl. background layers), `NowPlayingPanel`, `PanelScrollView`, `AppMenu`, `HistoryMenu`, `Ticker`, `AppAdapter`, `HomeGridView`, `IconLoader`, `IconDiskCache`, `BannerLoader`, `AppRepository`, `NowPlaying` | only on a device; here the measurement counts ([DEVICE_PERF.md](DEVICE_PERF.md)) |
 
-Der Grund ist die Fehlerhistorie: die teuersten Fehler dieses Projekts waren
-**Regeln**, keine Android-Eigenheiten. Solche Regeln stehen deshalb in einem
-`object` ohne Android-Import und sind in Millisekunden prüfbar statt in einem
-15-Minuten-Build plus Fernseher.
+The reason is the error history: the most expensive mistakes of this project were
+**rules**, not Android quirks. Such rules therefore live in an
+`object` without Android imports and can be verified in milliseconds instead
+of in a 15-minute build plus a TV.
 
-Drei Gates halten das auf Dauer: Lint (`warningsAsErrors`), das Coverage-Gate
-(`unitTestCoverageVerification`) und das Doku-Gate (`tools/check_docs_drift.sh`).
+Three gates keep this in place over time: Lint (`warningsAsErrors`), the coverage gate
+(`unitTestCoverageVerification`) and the docs gate (`tools/check_docs_drift.sh`).
 
-## Entscheidungen, die geblieben sind
+## Decisions that have stayed
 
-- **Keine Abhängigkeiten zur Laufzeit.** `GridView`, `LauncherApps`, `LruCache`,
-  ein Executor, ein Handler — alles Framework. Kein AndroidX, kein Compose,
-  keine Coroutines, kein Hilt. Was fehlt, kostet nichts.
-- **Zwei PackageManager-Abfragen statt einer.** `LauncherApps` kennt nur
-  `CATEGORY_LAUNCHER`; Prime Video, WOW und ARD tragen nur
-  `CATEGORY_LEANBACK_LAUNCHER` und fehlten damit komplett. Die Vereinigung beider
-  Kategorien ist der Grund für `QUERY_ALL_PACKAGES`.
-- **App-Liste und Symbole werden vorgerechnet.** Die Liste liegt als
-  Prozess-Singleton vor, jedes dekodierte Symbol zusätzlich als kleine WebP-Datei
-  im app-internen Speicher. Nach einem Prozess-Neustart (auf einem 1,4-GB-Gerät
-  der Normalfall) muss keine fremde APK mehr gemappt werden.
-- **Die Einstellungen sind die Konfigurationsdateien** ([OrderStore],
-  [SettingsStore], siehe [CONFIG.md](CONFIG.md)) — per langem Drücken bzw. in den
-  Einstellungen auf dem Fernseher oder per `adb push`. Kein
-  `SharedPreferences`-Sammelsurium: der Merker der zuletzt gestarteten App ist
-  Laufzeitzustand, eine Einstellung ist eine Datei.
+- **No runtime dependencies.** `GridView`, `LauncherApps`, `LruCache`,
+  an executor, a handler — all framework. No AndroidX, no Compose,
+  no coroutines, no Hilt. What is missing costs nothing.
+- **Two PackageManager queries instead of one.** `LauncherApps` knows only
+  `CATEGORY_LAUNCHER`; Prime Video, WOW and ARD carry only
+  `CATEGORY_LEANBACK_LAUNCHER` and were therefore missing entirely. The union of
+  both categories is the reason for `QUERY_ALL_PACKAGES`.
+- **App list and icons are precomputed.** The list is held as a
+  process singleton, each decoded icon additionally as a small WebP file
+  in app-internal storage. After a process restart (on a 1.4 GB device
+  the normal case) no foreign APK has to be mapped anymore.
+- **The settings are the configuration files** ([OrderStore],
+  [SettingsStore], see [CONFIG.md](CONFIG.md)) — via long press or in the
+  settings on the TV, or via `adb push`. No
+  `SharedPreferences` grab-bag: the marker of the last launched app is
+  runtime state, a setting is a file.
 
-## Was gegenüber 0.1 weggefallen ist
+## What is gone compared with 0.1
 
-| Posten (0.1) | heute |
+| Item (0.1) | today |
 |---|---|
-| Vordergrund-Abfrage in der Nutzungsstatistik (bei **jedem** HOME-Druck) | entfällt — es gibt keinen zweiten Zustand mehr, der sie brauchte |
-| Aufbau der unteren Zeile (Favoriten-Nachschlag, 9 × Layout-Inflation) | entfällt — die untere Zeile **ist** jetzt der Anfang des Rasters |
-| Fenstergröße pro HOME-Druck setzen | entfällt — das Fenster ist immer derselbe Vollbild-Rahmen |
-| Symbole bei jedem Bind bzw. Prozessstart aus fremden APKs | unverändert seit 0.2: Speicher → Platte → Ressourcen |
+| Foreground query in the usage stats (on **every** HOME press) | gone — there is no second state anymore that needed it |
+| Building the bottom row (favorites lookup, 9 × layout inflation) | gone — the bottom row now **is** the start of the grid |
+| Setting the window size on every HOME press | gone — the window is always the same full-screen frame |
+| Icons from foreign APKs on every bind or process start | unchanged since 0.2: memory → disk → resources |
 
-Was bleibt und nicht wegoptimierbar ist: ein Measure/Layout-Lauf über das Raster
-und der erste Frame.
+What remains and cannot be optimized away: one measure/layout pass over the grid
+and the first frame.

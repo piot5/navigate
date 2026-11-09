@@ -10,10 +10,10 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * Die Verlauf-Datei als Datei: anhängen, blättern, begrenzen.
+ * The history file as a file: appending, capping.
  *
- * Wie [OrderStoreTest]: der Konstruktor bekommt zwei Dateien und eine Uhr —
- * ohne Context, ohne Gerät.
+ * Like [OrderStoreTest]: the constructor takes two files and a clock —
+ * no Context, no device.
  */
 class HistoryStoreTest {
 
@@ -38,73 +38,72 @@ class HistoryStoreTest {
     )
 
     @Test
-    fun `fehlende Datei ergibt leeren Verlauf`() {
+    fun `a missing file gives an empty history`() {
         assertEquals(emptyList<HistoryEntry>(), store().current())
         assertEquals(emptyList<HistoryEntry>(), store().latest())
-        assertEquals(emptyList<HistoryEntry>(), store().page(0))
     }
 
     @Test
-    fun `append haengt an und meldet`() {
+    fun `append adds and reports`() {
         val store = store()
-        assertTrue(store.append("com.zdf", "ZDF · Tagesschau", 1730000000000L))
+        assertTrue(store.append("com.zdf", "ZDF · Newscast", 1730000000000L))
         assertEquals(
-            listOf(HistoryEntry("com.zdf", "ZDF · Tagesschau", 1730000000000L)),
+            listOf(HistoryEntry("com.zdf", "ZDF · Newscast", 1730000000000L)),
             store.current(),
         )
     }
 
     @Test
-    fun `derselbe Titel zweimal schreibt nur einmal`() {
-        // Der Takt läuft alle 5 Sekunden: ohne diese Zusage wüchse die Datei
-        // bei jedem Durchlauf um dieselbe Zeile.
+    fun `the same title twice writes only once`() {
+        // The tick runs every 5 seconds: without this promise the file would
+        // grow by the same line on every pass.
         val store = store()
-        assertTrue(store.append("com.zdf", "ZDF · Tagesschau", 1730000000000L))
-        assertFalse(store.append("com.zdf", "ZDF · Tagesschau", 1730000005000L))
+        assertTrue(store.append("com.zdf", "ZDF · Newscast", 1730000000000L))
+        assertFalse(store.append("com.zdf", "ZDF · Newscast", 1730000005000L))
         assertEquals(1, store.current().size)
     }
 
     @Test
-    fun `leere Werte schreiben nichts`() {
+    fun `empty values write nothing`() {
         val store = store()
-        assertFalse(store.append("", "Titel", 1730000000000L))
+        assertFalse(store.append("", "Title", 1730000000000L))
         assertFalse(store.append("com.zdf", "", 1730000000000L))
-        assertFalse(store.append("com.zdf", "Titel", 0L))
+        assertFalse(store.append("com.zdf", "Title", 0L))
         assertEquals(emptyList<HistoryEntry>(), store.current())
     }
 
     @Test
-    fun `ein Titel kehrt nach einem anderen erneut in den Verlauf`() {
-        // Nur der **letzte** Eintrag wird verglichen: ersetzt „Tagesschau" die
-        // Zeile erneut, nachdem „heute journal" dazwischen lag, gehört sie wieder
-        // in den Verlauf (docs/CONFIG.md: der alte Titel wandert hierher).
+    fun `a title returns to the history after another one`() {
+        // Only the **last** entry is compared: if "Newscast" replaces the row
+        // again after "Evening Report" sat in between, it belongs back in the
+        // history (docs/CONFIG.md: the old title moves here).
         val store = store()
-        assertTrue(store.append("com.zdf", "ZDF · Tagesschau", 1L))
-        assertTrue(store.append("com.zdf", "ZDF · heute journal", 2L))
-        assertTrue(store.append("com.zdf", "ZDF · Tagesschau", 3L))
+        assertTrue(store.append("com.zdf", "ZDF · Newscast", 1L))
+        assertTrue(store.append("com.zdf", "ZDF · Evening Report", 2L))
+        assertTrue(store.append("com.zdf", "ZDF · Newscast", 3L))
         assertEquals(
             listOf(
-                HistoryEntry("com.zdf", "ZDF · Tagesschau", 3L),
-                HistoryEntry("com.zdf", "ZDF · heute journal", 2L),
-                HistoryEntry("com.zdf", "ZDF · Tagesschau", 1L),
+                HistoryEntry("com.zdf", "ZDF · Newscast", 3L),
+                HistoryEntry("com.zdf", "ZDF · Evening Report", 2L),
+                HistoryEntry("com.zdf", "ZDF · Newscast", 1L),
             ),
             store.latest(),
         )
     }
 
     @Test
-    fun `derselbe Titel in Folge schreibt nur einmal`() {
-        // Die Gegenprobe zum Test darüber: **direkt** hintereinander ist dieselbe
-        // Zeile eine Dopplung — der 5-Sekunden-Takt darf sie nicht schreiben.
+    fun `the same title in a row writes only once`() {
+        // The counter-check to the test above: **directly** one after the other
+        // the same line is a duplicate — the 5-second tick must not write it.
         val store = store()
-        assertTrue(store.append("com.zdf", "ZDF · Tagesschau", 1L))
-        assertFalse(store.append("com.zdf", "ZDF · Tagesschau", 2L))
-        assertFalse(store.append("com.zdf", "ZDF · Tagesschau", 3L))
-        assertEquals(listOf(HistoryEntry("com.zdf", "ZDF · Tagesschau", 1L)), store.current())
+        assertTrue(store.append("com.zdf", "ZDF · Newscast", 1L))
+        assertFalse(store.append("com.zdf", "ZDF · Newscast", 2L))
+        assertFalse(store.append("com.zdf", "ZDF · Newscast", 3L))
+        assertEquals(listOf(HistoryEntry("com.zdf", "ZDF · Newscast", 1L)), store.current())
     }
 
     @Test
-    fun `latest liefert neueste zuerst`() {
+    fun `latest returns newest first`() {
         val store = store()
         store.append("com.a", "A1", 1L)
         store.append("com.b", "B1", 2L)
@@ -124,36 +123,18 @@ class HistoryStoreTest {
     }
 
     @Test
-    fun `page blaettert durch den Verlauf`() {
-        val store = store()
-        store.append("com.a", "A1", 1L)
-        store.append("com.b", "B1", 2L)
-        store.append("com.a", "A2", 3L)
-        assertEquals(
-            listOf(HistoryEntry("com.a", "A2", 3L), HistoryEntry("com.b", "B1", 2L)),
-            store.page(0, 2),
-        )
-        assertEquals(
-            listOf(HistoryEntry("com.a", "A1", 1L)),
-            store.page(2, 2),
-        )
-        assertEquals(emptyList<HistoryEntry>(), store.page(3, 2))
-        assertEquals(emptyList<HistoryEntry>(), store.page(-1, 2))
-    }
-
-    @Test
-    fun `die Datei waechst nicht ewig`() {
+    fun `the file does not grow forever`() {
         val store = store()
         for (i in 1..(HistoryStore.MAX_ENTRIES + 10)) {
-            store.append("com.a", "Titel $i", i.toLong())
+            store.append("com.a", "Title $i", i.toLong())
         }
         assertEquals(HistoryStore.MAX_ENTRIES, store.current().size)
-        assertEquals("Titel ${HistoryStore.MAX_ENTRIES + 10}", store.current().last().line)
+        assertEquals("Title ${HistoryStore.MAX_ENTRIES + 10}", store.current().last().line)
     }
 
     @Test
-    fun `vorhandene Datei wird beim Anlegen gelesen`() {
-        internalFile.writeText("1730000000000|com.zdf|ZDF · Tagesschau\n")
+    fun `an existing file is read on creation`() {
+        internalFile.writeText("1730000000000|com.zdf|ZDF · Newscast\n")
         assertEquals(1, store().current().size)
     }
 }

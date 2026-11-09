@@ -3,41 +3,42 @@ package com.piotv.navigate.data
 import java.io.File
 
 /**
- * Eine Konfigurationsdatei an zwei Orten — mit einem Stand im Speicher.
+ * A configuration file in two locations — with one state in memory.
  *
- * Der Code stand bis 0.11 in [OrderStore] und gilt dort unverändert weiter; seit
- * es eine zweite Datei gibt ([SettingsStore]), liegt er **einmal** hier. Der
- * Grund ist nicht „Zeilen sparen“: genau in dieser Mechanik saß der Fehler, den
- * `OrderStoreTest` in 0.4 gefunden hat — der Merker der Import-Drossel stand auf
- * `Long.MIN_VALUE`, `now - Long.MIN_VALUE` lief über und wurde negativ, die
- * Drossel griff damit **immer**, der Import fand nie statt. Zwei Kopien wären
- * zwei Chancen, ihn wieder einzubauen.
+ * This code lived in [OrderStore] until 0.11 and continues to apply there
+ * unchanged; since there is a second file ([SettingsStore]), it lives **once**
+ * here. The reason is not "to save lines": exactly this mechanics contained the
+ * bug `OrderStoreTest` found in 0.4 — the import throttle marker sat at
+ * `Long.MIN_VALUE`, `now - Long.MIN_VALUE` overflowed and became negative, so
+ * the throttle applied **always** and the import never happened. Two copies
+ * would be two chances to reintroduce it.
  *
- * ## Zwei Orte, ein Stand
+ * ## Two locations, one state
  *
- * - **Gelesen und geschrieben wird app-intern** ([file]). Der externe Speicher
- *   wäre naheliegend, aber `/sdcard` läuft über den MediaProvider-FUSE-Daemon:
- *   `stat` und `open` gehen dort **immer** durch einen Userspace-Daemon
- *   (FUSE-Passthrough hilft nur für read/write nach dem Öffnen,
- *   source.android.com/docs/core/storage/fuse-passthrough). Diese Dateien werden
- *   bei jedem `onResume` angesehen — auf dem Zielgerät wäre das messbare Zeit.
- * - **Der Import-Pfad** ([importPath]) ist der Weg für `adb push`: in den
- *   internen Speicher einer Release-App kommt ADB ohne Root nicht hinein. Eine
- *   dort **neuere** Datei wird **einmal** übernommen und danach intern gehalten —
- *   sonst würde eine alte, einmal gepushte Datei jede Änderung auf dem Gerät
- *   wieder zurückdrehen.
+ * - **Read and written app-internally** ([file]). External storage would be the
+ *   obvious choice, but `/sdcard` runs through the MediaProvider FUSE daemon:
+ *   `stat` and `open` there **always** pass through a userspace daemon
+ *   (FUSE passthrough only helps for read/write after opening,
+ *   source.android.com/docs/core/storage/fuse-passthrough). These files are
+ *   looked at on every `onResume` — on the target device that would be
+ *   measurable time.
+ * - **The import path** ([importPath]) is the way for `adb push`: without
+ *   root, ADB cannot get into the internal storage of a release app. A file
+ *   there that is **newer** is adopted **once** and afterwards kept internally
+ *   — otherwise an old, once-pushed file would keep undoing every change made
+ *   on the device.
  *
- * @param parse Aus dem Dateitext den Wert lesen; `null` heißt „keine Datei“.
- * @param serialize Den Wert als Dateitext schreiben.
+ * @param parse Reads the value from the file text; `null` means "no file".
+ * @param serialize Writes the value as file text.
  */
 class ConfigFile<T> internal constructor(
-    /** Quelle der Wahrheit: app-intern, kein FUSE. */
+    /** Source of truth: app-internal, no FUSE. */
     private val internalFile: File,
-    /** Import-Pfad für `adb push`; `null`, wenn das Gerät keinen hat. */
+    /** Import path for `adb push`; `null` when the device has none. */
     private val importFile: File?,
     /**
-     * Uhr für die Import-Drossel — injiziert, damit der Import ohne Warten
-     * prüfbar ist. Im Betrieb ist das `SystemClock.elapsedRealtime`.
+     * Clock for the import throttle — injected so the import can be tested
+     * without waiting. In production this is `SystemClock.elapsedRealtime`.
      */
     private val elapsedRealtime: () -> Long,
     private val parse: (String?) -> T,
@@ -49,44 +50,45 @@ class ConfigFile<T> internal constructor(
     private var lastImportAt = Long.MIN_VALUE
 
     /**
-     * Laufzeituhr des letzten Nachsehens am Import-Pfad.
+     * Uptime clock of the last check of the import path.
      *
-     * Der Startwert ist **nicht** `Long.MIN_VALUE`: `now - Long.MIN_VALUE` läuft
-     * über und wird negativ, die Bedingung „innerhalb des Intervalls“ wäre damit
-     * immer wahr — der Import hätte nie stattgefunden. Genau das war bis 0.4 der
-     * Fall (gefunden von OrderStoreTest, siehe CHANGELOG). Ein negativer Wert in
-     * der Größe des Intervalls heißt „lange her“ und kann nicht überlaufen.
+     * The initial value is **not** `Long.MIN_VALUE`: `now - Long.MIN_VALUE`
+     * overflows and becomes negative, so the condition "within the interval"
+     * would always be true — the import would never have happened. That was
+     * exactly the case until 0.4 (found by OrderStoreTest, see CHANGELOG). A
+     * negative value on the order of the interval means "a long time ago" and
+     * cannot overflow.
      */
     private var lastImportCheckAt = -IMPORT_CHECK_INTERVAL_MS
 
-    /** Die Datei, die Navigate liest und schreibt (app-intern). */
+    /** The file Navigate reads and writes (app-internal). */
     val file: File get() = internalFile
 
-    /** Für Diagnose und Doku: der Weg für `adb push`. */
+    /** For diagnostics and docs: the path for `adb push`. */
     val importPath: String? get() = importFile?.absolutePath
 
     init {
         loadInternal()
-        // Beim Start einmal prüfen: so wird eine hinterlassene externe Datei
-        // übernommen, ohne dass jemand etwas tun muss.
+        // Check once at startup: this way a leftover external file is adopted
+        // without anyone having to do anything.
         importIfNewer()
     }
 
     /**
-     * Aktueller Stand — **ohne Dateizugriff**.
+     * Current state — **without file access**.
      *
-     * Der Launcher liest die Konfiguration bei jedem Aufbau des Rasters. Jeder
-     * dieser Aufrufe machte vorher ein `stat` auf den externen Speicher — also
-     * einen FUSE-Roundtrip. Der Stand liegt jetzt im Speicher;
-     * [reloadIfChanged] ist die einzige Stelle, die nachsieht.
+     * The launcher reads the configuration on every build of the grid. Each of
+     * those calls previously did a `stat` on external storage — i.e. a FUSE
+     * round trip. The state now lives in memory; [reloadIfChanged] is the only
+     * place that looks.
      */
     fun current(): T = cached
 
     /**
-     * Sieht nach, ob sich die Datei geändert hat, und übernimmt sie dann.
+     * Checks whether the file has changed, and adopts it if so.
      *
-     * @return `true`, wenn ein neuer Stand gilt (dann muss der Aufrufer seine
-     *   Anzeige neu aufbauen).
+     * @return `true` when a new state applies (the caller must then rebuild its
+     *   display).
      */
     fun reloadIfChanged(): Boolean {
         if (importIfNewer()) return true
@@ -104,8 +106,8 @@ class ConfigFile<T> internal constructor(
             cachedModifiedAt = internalFile.lastModified()
             true
         } catch (e: Exception) {
-            // Kein schreibbarer Speicher: die Änderung gilt dann nur für diese
-            // Sitzung, statt den Launcher abstürzen zu lassen.
+            // No writable storage: the change then only applies to this
+            // session, instead of crashing the launcher.
             cached = value
             false
         }
@@ -125,11 +127,11 @@ class ConfigFile<T> internal constructor(
     }
 
     /**
-     * Übernimmt eine per `adb push` neuere Datei aus dem externen Speicher.
+     * Adopts a file from external storage pushed via `adb push` if it is newer.
      *
-     * Übernommen wird nur, wenn der Zeitstempel **neuer** ist als beim letzten
-     * Import — sonst würde eine alte, einmal gepushte Datei jede Änderung auf
-     * dem Gerät wieder zurückdrehen.
+     * Adoption happens only when the timestamp is **newer** than at the last
+     * import — otherwise an old, once-pushed file would keep undoing every
+     * change made on the device.
      */
     private fun importIfNewer(): Boolean {
         val source = importFile ?: return false
@@ -153,10 +155,10 @@ class ConfigFile<T> internal constructor(
 
     companion object {
         /**
-         * Der Import-Pfad wird höchstens alle 5 Sekunden angesehen. Häufiger
-         * wäre er ein FUSE-Zugriff auf dem HOME-Pfad — genau das, was der
-         * interne Speicher vermeiden soll —, und seltener würde ein `adb push`
-         * gefühlt nicht ankommen.
+         * The import path is looked at at most every 5 seconds. More often
+         * would be a FUSE access on the HOME path — exactly what internal
+         * storage is meant to avoid — and less often an `adb push` would feel
+         * like it never arrives.
          */
         internal const val IMPORT_CHECK_INTERVAL_MS = 5_000L
     }

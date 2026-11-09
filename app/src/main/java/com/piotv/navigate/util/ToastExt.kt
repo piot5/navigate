@@ -4,9 +4,9 @@ import android.content.Context
 import android.widget.Toast
 
 /**
- * Navigate meldet sich nur mit kurzen Toasts: "Favorit hinzugefügt", "App lässt
- * sich nicht starten". Kein Dialog, kein Snackbar (AndroidX), keine Animation —
- * ein Toast ist auf Android TV die billigste Rückmeldung, die es gibt.
+ * Navigate speaks only in short toasts: "Favorite added", "App cannot be
+ * started". No dialog, no Snackbar (AndroidX), no animation — a toast is the
+ * cheapest feedback available on Android TV.
  */
 fun Context.shortToast(message: CharSequence) {
     Toast.makeText(this, message, Toast.LENGTH_SHORT).show()

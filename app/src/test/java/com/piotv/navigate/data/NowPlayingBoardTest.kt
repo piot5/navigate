@@ -8,14 +8,13 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * Die Regel hinter den „Now Playing“-Zeilen: **eine je App**, und sie bleiben
- * stehen, bis sich für diese App etwas ändert.
+ * The rule behind the "Now Playing" rows: **one per app**, and rows stay put
+ * until something changes for that app.
  *
- * Warum das ohne Gerät geprüft wird: genau diese Regel ist in 0.12 auf dem
- * Zielgerät sichtbar geworden — die Zeile wurde bei jedem Durchlauf neu
- * geschrieben (Flackern, neue Cover-Anfragen). Ein Fehler in einer Regel ist in
- * Millisekunden prüfbar; derselbe Fehler auf dem Fernseher kostet einen Build und
- * einen Blick auf ein Gerät, das nicht am Schreibtisch steht.
+ * Why this is checked without a device: exactly this rule became visible on the
+ * target device in 0.12 — the row was rewritten on every pass (flicker, new
+ * cover requests). A bug in a rule is checkable in milliseconds; the same bug
+ * on the TV costs a build and a look at a device that is not at the desk.
  */
 class NowPlayingBoardTest {
 
@@ -33,16 +32,16 @@ class NowPlayingBoardTest {
         NowPlayingInfo(title = title, artist = artist, playing = playing),
     )
 
-    /** Eine Session, die gerade **nichts** hergibt: Ladescreen, Werbung, Menü. */
+    /** A session that currently yields **nothing**: loading screen, ads, menu. */
     private fun silent(packageName: String) = NowPlayingBoard.Observed(packageName, null)
 
-    /** Eine App, die **ausdrücklich beendet** hat (`STOPPED`/`ERROR`). */
+    /** An app that has **explicitly ended** (`STOPPED`/`ERROR`). */
     private fun ended(packageName: String) = NowPlayingBoard.Observed(packageName, null, ended = true)
 
     private fun lines(board: NowPlayingBoard) = board.rows().map { "${it.packageName}=${it.line}" }
 
     @Test
-    fun `ohne Beobachtung gibt es keine Zeile`() {
+    fun `without observations there is no row`() {
         val board = NowPlayingBoard()
 
         assertFalse(board.observe(emptyList()))
@@ -50,86 +49,86 @@ class NowPlayingBoardTest {
     }
 
     @Test
-    fun `eine Zeile je App mit aktiver Session`() {
+    fun `one row per app with an active session`() {
         val board = NowPlayingBoard()
 
-        assertTrue(board.observe(listOf(seen("com.zdf", "Tagesschau"), seen("com.spotify", "Der Weg"))))
-        assertEquals(listOf("com.zdf=Tagesschau", "com.spotify=Der Weg"), lines(board))
+        assertTrue(board.observe(listOf(seen("com.zdf", "Newscast"), seen("com.spotify", "The Way"))))
+        assertEquals(listOf("com.zdf=Newscast", "com.spotify=The Way"), lines(board))
     }
 
     @Test
-    fun `zwei Sessions derselben App ergeben eine Zeile, die erste gewinnt`() {
+    fun `two sessions of the same app make one row, the first wins`() {
         val board = NowPlayingBoard()
 
-        board.observe(listOf(seen("com.spotify", "Erster"), seen("com.spotify", "Zweiter")))
-        assertEquals(listOf("com.spotify=Erster"), lines(board))
+        board.observe(listOf(seen("com.spotify", "First"), seen("com.spotify", "Second")))
+        assertEquals(listOf("com.spotify=First"), lines(board))
     }
 
     @Test
-    fun `der App-Name steht vor dem Titel`() {
+    fun `the app name comes before the title`() {
         val board = NowPlayingBoard()
 
         board.observe(
-            listOf(NowPlayingBoard.Observed("com.zdf", NowPlayingInfo(title = "Tagesschau", app = "ZDF")))
+            listOf(NowPlayingBoard.Observed("com.zdf", NowPlayingInfo(title = "Newscast", app = "ZDF")))
         )
-        assertEquals(listOf("com.zdf=ZDF · Tagesschau"), lines(board))
+        assertEquals(listOf("com.zdf=ZDF · Newscast"), lines(board))
     }
 
     @Test
-    fun `eine pausierte Session sagt es dazu`() {
+    fun `a paused session says so`() {
         val board = NowPlayingBoard()
 
-        board.observe(listOf(seen("com.zdf", "Tagesschau", playing = false)))
-        assertEquals(listOf("com.zdf=Tagesschau · pausiert"), lines(board))
+        board.observe(listOf(seen("com.zdf", "Newscast", playing = false)))
+        assertEquals(listOf("com.zdf=Newscast · paused"), lines(board))
     }
 
-    // --- Pausenzustand ist kein neuer Titel ---------------------------------
-    //    Der Fehler auf dem Zielgerät: derselbe Film stand zweimal in der Liste,
-    //    einmal mit und einmal ohne „· pausiert". Ursache war, dass die
-    //    Anzeigezeile (mit Zusatz) als Änderungsschlüssel diente.
+    // --- Paused is not a new title -------------------------------------------
+    //    The bug on the target device: the same movie appeared twice in the
+    //    list, once with and once without "· paused". The cause was that the
+    //    display row (with the suffix) served as the change key.
 
     @Test
-    fun `spielen und pausieren aendert die Zeile, aber schreibt keinen Verlauf`() {
-        val board = NowPlayingBoard()
-        val history = memoryHistory()
-        board.observe(listOf(seen("com.zdf", "Mumien")))
-
-        // Pause-Tipp: die Anzeige bekommt den Zusatz …
-        assertTrue(board.observe(listOf(seen("com.zdf", "Mumien", playing = false)), history, 2L))
-        assertEquals(listOf("com.zdf=Mumien · pausiert"), lines(board))
-        // … der Verlauf bleibt leer: derselbe Inhalt, nur anderer Zustand.
-        assertEquals(emptyList<HistoryEntry>(), history.current())
-
-        // Weiter-Tipp: der Zusatz fällt weg, der Verlauf bleibt leer.
-        assertTrue(board.observe(listOf(seen("com.zdf", "Mumien")), history, 3L))
-        assertEquals(listOf("com.zdf=Mumien"), lines(board))
-        assertEquals(emptyList<HistoryEntry>(), history.current())
-    }
-
-    @Test
-    fun `nur der Inhalt wandert in den Verlauf, nicht der Pausenzusatz`() {
+    fun `playing and pausing changes the row, but writes no history`() {
         val board = NowPlayingBoard()
         val history = memoryHistory()
-        board.observe(listOf(seen("com.zdf", "Mumien", playing = false)))
+        board.observe(listOf(seen("com.zdf", "Mummies")))
 
-        // Ein anderer Inhalt ersetzt die Zeile — der alte wandert in den Verlauf,
-        // und zwar **ohne** „· pausiert".
-        assertTrue(board.observe(listOf(seen("com.zdf", "Frauen in der Armutsfalle")), history, 5L))
+        // Pause press: the display gets the suffix …
+        assertTrue(board.observe(listOf(seen("com.zdf", "Mummies", playing = false)), history, 2L))
+        assertEquals(listOf("com.zdf=Mummies · paused"), lines(board))
+        // … the history stays empty: same content, only a different state.
+        assertEquals(emptyList<HistoryEntry>(), history.current())
+
+        // Play press: the suffix goes away, the history stays empty.
+        assertTrue(board.observe(listOf(seen("com.zdf", "Mummies")), history, 3L))
+        assertEquals(listOf("com.zdf=Mummies"), lines(board))
+        assertEquals(emptyList<HistoryEntry>(), history.current())
+    }
+
+    @Test
+    fun `only the content goes into the history, not the pause suffix`() {
+        val board = NowPlayingBoard()
+        val history = memoryHistory()
+        board.observe(listOf(seen("com.zdf", "Mummies", playing = false)))
+
+        // Different content replaces the row — the old one moves into the
+        // history, and **without** the "· paused" suffix.
+        assertTrue(board.observe(listOf(seen("com.zdf", "Women in the Poverty Trap")), history, 5L))
         assertEquals(
-            listOf(HistoryEntry("com.zdf", "Mumien", 5L)),
+            listOf(HistoryEntry("com.zdf", "Mummies", 5L)),
             history.current(),
         )
     }
 
     @Test
-    fun `der Pausenzustand einer zweiten App aendert nichts am Verlauf`() {
-        // Nicht nur ZDF: dieselbe Regel für jede App, auch wenn mehrere Sessions
-        // gleichzeitig pausieren.
+    fun `the paused state of a second app does not touch the history`() {
+        // Not just ZDF: the same rule for every app, even when several sessions
+        // pause at the same time.
         val board = NowPlayingBoard()
         val history = memoryHistory()
         board.observe(
             listOf(
-                seen("com.netflix", "Eine Serie"),
+                seen("com.netflix", "A Series"),
                 seen("com.disney.disneyplus", "Vaiana"),
             )
         )
@@ -137,7 +136,7 @@ class NowPlayingBoardTest {
         assertTrue(
             board.observe(
                 listOf(
-                    seen("com.netflix", "Eine Serie", playing = false),
+                    seen("com.netflix", "A Series", playing = false),
                     seen("com.disney.disneyplus", "Vaiana", playing = false),
                 ),
                 history,
@@ -145,149 +144,149 @@ class NowPlayingBoardTest {
             )
         )
         assertEquals(
-            listOf("com.netflix=Eine Serie · pausiert", "com.disney.disneyplus=Vaiana · pausiert"),
+            listOf("com.netflix=A Series · paused", "com.disney.disneyplus=Vaiana · paused"),
             lines(board),
         )
         assertEquals(emptyList<HistoryEntry>(), history.current())
     }
 
     @Test
-    fun `ohne Titel und ohne Interpret entsteht keine Zeile`() {
+    fun `no title and no artist makes no row`() {
         val board = NowPlayingBoard()
 
         board.observe(
             listOf(
                 NowPlayingBoard.Observed("com.zdf", NowPlayingInfo(playing = false)),
                 NowPlayingBoard.Observed("com.spotify", NowPlayingInfo(title = "  ")),
-                seen("com.netflix", "Eine Serie"),
+                seen("com.netflix", "A Series"),
             )
         )
-        assertEquals(listOf("com.netflix=Eine Serie"), lines(board))
+        assertEquals(listOf("com.netflix=A Series"), lines(board))
     }
 
     @Test
-    fun `ein Paket ohne Namen wird uebersprungen`() {
+    fun `a package without a name is skipped`() {
         val board = NowPlayingBoard()
 
-        board.observe(listOf(seen("", "Niemand"), seen("com.zdf", "Tagesschau")))
-        assertEquals(listOf("com.zdf=Tagesschau"), lines(board))
+        board.observe(listOf(seen("", "Nobody"), seen("com.zdf", "Newscast")))
+        assertEquals(listOf("com.zdf=Newscast"), lines(board))
     }
 
     @Test
-    fun `unveraenderte Zeilen melden keine Aenderung`() {
+    fun `unchanged rows report no change`() {
         val board = NowPlayingBoard()
 
-        assertTrue(board.observe(listOf(seen("com.zdf", "Tagesschau"))))
-        // Der Takt läuft alle fünf Sekunden: ohne diese Zusage würde jedes Mal
-        // dieselbe Zeile neu gesetzt und ein neues Cover geholt.
-        assertFalse(board.observe(listOf(seen("com.zdf", "Tagesschau"))))
-        assertEquals(listOf("com.zdf=Tagesschau"), lines(board))
+        assertTrue(board.observe(listOf(seen("com.zdf", "Newscast"))))
+        // The tick runs every five seconds: without this promise the same row
+        // would be set again and a new cover fetched every time.
+        assertFalse(board.observe(listOf(seen("com.zdf", "Newscast"))))
+        assertEquals(listOf("com.zdf=Newscast"), lines(board))
     }
 
     @Test
-    fun `eine fehlgeschlagene Abfrage laesst den Stand stehen`() {
+    fun `a failed poll leaves the state standing`() {
         val board = NowPlayingBoard()
-        board.observe(listOf(seen("com.zdf", "Tagesschau")))
+        board.observe(listOf(seen("com.zdf", "Newscast")))
 
-        // `null` heißt: kein Benachrichtigungszugriff, Session-Dienst antwortet
-        // nicht. Das ist etwas anderes als „erfolgreich nachgesehen, es läuft
-        // nichts“ (leere Liste) — nur dort verschwindet eine Zeile.
+        // `null` means: no notification access, the session service does not
+        // answer. That is different from "looked successfully, nothing is
+        // playing" (empty list) — only there does a row disappear.
         assertFalse(board.observe(null))
-        assertEquals(listOf("com.zdf=Tagesschau"), lines(board))
+        assertEquals(listOf("com.zdf=Newscast"), lines(board))
     }
 
     @Test
-    fun `nur die App die sich aendert wird neu geschrieben`() {
+    fun `only the app that changes is rewritten`() {
         val board = NowPlayingBoard()
-        board.observe(listOf(seen("com.zdf", "Tagesschau"), seen("com.spotify", "Der Weg")))
+        board.observe(listOf(seen("com.zdf", "Newscast"), seen("com.spotify", "The Way")))
 
-        assertTrue(board.observe(listOf(seen("com.zdf", "Tagesschau"), seen("com.spotify", "Bochum"))))
-        assertEquals(listOf("com.zdf=Tagesschau", "com.spotify=Bochum"), lines(board))
+        assertTrue(board.observe(listOf(seen("com.zdf", "Newscast"), seen("com.spotify", "Bochum"))))
+        assertEquals(listOf("com.zdf=Newscast", "com.spotify=Bochum"), lines(board))
     }
 
     @Test
-    fun `eine verschwundene Session loescht die Zeile nicht`() {
+    fun `a vanished session does not delete the row`() {
         val board = NowPlayingBoard()
-        board.observe(listOf(seen("com.zdf", "Tagesschau"), seen("com.spotify", "Der Weg")))
+        board.observe(listOf(seen("com.zdf", "Newscast"), seen("com.spotify", "The Way")))
 
-        // Auf dem Zielgerät war die Session von WOW nach dem Film **ganz** weg,
-        // ohne je „beendet" zu melden. Die Zeile bleibt trotzdem stehen.
-        assertFalse(board.observe(listOf(seen("com.zdf", "Tagesschau"))))
-        assertEquals(listOf("com.zdf=Tagesschau", "com.spotify=Der Weg"), lines(board))
+        // On the target device the WOW session was **completely** gone after the
+        // movie, without ever reporting "ended". The row stays anyway.
+        assertFalse(board.observe(listOf(seen("com.zdf", "Newscast"))))
+        assertEquals(listOf("com.zdf=Newscast", "com.spotify=The Way"), lines(board))
 
-        // Auch nach einer halben Minute ohne Sichtung.
-        repeat(6) { board.observe(listOf(seen("com.zdf", "Tagesschau"))) }
-        assertEquals(listOf("com.zdf=Tagesschau", "com.spotify=Der Weg"), lines(board))
+        // Even after half a minute without a sighting.
+        repeat(6) { board.observe(listOf(seen("com.zdf", "Newscast"))) }
+        assertEquals(listOf("com.zdf=Newscast", "com.spotify=The Way"), lines(board))
     }
 
     @Test
-    fun `eine Session ohne Titel loescht die Zeile nicht`() {
-        // Das war der Fehler von 0.13.2: der Ladescreen einer App liefert eine
-        // Session **ohne** Titel, und der Eintrag verschwand nach wenigen Sekunden.
+    fun `a session without a title does not delete the row`() {
+        // That was the 0.13.2 bug: an app's loading screen delivers a session
+        // **without** a title, and the entry vanished after a few seconds.
         val board = NowPlayingBoard()
-        board.observe(listOf(seen("com.hbo", "Ein Film", artist = "HBO Max")))
+        board.observe(listOf(seen("com.hbo", "A Movie", artist = "HBO Max")))
 
         assertFalse(board.observe(listOf(silent("com.hbo"))))
         assertFalse(board.observe(listOf(silent("com.hbo"))))
-        // Der Text bleibt **wortgleich** stehen (Interpret – Titel), er wird nicht
-        // neu zusammengesetzt und nicht geleert.
-        assertEquals(listOf("com.hbo=HBO Max – Ein Film"), lines(board))
+        // The text stays **word-identical** (artist – title), it is not
+        // recomposed and not cleared.
+        assertEquals(listOf("com.hbo=HBO Max – A Movie"), lines(board))
 
-        // Der nächste Titel ersetzt ihn dann.
-        assertTrue(board.observe(listOf(seen("com.hbo", "Der naechste Film"))))
-        assertEquals(listOf("com.hbo=Der naechste Film"), lines(board))
+        // The next title then replaces it.
+        assertTrue(board.observe(listOf(seen("com.hbo", "The Next Movie"))))
+        assertEquals(listOf("com.hbo=The Next Movie"), lines(board))
     }
 
     @Test
-    fun `ein ausdrueckliches Ende entfernt die Zeile nach zwei Abfragen`() {
+    fun `an explicit end removes the row after two polls`() {
         val board = NowPlayingBoard()
-        board.observe(listOf(seen("com.spotify", "Der Weg")))
+        board.observe(listOf(seen("com.spotify", "The Way")))
 
-        // Einmal beendet: noch nicht — zwischen zwei Folgen steht die Session kurz
-        // auf STOPPED.
+        // Ended once: not yet — between two episodes the session briefly sits
+        // on STOPPED.
         assertFalse(board.observe(listOf(ended("com.spotify"))))
-        assertEquals(listOf("com.spotify=Der Weg"), lines(board))
+        assertEquals(listOf("com.spotify=The Way"), lines(board))
 
         assertTrue(board.observe(listOf(ended("com.spotify"))))
         assertEquals(emptyList<String>(), lines(board))
     }
 
     @Test
-    fun `ein Ende zwischen zwei Folgen nimmt die Zeile nicht weg`() {
+    fun `an end between two episodes does not remove the row`() {
         val board = NowPlayingBoard()
-        board.observe(listOf(seen("com.netflix", "Folge 1")))
+        board.observe(listOf(seen("com.netflix", "Episode 1")))
 
         board.observe(listOf(ended("com.netflix")))
-        // Die nächste Folge beginnt: die Schonfrist beginnt von vorn.
-        assertTrue(board.observe(listOf(seen("com.netflix", "Folge 2"))))
-        assertEquals(listOf("com.netflix=Folge 2"), lines(board))
+        // The next episode begins: the grace period starts over.
+        assertTrue(board.observe(listOf(seen("com.netflix", "Episode 2"))))
+        assertEquals(listOf("com.netflix=Episode 2"), lines(board))
         assertFalse(board.observe(listOf(ended("com.netflix"))))
-        assertEquals(listOf("com.netflix=Folge 2"), lines(board))
+        assertEquals(listOf("com.netflix=Episode 2"), lines(board))
     }
 
     @Test
-    fun `eine wieder aufgetauchte App behaelt ihre Position`() {
+    fun `a reappearing app keeps its position`() {
         val board = NowPlayingBoard()
-        board.observe(listOf(seen("com.zdf", "Tagesschau"), seen("com.spotify", "Der Weg")))
-        board.observe(listOf(seen("com.zdf", "Tagesschau")))
+        board.observe(listOf(seen("com.zdf", "Newscast"), seen("com.spotify", "The Way")))
+        board.observe(listOf(seen("com.zdf", "Newscast")))
 
-        // Zurück innerhalb der Schonfrist: die Zeilen springen nicht um.
-        board.observe(listOf(seen("com.zdf", "Tagesschau"), seen("com.spotify", "Der Weg")))
-        assertEquals(listOf("com.zdf=Tagesschau", "com.spotify=Der Weg"), lines(board))
+        // Back within the grace period: the rows do not jump around.
+        board.observe(listOf(seen("com.zdf", "Newscast"), seen("com.spotify", "The Way")))
+        assertEquals(listOf("com.zdf=Newscast", "com.spotify=The Way"), lines(board))
     }
 
     @Test
-    fun `eine neue App reiht sich hinten ein`() {
+    fun `a new app joins at the back`() {
         val board = NowPlayingBoard()
-        board.observe(listOf(seen("com.zdf", "Tagesschau")))
+        board.observe(listOf(seen("com.zdf", "Newscast")))
 
-        assertTrue(board.observe(listOf(seen("com.netflix", "Eine Serie"), seen("com.zdf", "Tagesschau"))))
-        // Die bekannte Zeile bleibt oben stehen, die neue kommt dazu.
-        assertEquals(listOf("com.zdf=Tagesschau", "com.netflix=Eine Serie"), lines(board))
+        assertTrue(board.observe(listOf(seen("com.netflix", "A Series"), seen("com.zdf", "Newscast"))))
+        // The known row stays on top, the new one is added.
+        assertEquals(listOf("com.zdf=Newscast", "com.netflix=A Series"), lines(board))
     }
 
     @Test
-    fun `nach einem entfernten Eintrag beginnt die Schonfrist von vorn`() {
+    fun `after a removed entry the grace period starts over`() {
         val board = NowPlayingBoard()
         board.observe(listOf(seen("com.spotify", "Der Weg")))
         board.observe(listOf(ended("com.spotify")))
@@ -299,9 +298,9 @@ class NowPlayingBoardTest {
         assertEquals(listOf("com.spotify=Ein neuer Titel"), lines(board))
     }
 
-    // --- Verlauf ------------------------------------------------------------
-    //    Ein neuer Titel ersetzt die Zeile — der alte wandert in den Verlauf,
-    //    statt zu verschwinden.
+    // --- History --------------------------------------------------------------
+    //    A new title replaces the row — the old one moves into the history
+    //    instead of vanishing.
 
     private fun memoryHistory(): HistoryStore {
         val dir = folder.root.resolve("history-${System.nanoTime()}")
@@ -314,63 +313,63 @@ class NowPlayingBoardTest {
     }
 
     @Test
-    fun `ohne Verlauf wird die Zeile nur ersetzt`() {
+    fun `without history the row is only replaced`() {
         val board = NowPlayingBoard()
-        board.observe(listOf(seen("com.zdf", "Tagesschau")))
-        assertTrue(board.observe(listOf(seen("com.zdf", "heute journal"))))
-        assertEquals(listOf("com.zdf=heute journal"), lines(board))
+        board.observe(listOf(seen("com.zdf", "Newscast")))
+        assertTrue(board.observe(listOf(seen("com.zdf", "Evening Report"))))
+        assertEquals(listOf("com.zdf=Evening Report"), lines(board))
     }
 
     @Test
-    fun `ein neuer Titel schiebt den alten in den Verlauf`() {
+    fun `a new title pushes the old one into the history`() {
         val board = NowPlayingBoard()
         val history = memoryHistory()
-        board.observe(listOf(seen("com.zdf", "Tagesschau")))
+        board.observe(listOf(seen("com.zdf", "Newscast")))
 
-        assertTrue(board.observe(listOf(seen("com.zdf", "heute journal")), history, 1730000000000L))
-        assertEquals(listOf("com.zdf=heute journal"), lines(board))
+        assertTrue(board.observe(listOf(seen("com.zdf", "Evening Report")), history, 1730000000000L))
+        assertEquals(listOf("com.zdf=Evening Report"), lines(board))
         assertEquals(
-            listOf(HistoryEntry("com.zdf", "Tagesschau", 1730000000000L)),
+            listOf(HistoryEntry("com.zdf", "Newscast", 1730000000000L)),
             history.current(),
         )
     }
 
     @Test
-    fun `derselbe Titel schreibt keinen Verlauf`() {
-        // Der Takt läuft alle 5 Sekunden: ohne diese Zusage wüchse die Datei
-        // bei jedem Durchlauf um dieselbe Zeile.
+    fun `the same title writes no history`() {
+        // The tick runs every 5 seconds: without this promise the file would
+        // grow by the same line on every pass.
         val board = NowPlayingBoard()
         val history = memoryHistory()
-        board.observe(listOf(seen("com.zdf", "Tagesschau")))
-        assertFalse(board.observe(listOf(seen("com.zdf", "Tagesschau")), history, 1730000000000L))
+        board.observe(listOf(seen("com.zdf", "Newscast")))
+        assertFalse(board.observe(listOf(seen("com.zdf", "Newscast")), history, 1730000000000L))
         assertEquals(emptyList<HistoryEntry>(), history.current())
     }
 
     @Test
-    fun `eine Session ohne Titel schreibt keinen Verlauf`() {
+    fun `a session without a title writes no history`() {
         val board = NowPlayingBoard()
         val history = memoryHistory()
-        board.observe(listOf(seen("com.hbo", "Ein Film", artist = "HBO Max")))
+        board.observe(listOf(seen("com.hbo", "A Movie", artist = "HBO Max")))
 
         assertFalse(board.observe(listOf(silent("com.hbo")), history, 1730000000000L))
-        assertEquals(listOf("com.hbo=HBO Max – Ein Film"), lines(board))
+        assertEquals(listOf("com.hbo=HBO Max – A Movie"), lines(board))
         assertEquals(emptyList<HistoryEntry>(), history.current())
     }
 
     @Test
-    fun `drei Titel ergeben zwei Verlaufseintraege`() {
+    fun `three titles make two history entries`() {
         val board = NowPlayingBoard()
         val history = memoryHistory()
-        board.observe(listOf(seen("com.zdf", "Eins")))
-        board.observe(listOf(seen("com.zdf", "Zwei")), history, 2L)
-        board.observe(listOf(seen("com.zdf", "Drei")), history, 3L)
+        board.observe(listOf(seen("com.zdf", "One")))
+        board.observe(listOf(seen("com.zdf", "Two")), history, 2L)
+        board.observe(listOf(seen("com.zdf", "Three")), history, 3L)
 
-        assertEquals(listOf("com.zdf=Drei"), lines(board))
-        // Neueste zuerst: „Zwei“ steht über „Eins“.
+        assertEquals(listOf("com.zdf=Three"), lines(board))
+        // Newest first: "Two" sits above "One".
         assertEquals(
             listOf(
-                HistoryEntry("com.zdf", "Zwei", 3L),
-                HistoryEntry("com.zdf", "Eins", 2L),
+                HistoryEntry("com.zdf", "Two", 3L),
+                HistoryEntry("com.zdf", "One", 2L),
             ),
             history.latest(),
         )

@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Eine Raster-Zelle. GridView setzt für die ausgewählte Zelle state_selected
-     auf DIESES Layout — die Kinder erben den Zustand über
-     duplicateParentState, deshalb färbt sich das Label mit.
+<!-- One grid cell. GridView sets state_selected on THIS layout for the
+     selected cell — the children inherit the state via
+     duplicateParentState, which is why the label changes color with it.
 
-     Das Label steht zentriert unter dem Symbol (`gravity` + `textAlignment`):
-     ohne diese zwei Angaben setzt Android Text linksbündig in die Zelle, und
-     ein kurzer App-Name klebte am linken Rand statt unter dem Symbol. -->
+     The label sits centered under the icon (`gravity` + `textAlignment`):
+     without these two settings Android puts text left-aligned into the cell,
+     and a short app name would stick to the left edge instead of under the
+     icon. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"

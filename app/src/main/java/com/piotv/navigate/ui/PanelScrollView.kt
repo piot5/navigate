@@ -9,41 +9,41 @@ import android.widget.ScrollView
 import com.piotv.navigate.R
 
 /**
- * Die ScrollView des Now-Playing-Blocks — mit drei Korrekturen, die der
- * Framework-ScrollView nicht mitbringt.
+ * The ScrollView of the Now Playing block — with three fixes the framework
+ * ScrollView does not provide.
  *
- * ## 1. Eine Höhengrenze, die es am ScrollView **nicht** gibt
+ * ## 1. A height limit the ScrollView itself does **not** have
  *
- * `android:maxHeight` ist am `ScrollView` wirkungslos. Die Plattform kennt das
- * Attribut nur für `ImageView`, `ExpandableListView` und das interne
- * `MaxHeightFrameLayout` — `<declare-styleable name="ScrollView">` enthält
- * ausschließlich `fillViewport`. Schreiben lässt es sich trotzdem: aapt2 prüft
- * nur, ob es das Attribut **gibt**. Es wird still ignoriert.
+ * `android:maxHeight` has no effect on a `ScrollView`. The platform knows the
+ * attribute only for `ImageView`, `ExpandableListView` and the internal
+ * `MaxHeightFrameLayout` — `<declare-styleable name="ScrollView">` contains
+ * nothing but `fillViewport`. It can still be written: aapt2 only checks that
+ * the attribute **exists**. It is silently ignored.
  *
- * Genau das war der Fehler in 0.15.0. Der Verlauf wuchs, die ScrollView wuchs
- * mit, und mit ihr der ganze Block oben links: das Raster darunter wurde aus dem
- * Bild geschoben und die Pfeiltasten liefen ins Leere. Hier ist die Grenze
- * deshalb eine eigene Eigenschaft (`app:maxHeight`), die [onMeasure] auch
- * anwendet.
+ * That was exactly the bug in 0.15.0. The history grew, the ScrollView grew
+ * with it, and with them the whole block in the top left: the grid below was
+ * pushed off screen and the arrow keys ran into nothing. So here the limit is
+ * an attribute of our own (`app:maxHeight`), which [onMeasure] actually
+ * applies.
  *
- * ## 2. Abgeschnittene Zeilen sind keine Fokus-Kandidaten
+ * ## 2. Clipped rows are not focus candidates
  *
- * Der Fokus-Sucher des Frameworks (`FocusFinder`) kennt das Abschneiden einer
- * ScrollView nicht: die Zeilen unterhalb des sichtbaren Fensters liegen im
- * Layout weiter unten — geometrisch dort, wo das Raster anfängt. Ein ▲ aus dem
- * Raster landete deshalb auf einer Zeile, die niemand sieht. [addFocusables]
- * meldet nur die Zeilen, die **ganz** im Fenster liegen ([RowWindow.isVisible]).
+ * The framework's focus finder (`FocusFinder`) does not know that a ScrollView
+ * gets clipped: the rows below the visible window sit further down in the
+ * layout — geometrically where the grid starts. A ▲ from the grid therefore
+ * landed on a row nobody can see. [addFocusables] reports only the rows that
+ * lie **entirely** within the window ([RowWindow.isVisible]).
  *
- * ## 3. Zeilenweise statt nach Geometrie
+ * ## 3. Row by row instead of by geometry
  *
- * ▲/▼ bewegen den Fokus um **eine Zeile** und scrollen sie vorher ins Fenster
- * ([dispatchKeyEvent]). Am Anfang und Ende der Liste wird die Taste nicht
- * verbraucht: dort entscheidet das Framework, und dort ist seine Antwort richtig
- * (▼ auf der letzten Zeile führt ins Raster, ▲ auf der ersten bleibt stehen).
- * Ohne diese Zeile hinge die Reihenfolge vom Zufall der Abstände ab.
+ * ▲/▼ move the focus by **one row** and scroll it into the window first
+ * ([dispatchKeyEvent]). At the start and end of the list the key is not
+ * consumed: there the framework decides, and there its answer is right
+ * (▼ on the last row moves into the grid, ▲ on the first row stays put).
+ * Without this rule the order would depend on the accident of spacing.
  *
- * Was diese Klasse **nicht** weiß: welche Zeilen es gibt, was ein Klick auf eine
- * Zeile tut und wie hoch der Block sein darf. Das entscheidet das Layout und
+ * What this class does **not** know: which rows exist, what a click on a row
+ * does and how tall the block may be. That is decided by the layout and
  * [NowPlayingPanel].
  */
 class PanelScrollView @JvmOverloads constructor(
@@ -53,11 +53,11 @@ class PanelScrollView @JvmOverloads constructor(
 ) : ScrollView(context, attrs, defStyleAttr) {
 
     /**
-     * Höchstens so hoch in Pixeln; `0` heißt „so hoch wie der Inhalt“.
+     * At most this tall in pixels; `0` means "as tall as the content".
      *
-     * Der Wert kommt aus `app:maxHeight` (`@dimen/now_playing_max_height`).
-     * `recycle()` statt `use`: `TypedArray` ist erst ab API 31 `AutoCloseable`,
-     * und minSdk ist hier 23.
+     * The value comes from `app:maxHeight` (`@dimen/now_playing_max_height`).
+     * `recycle()` instead of `use`: `TypedArray` is only an `AutoCloseable` as
+     * of API 31, and minSdk here is 23.
      */
     var maxHeight: Int = 0
         private set
@@ -74,26 +74,27 @@ class PanelScrollView @JvmOverloads constructor(
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         if (maxHeight > 0 && measuredHeight > maxHeight) {
-            // Nur die Höhe deckeln — die Breite bleibt, wie das Layout sie will.
-            // Danach scrollt die Ansicht in sich, statt den Block wachsen zu
-            // lassen.
+            // Cap only the height — the width stays as the layout wants it.
+            // The view then scrolls within itself instead of letting the
+            // block grow.
             setMeasuredDimension(measuredWidth, maxHeight)
         }
     }
 
     /**
-     * Meldet dem Fokus-Sucher nur die Zeilen, die ganz im Fenster liegen.
+     * Reports to the focus finder only the rows that lie entirely within the
+     * window.
      *
-     * Der Fokus selbst geht davon unberührt: [moveFocus] ruft `requestFocus()`
-     * direkt auf und erreicht damit auch die Zeile, die gerade noch unterhalb
-     * des Fensters lag — sie ist dann ja schon hereingescrollt.
+     * The focus itself is untouched: [moveFocus] calls `requestFocus()`
+     * directly and thus also reaches the row that was just below the window —
+     * by then it has already been scrolled in.
      */
     override fun addFocusables(views: ArrayList<View>, direction: Int, focusableMode: Int) {
         val container = getChildAt(0) as? ViewGroup
         val rows = rows(container)
         if (container == null || rows.isEmpty()) {
-            // Kein Inhalt: dann gilt die gewöhnliche Regel (und diese Ansicht
-            // selbst ist im Layout nicht fokussierbar).
+            // No content: then the ordinary rule applies (and this view
+            // itself is not focusable in the layout).
             super.addFocusables(views, direction, focusableMode)
             return
         }
@@ -105,15 +106,15 @@ class PanelScrollView @JvmOverloads constructor(
     }
 
     /**
-     * ▲/▼ im Block: eine Zeile weiter, und zwar die **nächste im Baum**.
+     * ▲/▼ in the block: one row on, and specifically the **next in the tree**.
      *
-     * Läuft hier, weil ein Tastendruck vom fokussierten Kind kommend zuerst die
-     * Elternteile durchläuft ([ViewGroup.dispatchKeyEvent]) — diese Ansicht ist
-     * ein solches Elternteil und beantwortet die Taste deshalb vor dem
-     * Fokus-Sucher des Frameworks.
+     * Runs here because a key press coming from the focused child first travels
+     * up through the parents ([ViewGroup.dispatchKeyEvent]) — this view is one
+     * of those parents and therefore answers the key before the framework's
+     * focus finder does.
      *
-     * @return `true`, wenn die Taste verbraucht ist; sonst übernimmt das
-     *   Framework (Wechsel ins Raster bzw. Verlassen des Blocks).
+     * @return `true` if the key is consumed; otherwise the framework takes over
+     *   (moving into the grid, or leaving the block).
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN && !event.isAltPressed && !event.isCtrlPressed) {
@@ -128,10 +129,10 @@ class PanelScrollView @JvmOverloads constructor(
     }
 
     /**
-     * Setzt den Fokus eine Zeile weiter und scrollt sie dabei ins Fenster.
+     * Moves the focus one row on and scrolls it into the window while doing so.
      *
-     * @return `false`, wenn es in dieser Richtung keine Zeile mehr gibt — dann
-     *   ist das Framework zuständig.
+     * @return `false` if there is no further row in that direction — then the
+     *   framework is in charge.
      */
     private fun moveFocus(delta: Int): Boolean {
         val container = getChildAt(0) as? ViewGroup ?: return false
@@ -139,8 +140,8 @@ class PanelScrollView @JvmOverloads constructor(
         val index = rows(container).indexOfFirst { it === focused || it.hasFocus() }
         if (index < 0) return false
         val next = container.getChildAt(index + delta) ?: return false
-        // Erst scrollen, dann den Fokus geben: andersherum müsste der Fokus eine
-        // Zeile anspringen, die noch außerhalb des Fensters liegt.
+        // Scroll first, then hand over the focus: the other way around the
+        // focus would have to jump to a row still outside the window.
         scrollTo(
             0,
             RowWindow.scrollFor(
@@ -153,16 +154,16 @@ class PanelScrollView @JvmOverloads constructor(
         return next.requestFocus()
     }
 
-    /** Die Zeilen des Blocks — die Kinder des einen Inhalts-Containers. */
+    /** The rows of the block — the children of the single content container. */
     private fun rows(container: ViewGroup?): List<View> {
         if (container == null) return emptyList()
         return (0 until container.childCount).map { container.getChildAt(it) }
     }
 
     /**
-     * Die Zeile als Rechteck im Inhaltsmaß der ScrollView: der Inhalt beginnt
-     * beim oberen Rand des Containers, die Zeile darin bei ihrer eigenen
-     * Oberkante.
+     * The row as a rectangle in the scroll view's content coordinates: the
+     * content starts at the top edge of the container, the row within it at
+     * its own top edge.
      */
     private fun geometry(container: View, row: View): RowWindow.Row =
         RowWindow.Row(top = container.top + row.top, height = row.height)

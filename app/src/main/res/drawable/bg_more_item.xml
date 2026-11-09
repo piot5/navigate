@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Der „…“-Knopf unter der App-Zeile.
+<!-- The “…” button below the app row.
 
-     Auslöser ist `state_focused` (nicht `state_selected` wie im Raster): der
-     Knopf ist eine echte, fokussierbare View, keine GridView-Zelle. Optisch ist
-     es derselbe Rahmen wie bei einer gewählten App-Zelle — abgerundet, blau —,
-     damit die Oberfläche eine einzige Sprache spricht. -->
+     The trigger is `state_focused` (not `state_selected` as in the grid): the
+     button is a real, focusable view, not a GridView cell. Visually it is
+     the same border as on a selected app cell — rounded, blue —,
+     so the interface speaks a single language. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_focused="true">
         <shape android:shape="rectangle">

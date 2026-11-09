@@ -4,115 +4,117 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Aus einer Media-Session **eine** Zeile für das Feld oben links machen.
+ * Turn a media session into **one** line for the field top left.
  *
- * Die Regel ist klein — und genau deshalb der Ort, an dem sich ein Fehler lange
- * verstecken könnte: falsche Reihenfolge, ein Trennstrich ohne zweiten Teil, ein
- * „pausiert“ ohne Titel. Sie kennt kein Android und braucht deshalb kein Gerät.
+ * The rule is small — and for exactly that reason the place where a bug could
+ * hide for a long time: wrong order, a separator without a second part, a
+ * "paused" without a title. It knows no Android and therefore needs no device.
  */
 class NowPlayingTextTest {
 
     @Test
-    fun `ohne Session gibt es keine Zeile`() {
+    fun `without a session there is no line`() {
         assertEquals("", NowPlayingText.line(null))
     }
 
     @Test
-    fun `nur ein Titel bleibt ein Titel`() {
-        assertEquals("Tagesschau", NowPlayingText.line(NowPlayingInfo(title = "Tagesschau")))
+    fun `a title alone stays a title`() {
+        assertEquals("Newscast", NowPlayingText.line(NowPlayingInfo(title = "Newscast")))
     }
 
     @Test
-    fun `ohne Titel steht der Interpret allein`() {
+    fun `without a title the artist stands alone`() {
         assertEquals("WDR 2", NowPlayingText.line(NowPlayingInfo(artist = "WDR 2")))
     }
 
     @Test
-    fun `Interpret und Titel stehen zusammen, Interpret zuerst`() {
+    fun `artist and title go together, artist first`() {
         assertEquals(
-            "Herbert Grönemeyer – Der Weg",
-            NowPlayingText.line(NowPlayingInfo(title = "Der Weg", artist = "Herbert Grönemeyer")),
+            "Herbert Gronemeyer – The Way",
+            NowPlayingText.line(NowPlayingInfo(title = "The Way", artist = "Herbert Gronemeyer")),
         )
     }
 
     @Test
-    fun `leere und nur-Leerzeichen-Angaben ergeben keine Zeile`() {
+    fun `empty and blank-only fields make no line`() {
         assertEquals("", NowPlayingText.line(NowPlayingInfo()))
         assertEquals("", NowPlayingText.line(NowPlayingInfo(title = "  ", artist = "")))
     }
 
     @Test
-    fun `umgebende Leerzeichen fallen weg`() {
+    fun `surrounding whitespace is dropped`() {
         assertEquals("A – B", NowPlayingText.line(NowPlayingInfo(title = " B ", artist = " A ")))
     }
 
     @Test
-    fun `eine pausierte Session sagt es dazu`() {
+    fun `a paused session says so`() {
         assertEquals(
-            "A – B · pausiert",
+            "A – B · paused",
             NowPlayingText.line(NowPlayingInfo(title = "B", artist = "A", playing = false)),
         )
     }
 
     @Test
-    fun `eine pausierte Session ohne Angaben bleibt leer`() {
-        // Sonst stünde „· pausiert“ allein in der Ecke — Aussage ohne Inhalt.
+    fun `a paused session without fields stays empty`() {
+        // Otherwise "· paused" would stand alone in the corner — a statement
+        // without content.
         assertEquals("", NowPlayingText.line(NowPlayingInfo(playing = false)))
     }
 
     @Test
-    fun `der App-Name steht vor dem, was laeuft`() {
-        // Die Rückfrage auf dem Gerät war genau das: „… aber nicht, in welcher
-        // App“. Der Name kommt aus der App-Liste, nicht aus der Session.
+    fun `the app name comes before what is playing`() {
+        // The follow-up question on the device was exactly that: "… but not in
+        // which app". The name comes from the app list, not from the session.
         assertEquals(
-            "Spotify · Herbert Grönemeyer – Der Weg",
+            "Spotify · Herbert Gronemeyer – The Way",
             NowPlayingText.line(
-                NowPlayingInfo(title = "Der Weg", artist = "Herbert Grönemeyer", app = "Spotify"),
+                NowPlayingInfo(title = "The Way", artist = "Herbert Gronemeyer", app = "Spotify"),
             ),
         )
     }
 
     @Test
-    fun `der App-Name allein mit einem Titel bleibt lesbar`() {
-        assertEquals("WDR 2 · Morgenecho", NowPlayingText.line(NowPlayingInfo(title = "Morgenecho", app = "WDR 2")))
+    fun `the app name alone with a title stays readable`() {
+        assertEquals("WDR 2 · Morning Echo", NowPlayingText.line(NowPlayingInfo(title = "Morning Echo", app = "WDR 2")))
     }
 
     @Test
-    fun `pausiert steht auch mit App-Name am Ende`() {
+    fun `paused comes last even with an app name`() {
         assertEquals(
-            "Netflix · A – B · pausiert",
+            "Netflix · A – B · paused",
             NowPlayingText.line(NowPlayingInfo(title = "B", artist = "A", playing = false, app = "Netflix")),
         )
     }
 
     @Test
-    fun `ohne App-Name aendert sich nichts`() {
+    fun `without an app name nothing changes`() {
         assertEquals("A – B", NowPlayingText.line(NowPlayingInfo(title = "B", artist = "A", app = "  ")))
     }
 
-    // --- Inhalt (ohne Pausenzusatz) -----------------------------------------
-    //    Die Kennung für den Verlauf: „was lief", nicht „wie es gerade steht".
+    // --- Content (without the pause suffix) -----------------------------------
+    //    The identifier for the history: "what played", not "how it stands
+    //    right now".
 
     @Test
-    fun `der Inhalt traegt keinen Pausenzusatz`() {
-        val spielt = NowPlayingInfo(title = "B", artist = "A", app = "ZDF", playing = true)
-        val pausiert = NowPlayingInfo(title = "B", artist = "A", app = "ZDF", playing = false)
-        assertEquals("ZDF · A – B", NowPlayingText.content(spielt))
-        assertEquals("ZDF · A – B", NowPlayingText.content(pausiert))
-        // Und die Anzeigezeilen unterscheiden sich — genau darum geht es.
-        assertEquals("ZDF · A – B", NowPlayingText.line(spielt))
-        assertEquals("ZDF · A – B · pausiert", NowPlayingText.line(pausiert))
+    fun `the content carries no pause suffix`() {
+        val playing = NowPlayingInfo(title = "B", artist = "A", app = "ZDF", playing = true)
+        val paused = NowPlayingInfo(title = "B", artist = "A", app = "ZDF", playing = false)
+        assertEquals("ZDF · A – B", NowPlayingText.content(playing))
+        assertEquals("ZDF · A – B", NowPlayingText.content(paused))
+        // And the display lines differ — that is the whole point.
+        assertEquals("ZDF · A – B", NowPlayingText.line(playing))
+        assertEquals("ZDF · A – B · paused", NowPlayingText.line(paused))
     }
 
     @Test
-    fun `der Inhalt ist ohne Session leer`() {
+    fun `the content is empty without a session`() {
         assertEquals("", NowPlayingText.content(null))
         assertEquals("", NowPlayingText.content(NowPlayingInfo(playing = false)))
     }
 
     @Test
-    fun `der Inhalt ist nicht vom App-Namen abhaengig`() {
-        // Dieselbe Regel für jede App — der Name ist die Zutat, nicht die Regel.
+    fun `the content does not depend on the app name`() {
+        // The same rule for every app — the name is the ingredient, not the rule.
         for (app in listOf("Netflix", "Disney+", "ZDF", "WOW", "Prime Video", "ARD")) {
             assertEquals(
                 "$app · A – B",

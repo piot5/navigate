@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Eine Zeile in den Navigate-Einstellungen: links der Name, rechts der Stand
-     („An“/„Aus“).
+<!-- One row in the Navigate settings: name on the left, state on the right
+     (“On”/“Off”).
 
-     Der Fokus kommt von der ListView (`listSelector`), deshalb braucht diese
-     Zeile keinen eigenen Zustands-Selector: eine ListView zeichnet ihren
-     listSelector nur, solange sie selbst den Fokus hat — genau das gewünschte
-     Verhalten. -->
+     The focus comes from the ListView (`listSelector`), so this
+     row needs no state selector of its own: a ListView draws its
+     listSelector only while it has the focus itself — exactly the wanted
+     behavior. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="@dimen/settings_row_height"

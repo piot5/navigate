@@ -5,18 +5,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Die Regeln der App-Liste: welche Kandidaten gewinnen, welche wegfallen, wie
- * sortiert wird.
+ * The rules of the app list: which candidates win, which drop out, how the
+ * list is sorted.
  *
- * Der wichtigste Fall ist der erste: Apps, die **nur**
- * `CATEGORY_LEANBACK_LAUNCHER` tragen, fehlten im Raster — auf dem Zielgerät
- * waren das Prime Video, WOW und ARD (docs/DEVICE_PERF.md). Diese Regeln
- * standen bis 0.4 zwischen PackageManager-Aufrufen und waren ungetestet.
+ * The most important case is the first: apps carrying **only**
+ * `CATEGORY_LEANBACK_LAUNCHER` were missing from the grid — on the target
+ * device those were Prime Video, WOW and ARD (docs/DEVICE_PERF.md). These rules
+ * sat between PackageManager calls until 0.4 and were untested.
  */
 class AppCatalogTest {
 
-    /** Fester Vergleicher statt Collator: der Test soll nicht von der
-     *  Gerätesprache abhängen. */
+    /** Fixed comparator instead of Collator: the test must not depend on the
+     *  device language. */
     private val order = String.CASE_INSENSITIVE_ORDER
 
     private fun candidate(
@@ -37,7 +37,7 @@ class AppCatalogTest {
     ): List<AppCatalog.Candidate> = AppCatalog.select(candidates.toList(), own, order)
 
     @Test
-    fun `nur leanback deklarierte Apps stehen in der Liste`() {
+    fun `only apps declaring leanback make the list`() {
         val selected = select(
             candidate("com.netflix.ninja", "Netflix"),
             candidate("com.amazon.amazonvideo.livingroom", "Prime Video"),
@@ -51,9 +51,9 @@ class AppCatalogTest {
     }
 
     @Test
-    fun `der erste Kandidat je Paket gewinnt`() {
-        // Der Aufrufer sammelt LAUNCHER vor LEANBACK_LAUNCHER — der Eintrag des
-        // Herstellers gewinnt damit gegen den TV-Eintrag.
+    fun `the first candidate per package wins`() {
+        // The caller collects LAUNCHER before LEANBACK_LAUNCHER — the vendor's
+        // entry thus wins against the TV entry.
         val selected = select(
             candidate("com.netflix.ninja", "Netflix", activityName = "com.netflix.ninja.MainActivity"),
             candidate("com.netflix.ninja", "Netflix (TV)", activityName = "com.netflix.ninja.TvActivity"),
@@ -64,16 +64,16 @@ class AppCatalogTest {
     }
 
     @Test
-    fun `deaktivierte Apps fallen weg`() {
+    fun `disabled apps are dropped`() {
         val selected = select(
             candidate("com.termux", "Termux"),
-            candidate("com.disabled.app", "Deaktiviert", enabled = false),
+            candidate("com.disabled.app", "Disabled", enabled = false),
         )
         assertEquals(listOf("com.termux"), selected.map { it.packageName })
     }
 
     @Test
-    fun `der eigene Launcher faellt weg — Release und Debug`() {
+    fun `the own launcher is dropped — release and debug`() {
         val selected = select(
             candidate("com.piotv.navigate", "Navigate"),
             candidate("com.piotv.navigate.debug", "Navigate (Debug)"),
@@ -83,9 +83,9 @@ class AppCatalogTest {
     }
 
     @Test
-    fun `auch der Debug-Build erkennt sich selbst`() {
-        // Der Debug-Build hat den Paketnamen com.piotv.navigate.debug; beide
-        // Varianten müssen aus seinem Raster fallen.
+    fun `the debug build recognizes itself too`() {
+        // The debug build has the package name com.piotv.navigate.debug; both
+        // variants must fall out of its grid.
         val selected = select(
             candidate("com.piotv.navigate", "Navigate"),
             candidate("com.piotv.navigate.debug", "Navigate (Debug)"),
@@ -95,36 +95,36 @@ class AppCatalogTest {
     }
 
     @Test
-    fun `leere Beschriftung wird durch den Paketnamen ersetzt`() {
+    fun `an empty label is replaced by the package name`() {
         val selected = select(candidate("com.ohne.name", label = "   "))
         assertEquals("com.ohne.name", selected.single().label)
     }
 
     @Test
-    fun `sortiert wird ueber den uebergebenen Vergleicher`() {
+    fun `sorting uses the comparator passed in`() {
         val selected = select(
             candidate("com.z", "Zebra"),
-            candidate("com.a", "apfel"),
+            candidate("com.a", "apple"),
             candidate("com.m", "Mango"),
         )
-        // CASE_INSENSITIVE_ORDER: apfel, Mango, Zebra — nicht „Mango, Zebra,
-        // apfel" (Zeichencode).
-        assertEquals(listOf("apfel", "Mango", "Zebra"), selected.map { it.label })
+        // CASE_INSENSITIVE_ORDER: apple, Mango, Zebra — not "Mango, Zebra,
+        // apple" (code points).
+        assertEquals(listOf("apple", "Mango", "Zebra"), selected.map { it.label })
     }
 
     @Test
-    fun `leere Eingabe ergibt eine leere Liste`() {
+    fun `empty input gives an empty list`() {
         assertTrue(select().isEmpty())
     }
 
     @Test
-    fun `Reihenfolge der Ausgabe ist stabil`() {
-        // Zweimal dieselbe Eingabe → dieselbe Ausgabe (die Sortierung ist
-        // total; bei gleichen Beschriftungen entscheidet die Einfügereihenfolge).
+    fun `the output order is stable`() {
+        // Same input twice → same output (the sort is total; with equal labels
+        // the insertion order decides).
         val input = arrayOf(
-            candidate("com.b", "Gleich"),
-            candidate("com.a", "Gleich"),
-            candidate("com.c", "Anders"),
+            candidate("com.b", "Same"),
+            candidate("com.a", "Same"),
+            candidate("com.c", "Different"),
         )
         assertEquals(select(*input).map { it.packageName }, select(*input).map { it.packageName })
     }

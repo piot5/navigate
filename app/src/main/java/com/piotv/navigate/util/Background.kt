@@ -6,13 +6,13 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
- * Genau ein Hintergrund-Thread und ein Main-Thread-Handler für die ganze App.
+ * Exactly one background thread and one main-thread handler for the whole app.
  *
- * Warum kein Coroutine-Dispatcher und keine Thread-Pools: Navigate hat exakt
- * zwei Hintergrund-Aufgaben (App-Liste abfragen, Symbole dekodieren), beide
- * kurz und beide seriell. Ein einzelner Thread mit niedriger Priorität reicht
- * und garantiert, dass Hintergrundarbeit niemals die UI verdrängt — auf einem
- * 1,4-GB-Gerät mit 32-bit-ABI der wichtigste Punkt.
+ * Why no coroutine dispatcher and no thread pools: Navigate has exactly two
+ * background tasks (querying the app list, decoding icons), both short and
+ * both serial. A single low-priority thread suffices and guarantees that
+ * background work never crowds out the UI — on a 1.4 GB device with a 32-bit
+ * ABI, that is the point that matters most.
  */
 object Background {
 

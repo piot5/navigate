@@ -4,22 +4,23 @@ import android.os.Handler
 import android.os.Looper
 
 /**
- * Ein Takt auf dem Main-Thread: führt [action] aus und plant sich selbst neu.
+ * A beat on the main thread: runs [action] and reschedules itself.
  *
- * Zwei Dinge auf der Home-Seite ticken (Uhr, „Now Playing"), und bis 0.12 hatte
- * jedes seinen eigenen `Handler` und sein eigenes `Runnable`-Objekt: Felder und
- * Methoden für viermal dieselben Zeilen. Unterschiedlich war nur das Intervall —
- * deshalb steht das Muster einmal hier. Ein dritter Takt (die grüne
- * Beschriftung, alle 5 Sekunden) ist in 0.14 entfallen.
+ * Two things on the home page tick (the clock, "Now Playing"), and until 0.12
+ * each had its own `Handler` and its own `Runnable` object: fields and methods
+ * for four times the same lines. Only the interval differed — so the pattern
+ * lives here once. A third beat (the green label, every 5 seconds) was
+ * dropped in 0.14.
  *
- * `start()` führt [action] **sofort** aus: nach einem HOME-Druck soll die Uhr
- * stehen, ohne auf den ersten Takt zu warten. `stop()` entfernt nur die geplante
- * Fortsetzung — die Reihenfolge „erst entfernen, dann den ersten Durchlauf“ ist
- * dieselbe wie vorher, damit ein zweites `start()` keinen zweiten Takt erzeugt.
+ * `start()` runs [action] **immediately**: after a press of HOME the clock
+ * should stand there without waiting for the first beat. `stop()` removes
+ * only the scheduled continuation — the order "remove first, then run the
+ * first pass" is the same as before, so that a second `start()` does not
+ * create a second beat.
  *
- * Der Handler hängt am Main-Looper, nicht am Aufrufer: [action] darf also Views
- * anfassen (die Uhr tut das), und eine teure Abfrage gehört von dort aus in den
- * Hintergrund-Thread ([com.piotv.navigate.util.Background]).
+ * The handler hangs on the main looper, not on the caller: [action] may
+ * therefore touch views (the clock does), and an expensive query belongs over
+ * there in the background thread ([com.piotv.navigate.util.Background]).
  */
 class Ticker(private val intervalMs: Long, private val action: () -> Unit) {
 

@@ -12,6 +12,7 @@ import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.text.format.DateFormat
 import android.view.View
+import android.widget.AdapterView
 import android.widget.GridView
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -28,6 +29,7 @@ import com.piotv.navigate.data.OrderStore
 import com.piotv.navigate.data.SettingsStore
 import com.piotv.navigate.ui.AppAdapter
 import com.piotv.navigate.ui.AppMenu
+import com.piotv.navigate.ui.BannerLoader
 import com.piotv.navigate.ui.GridColumns
 import com.piotv.navigate.ui.IconLoader
 import com.piotv.navigate.ui.NowPlayingPanel
@@ -41,57 +43,57 @@ import java.util.Date
 import kotlin.math.max
 
 /**
- * Die Home-Seite — mehr hat dieser Launcher nicht.
+ * The home screen — this launcher has nothing else.
  *
- * Ein HOME-Druck zeigt ein Raster mit allen startbaren Apps, die Uhr und — wenn
- * eingeschaltet — oben links „Now Playing“ (seit 0.13 **eine Zeile je App** mit
- * aktiver Media-Session). Zu sehen ist zunächst nur die **erste Rasterzeile**;
- * die Zelle ganz rechts darin ist der „…“-Knopf und klappt den Rest auf.
- * Einstellbar ist die Reihenfolge der Apps ([OrderStore], per langem Drücken oder
- * per `adb push`) und ob das Now-Playing-Feld erscheint ([SettingsStore], langes
- * OK auf „…“ öffnet die Einstellungen).
+ * A press of HOME shows a grid with all launchable apps, the clock and — if
+ * enabled — "Now Playing" at the top left (since 0.13 **one row per app** with
+ * an active media session). Only the **first grid row** is visible at first;
+ * the rightmost cell in it is the "…" button and unfolds the rest.
+ * Configurable are the order of the apps ([OrderStore], via long-press or
+ * `adb push`) and whether the Now Playing field appears ([SettingsStore]; a
+ * long press of OK on "…" opens the settings).
  *
- * Der Now-Playing-Block ist seit 0.15.1 ein **begrenztes Fenster**: er wird
- * höchstens `now_playing_max_height` hoch und scrollt danach in sich, mit
- * dauerhaft sichtbarer Scrollbar ([PanelScrollView]). Das Raster beginnt unter
- * der Höhe, die der Block **sichtbar** einnimmt ([onHeightChanged]) — sonst
- * schöbe der Verlauf die App-Zeile aus dem Bild.
+ * Since 0.15.1 the Now Playing block is a **bounded window**: it grows at most
+ * to `now_playing_max_height` and then scrolls within itself, with a
+ * permanently visible scrollbar ([PanelScrollView]). The grid starts below the
+ * height the block **visibly** occupies ([onHeightChanged]) — otherwise the
+ * history would push the app row off the screen.
  *
- * ## Was hier steht — und was seit 0.13 ausgelagert ist
+ * ## What lives here — and what has lived elsewhere since 0.13
  *
- * Diese Klasse hält den **einen** Zustand des Launchers (Raster, Reihenfolge,
- * Fokus) und die Lebenszyklus-Haken. Der Rest liegt in eigenen Klassen, weil die
- * Datei sonst wieder auf 769 Zeilen zuwächst:
+ * This class holds the **one** state of the launcher (grid, order, focus) and
+ * the lifecycle hooks. The rest lives in its own classes, because otherwise the
+ * file would grow back to 769 lines:
  *
- *  - die zwei Takte (Uhr, Now Playing) → [Ticker],
- *  - der Now-Playing-Block → [NowPlayingPanel] (mehrere Zeilen, Persistenz),
- *  - das Kontextmenü → [AppMenu],
- *  - die Regeln dahinter ohnehin: `Order`, `AppCatalog`, `NowPlayingBoard`.
+ *  - the two tickers (clock, Now Playing) → [Ticker],
+ *  - the Now Playing block → [NowPlayingPanel] (several rows, persistence),
+ *  - the context menu → [AppMenu],
+ *  - the rules behind them anyway: `Order`, `AppCatalog`, `NowPlayingBoard`.
  *
- * Zwei Entscheidungen, die aus Fehlern gelernt sind:
+ * Two decisions learned from mistakes:
  *
- *  - **Ein opakes Fenster.** Das Theme ist absichtlich das gewöhnlichste, das es
- *    gibt (`res/values/styles.xml`). Die Fassungen bis 0.6 hatten ein
- *    translucentes Fenster; auf dem Zielgerät war das Fenster dann gezeichnet,
- *    fokussiert und bedienbar — aber **nicht sichtbar**.
- *  - **Eine Activity, ein Zustand.** Zwei HOME-Activities in einer App machen die
- *    Auflösung des Systems mehrdeutig (Auswahldialog statt Direktstart).
+ *  - **An opaque window.** The theme is deliberately the most ordinary one
+ *    there is (`res/values/styles.xml`). Versions up to 0.6 had a translucent
+ *    window; on the target device that window was drawn, focused and operable
+ *    — but **not visible**.
+ *  - **One activity, one state.** Two HOME activities in one app make the
+ *    system's resolution ambiguous (a chooser dialog instead of a direct launch).
  */
 class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener {
 
     private lateinit var grid: GridView
     private lateinit var clock: TextView
 
-    /** Der „…“-Knopf unter der App-Zeile. */
+    /** The "…" button below the app row. */
     private lateinit var more: TextView
 
-    /** Der Hintergrund (0.14): das Bild und die Abdunkelung darüber. */
+    /** The background (0.14): the image and the darkening layer on top of it. */
     private lateinit var backgroundImage: ImageView
     private lateinit var backgroundScrim: View
 
     /**
-     * Was gerade als Hintergrund gilt (`art|pfad`) — damit ein HOME-Druck das Bild
-     * nicht neu dekodiert.
+     * What currently counts as the background (`art|path`) — so that a press of
+     * HOME does not decode the image again.
      */
     private var appliedBackground: String? = null
 
@@ -102,39 +104,42 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     private lateinit var history: HistoryStore
     private lateinit var lastApp: LastApp
 
-    /** Der Block oben links — er besitzt seine Zeilen, seinen Takt und seinen Stand. */
+    /** The block at the top left — it owns its rows, its ticker and its state. */
     private lateinit var nowPlayingPanel: NowPlayingPanel
 
-    /** Das Kontextmenü (langes OK auf einer App). */
+    /** The context menu (long press of OK on an app). */
     private lateinit var menu: AppMenu
+
+    /** The focus banners: the TV artwork per app — the same route as the icons. */
+    private lateinit var bannerLoader: BannerLoader
 
     private var adapter: AppAdapter? = null
 
-    /** Alle Apps in Grundordnung (sprachsortiert) — die Anzeige entsteht daraus
-     *  plus der konfigurierten Reihenfolge. */
+    /** All apps in their base order (sorted by language) — the display is built
+     *  from that plus the configured order. */
     private var allApps: List<AppEntry> = emptyList()
 
-    /** Die Apps in Anzeige-Reihenfolge. */
+    /** The apps in display order. */
     private var display: List<AppEntry> = emptyList()
 
-    /** Nur die erste Zeile oder alles? */
+    /** Only the first row, or everything? */
     private var expanded = false
 
     private var iconsWarmed = false
     private var columns = 0
 
-    /** Oben-Abstand des Rasters, wenn nichts darüber steht (Ressource). */
+    /** Top padding of the grid when nothing sits above it (resource). */
     private var baseGridTopPadding = 0
     private var topRowPaddingTop = 0
     private var nowPlayingGap = 0
 
     /**
-     * Steht die Home-Seite gerade sichtbar auf dem Bildschirm?
+     * Is the home screen currently visible on the screen?
      *
-     * Kein Lebenszyklus-Flag: das System pausiert die Activity bei jedem
-     * HOME-Druck, **bevor** es den Intent zustellt (`onPause → onNewIntent →
-     * onResume`) — `isResumed` ist dort immer schon `false`. Genau daran ist die
-     * erste Fassung dieses Verhaltens in 0.1 gescheitert.
+     * Not a lifecycle flag: the system pauses the activity on every press of
+     * HOME **before** it delivers the intent (`onPause → onNewIntent →
+     * onResume`) — `isResumed` is already `false` there. This is exactly where
+     * the first version of this behavior failed in 0.1.
      */
     private var homeOnScreen = false
 
@@ -173,10 +178,11 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
             intervalMs = NowPlayingPanel.NOW_PLAYING_INTERVAL_MS,
         )
         menu = AppMenu(this, this)
+        bannerLoader = BannerLoader.get(this)
 
         more.setOnClickListener { setExpanded(!expanded) }
-        // Langes OK auf „…“ öffnet die Einstellungen — der einzige Ort außerhalb
-        // des Rasters, den diese Seite hat.
+        // A long press of OK on "…" opens the settings — the only place outside
+        // the grid that this screen has.
         more.setOnLongClickListener {
             openSettings()
             true
@@ -186,8 +192,8 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
         grid.numColumns = columns
         setupAdapter()
 
-        // App-Liste sofort im Hintergrund bauen, nicht erst beim Öffnen: der
-        // erste HOME-Druck soll keine Abfrage abwarten.
+        // Build the app list in the background right away, not only when it is
+        // shown: the first press of HOME should not have to wait for a query.
         refreshApps(force = false)
 
         applyGridHeight()
@@ -199,13 +205,13 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        // Jeder HOME-Druck kommt hier an (launchMode=singleTask).
+        // Every press of HOME arrives here (launchMode=singleTask).
         //
-        // Zwei Fälle, und sie sind der ganze Witz dieses Merkers:
-        //  - Die Home-Seite stand schon sichtbar → der Nutzer will zurück in die
-        //    App, in der er war (HOME als „Umschalter“).
-        //  - Die Home-Seite kam gerade von einer App nach vorne → er will die
-        //    Home-Seite sehen, und zwar zugeklappt (eine frische Home-Seite).
+        // Two cases, and they are the whole point of this flag:
+        //  - The home screen was already visible → the user wants to go back to
+        //    the app they were in (HOME as a "switcher").
+        //  - The home screen just came to the front from an app → they want to
+        //    see the home screen, collapsed (a fresh home screen).
         if (homeOnScreen && returnToLastApp()) return
 
         setExpanded(false)
@@ -217,11 +223,11 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     override fun onResume() {
         super.onResume()
         homeOnScreen = true
-        // Die Reihenfolge kann sich von außen geändert haben (`adb push`). Ein
-        // `stat` kostet nichts, ein Dateibeobachter wäre Aufwand ohne Nutzen.
+        // The order may have been changed from outside (`adb push`). A `stat`
+        // costs nothing; a file watcher would be effort without benefit.
         if (order.reloadIfChanged()) applyOrder(allApps)
-        // Die Einstellungen können sich geändert haben — in den Einstellungen
-        // selbst oder per `adb push` (dieselbe Drossel wie bei der Reihenfolge).
+        // The settings may have changed — in the settings screen itself or via
+        // `adb push` (the same throttling as for the order).
         settings.reloadIfChanged()
         nowPlayingPanel.start()
         refreshApps(force = false)
@@ -230,8 +236,8 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     /**
-     * Die Home-Seite verlässt den Bildschirm (andere App im Vordergrund) → der
-     * nächste HOME-Druck zeigt sie wieder, statt zurückzuspringen.
+     * The home screen leaves the screen (another app in the foreground) → the
+     * next press of HOME shows it again instead of jumping back.
      */
     override fun onStop() {
         super.onStop()
@@ -240,17 +246,17 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
 
     override fun onPause() {
         super.onPause()
-        // Keine Timer, während niemand hinsieht.
+        // No timers while nobody is looking.
         stopClock()
         nowPlayingPanel.stop()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        // Sprache oder Dichte geändert: App-Namen und Symbolgrößen stecken in den
-        // zwischengespeicherten Daten und müssen neu entstehen. Bewusst ohne
-        // Activity-Neustart (configChanges im Manifest) — ein Neustart wäre auf
-        // dem Chromecast ein sichtbares Flackern.
+        // Language or density changed: app names and icon sizes live in the
+        // cached data and must be rebuilt. Deliberately without an activity
+        // restart (configChanges in the manifest) — on the Chromecast a restart
+        // would be a visible flicker.
         iconLoader.evictAll()
         iconsWarmed = false
         columns = GridColumns.compute(resources.configuration.screenWidthDp)
@@ -260,12 +266,12 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     /**
-     * Bei Speicherdruck die Symbole wegwerfen, bevor das System den Prozess dafür
-     * tötet — sie sind in Millisekunden wieder da (Platten-Cache).
+     * Under memory pressure, drop the icons before the system kills the process
+     * for them — they are back within milliseconds (disk cache).
      *
-     * `TRIM_MEMORY_RUNNING_CRITICAL` ist ab API 34 als veraltet markiert (das
-     * System meldet es auf neueren Geräten nicht mehr), aber minSdk ist 23: auf
-     * älteren Geräten ist es genau der Wert, auf den es ankommt.
+     * `TRIM_MEMORY_RUNNING_CRITICAL` is deprecated as of API 34 (the system no
+     * longer reports it on newer devices), but minSdk is 23: on older devices
+     * it is exactly the value that matters.
      */
     @Suppress("DEPRECATION")
     override fun onTrimMemory(level: Int) {
@@ -276,12 +282,12 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     /**
-     * BACK: erst das aufgeklappte Raster zuklappen, dann zurück in die letzte App.
-     * Auf der zugeklappten Home-Seite ohne bekannte App bleibt es ohne Wirkung.
+     * BACK: first collapse the unfolded grid, then return to the last app.
+     * On the collapsed home screen without a known app it does nothing.
      *
-     * `finish()` wäre der naheliegende Weg — das System startet eine Home-Activity
-     * danach aber sofort neu (auf dem Zielgerät gemessen: der Task wechselte von
-     * t2667 auf t2668), also ein sichtbares Flackern für nichts.
+     * `finish()` would be the obvious route — but the system immediately starts
+     * a home activity again afterwards (measured on the target device: the task
+     * switched from t2667 to t2668), i.e. a visible flicker for nothing.
      */
     @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
     override fun onBackPressed() {
@@ -292,13 +298,13 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     /**
-     * Holt die zuletzt im Vordergrund stehende App nach vorne.
+     * Brings the app that was last in the foreground back to the front.
      *
-     * Der Weg ist derselbe wie beim Antippen einer Zelle: der Launcher-Intent der
-     * App. Er holt den **bestehenden** Task nach vorne (die App wird fortgesetzt,
-     * nicht neu gestartet) und gibt ihr den Fokus zurück.
+     * The route is the same as tapping a cell: the app's launcher intent. It
+     * brings the **existing** task to the front (the app is resumed, not
+     * restarted) and gives it the focus back.
      *
-     * @return `true`, wenn eine App gestartet werden konnte.
+     * @return `true` if an app could be started.
      */
     private fun returnToLastApp(): Boolean {
         val packageName = lastApp.packageName() ?: return false
@@ -307,8 +313,8 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
             launch(entry)
             return true
         }
-        // Zweiter Versuch über den Launcher-Intent: greift auch, wenn die App
-        // nicht im Raster steht (z. B. eine System-App).
+        // Second attempt via the launcher intent: also works when the app is
+        // not in the grid (e.g. a system app).
         val intent = packageManager.getLaunchIntentForPackage(packageName) ?: return false
         return try {
             homeOnScreen = false
@@ -320,12 +326,12 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     // ------------------------------------------------------------------
-    // Raster
+    // Grid
     // ------------------------------------------------------------------
 
     /**
-     * Adapter und Zuhörer. Wird nur einmal gebaut (bzw. bei Konfigurationswechsel
-     * neu), weil `setAdapter` einen kompletten Relayout auslöst.
+     * Adapter and listeners. Built only once (or rebuilt on a configuration
+     * change), because `setAdapter` triggers a complete relayout.
      */
     private fun setupAdapter() {
         val newAdapter = AppAdapter(
@@ -338,23 +344,44 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
             menu.show(newAdapter.getItem(position))
             true
         }
+        // The focus banner (0.17): the background follows the app under the
+        // focus. D-pad movement fires onItemSelected; losing focus (Now Playing
+        // block, "…" button) cleans up. The listeners stay installed, also in
+        // other background modes — the mode flag decides inside them whether
+        // anything happens. Switching in the settings then needs no rewiring.
+        grid.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                showFocusBanner(position)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                // The selection is gone (rare on a d-pad): in this mode that
+                // means "no app under the focus". In other modes nothing
+                // happens here — the image background stays.
+                if (settings.current().background == BackgroundStyle.FOCUS) clearFocusBanner()
+            }
+        }
+        grid.setOnFocusChangeListener { _, hasFocus ->
+            if (settings.current().background != BackgroundStyle.FOCUS) return@setOnFocusChangeListener
+            if (hasFocus) refreshFocusBanner() else clearFocusBanner()
+        }
         adapter = newAdapter
     }
 
     /**
-     * Wie viele Einträge der Adapter meldet: eine Zeile oder alle.
+     * How many entries the adapter reports: one row or all.
      *
-     * Das ist der ganze Unterschied zwischen „zugeklappt“ und „aufgeklappt“ — es
-     * gibt kein zweites Layout und keine zweite Ansicht.
+     * This is the entire difference between "collapsed" and "expanded" — there
+     * is no second layout and no second view.
      */
     private fun rowLimit(): Int = if (expanded) 0 else columns
 
     /**
-     * Zugeklappt ist das Raster nur eine Zeile hoch und hängt mit der Spalte am
-     * unteren Rand; aufgeklappt bekommt es den ganzen Platz über dem „…“-Knopf und
-     * scrollt. `layout_weight` statt `match_parent`, weil ein `match_parent`-Kind
-     * in einer senkrechten LinearLayout den Knopf darunter aus dem Bild schieben
-     * würde.
+     * Collapsed, the grid is only one row high and sits with its column at the
+     * bottom edge; expanded, it gets all the space above the "…" button and
+     * scrolls. `layout_weight` instead of `match_parent`, because a
+     * `match_parent` child in a vertical LinearLayout would push the button
+     * below it off the screen.
      */
     private fun applyGridHeight() {
         val params = grid.layoutParams as LinearLayout.LayoutParams
@@ -368,29 +395,29 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
         grid.layoutParams = params
     }
 
-    /** Beschriftung für Screenreader — die Glyphe allein sagt nichts. */
+    /** Label for screen readers — the glyph alone says nothing. */
     private fun applyMoreButton() {
         more.contentDescription =
             getString(if (expanded) R.string.less_label else R.string.more_label)
     }
 
-    /** Klappt das Raster auf (alles) oder zu (nur die erste Zeile). */
+    /** Expands the grid (everything) or collapses it (only the first row). */
     private fun setExpanded(value: Boolean) {
         if (expanded == value) return
         expanded = value
         adapter?.submit(display, rowLimit())
         applyGridHeight()
         applyMoreButton()
-        // Aufgeklappt gehört der Platz den Apps: der Now-Playing-Block verschwindet
-        // (seinen Stand behält er — siehe NowPlayingPanel).
+        // When expanded the space belongs to the apps: the Now Playing block
+        // disappears (it keeps its state — see NowPlayingPanel).
         nowPlayingPanel.refreshVisibility()
     }
 
     private fun refreshApps(force: Boolean) {
-        // Die App-Liste gehört in den Hintergrund-Thread: die Abfrage über den
-        // PackageManager ist der Posten, der den HOME-Druck früher langsam
-        // gemacht hat. Bis 0.13 lief hier zusätzlich die Frage „welche Apps
-        // laufen noch?“ für die grüne Schrift — mit der Farbe ist sie entfallen.
+        // The app list belongs on the background thread: the query through the
+        // PackageManager used to be the item that made a press of HOME slow.
+        // Until 0.13 this also ran the question "which apps are still running?"
+        // for the green label — that went away with the color.
         Background.io.execute {
             repository.refresh(force) { apps ->
                 allApps = apps
@@ -400,15 +427,15 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     /**
-     * Bringt die Apps in die konfigurierte Reihenfolge und übergibt sie an den
-     * Adapter. Die Rechnung selbst steht in [Order.arrange] (ohne Android-Typen,
-     * damit ohne Gerät prüfbar).
+     * Puts the apps into the configured order and hands them to the adapter.
+     * The computation itself lives in [Order.arrange] (without Android types,
+     * so it can be tested without a device).
      */
     private fun applyOrder(apps: List<AppEntry>) {
         display = Order.arrange(order.current(), apps) { it.packageName }
         val changed = adapter?.submit(display, rowLimit()) ?: false
-        // Symbole vorwärmen: dann findet der nächste HOME-Druck sie fertig im
-        // Speicher bzw. auf der Platte vor, statt sie zu dekodieren.
+        // Warm the icons: the next press of HOME then finds them ready in memory
+        // or on disk instead of decoding them.
         if (changed || !iconsWarmed) {
             iconsWarmed = true
             iconLoader.warm(display, resources.getDimensionPixelSize(R.dimen.grid_icon))
@@ -416,9 +443,9 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     /**
-     * Langes Drücken: die App eine Position nach vorne schieben und sofort
-     * speichern. Das ist der Weg, die Reihenfolge **auf dem Fernseher** zu ändern
-     * (der andere ist die Datei, siehe docs/CONFIG.md).
+     * Long press: move the app one position forward and save immediately.
+     * This is the way to change the order **on the TV** (the other way is the
+     * file, see docs/CONFIG.md).
      */
     private fun moveForward(entry: AppEntry) {
         if (order.moveForward(entry.packageName)) {
@@ -429,7 +456,7 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
         }
     }
 
-    /** Wie [moveForward], nur eine Position nach hinten (Kontextmenü). */
+    /** Like [moveForward], but one position backward (context menu). */
     private fun moveBackward(entry: AppEntry) {
         if (order.moveBackward(entry.packageName)) {
             shortToast(R.string.toast_order_back)
@@ -440,24 +467,24 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     private fun focusGrid() {
-        // Erst direkt versuchen: ein `post` kostet einen zusätzlichen Durchlauf der
-        // Nachrichtenschleife, und nach einem HOME-Druck ist die Ansicht längst
-        // vermessen. Nur beim allerersten Aufbau wird nachgereicht.
+        // Try directly first: a `post` costs an extra pass through the message
+        // loop, and after a press of HOME the view has long been measured. Only
+        // the very first build needs the retry.
         if (!grid.requestFocus()) grid.post { grid.requestFocus() }
     }
 
     // ------------------------------------------------------------------
-    // Uhr und Einstellungen
+    // Clock and settings
     // ------------------------------------------------------------------
 
     /**
-     * Übernimmt die Einstellungen in die Oberfläche: Uhr an/aus und Hintergrund.
+     * Applies the settings to the UI: clock on/off and background.
      *
-     * Wird bei jedem `onResume` und jedem HOME-Druck aufgerufen — ein `adb push`
-     * kann die Datei geändert haben. Deshalb ist hier jede Aktion **billig, wenn
-     * sich nichts geändert hat**: die Uhr wird nur umgeschaltet, wenn sie falsch
-     * steht, und der Hintergrund nur neu geladen, wenn eine andere Datei gewählt
-     * ist.
+     * Called on every `onResume` and every press of HOME — an `adb push` may
+     * have changed the file. That is why every action here is **cheap when
+     * nothing has changed**: the clock is only switched when it is in the wrong
+     * state, and the background is only reloaded when a different file is
+     * selected.
      */
     private fun applySettings() {
         applyClock()
@@ -465,11 +492,12 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     /**
-     * Die Uhr: sichtbar **und** tickend — oder aus, und dann auch ohne Takt.
+     * The clock: visible **and** ticking — or off, and then without a ticker
+     * too.
      *
-     * Der Takt ist der Grund, warum „Uhr aus“ nicht nur `visibility = GONE` ist:
-     * ein Timer, der alle 30 Sekunden ein unsichtbares Feld beschreibt, wäre auf
-     * dem Chromecast messbar (dieselbe Regel wie beim Now-Playing-Block).
+     * The ticker is the reason "clock off" is not just `visibility = GONE`: a
+     * timer that writes to an invisible field every 30 seconds is measurable on
+     * the Chromecast (same rule as for the Now Playing block).
      */
     private fun applyClock() {
         val show = settings.current().showClock
@@ -480,14 +508,14 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     private fun stopClock() = clockTicker.stop()
 
     // ------------------------------------------------------------------
-    // Hintergrund (0.14)
+    // Background (0.14)
     // ------------------------------------------------------------------
 
     /**
-     * Der Hintergrund — zwei Möglichkeiten ([BackgroundStyle], siehe
-     * docs/CONFIG.md). Ist derselbe Stand schon gesetzt, passiert **nichts**:
-     * dieser Aufruf kommt bei jedem HOME-Druck, und ein Bild bei jedem Druck neu
-     * zu dekodieren wäre genau die Verzögerung, die man auf dem Fernseher sieht.
+     * The background — three options ([BackgroundStyle], see docs/CONFIG.md).
+     * If the same state is already set, **nothing** happens: this call arrives
+     * on every press of HOME, and decoding an image again on every press would
+     * be exactly the delay you can see on a TV.
      */
     private fun applyBackground() {
         val current = settings.current()
@@ -502,10 +530,15 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
         when (current.background) {
             BackgroundStyle.DARK -> showDarkBackground()
             BackgroundStyle.IMAGE -> showImageBackground(file)
+            // Focus: dark base; the banner comes from the focus itself. If the
+            // focus is already on an app, the banner shows up immediately —
+            // otherwise only with the next focus change.
+            BackgroundStyle.FOCUS ->
+                if (grid.hasFocus()) refreshFocusBanner() else clearFocusBanner()
         }
     }
 
-    /** Kein Hintergrund: die Ebene aus — das Theme malt `@color/bg_home`. */
+    /** No background: the layer off — the theme paints `@color/bg_home`. */
     private fun showDarkBackground() {
         backgroundImage.setImageDrawable(null)
         backgroundImage.visibility = View.GONE
@@ -513,13 +546,13 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     /**
-     * Ein Bild als Hintergrund.
+     * An image as the background.
      *
-     * Dekodiert wird im **Hintergrund-Thread** und auf Bildschirmgröße verkleinert
-     * ([decodeScaled]): ein 1080p-Foto wären sonst 8 MB, ein 4K-Foto 33 MB
-     * Speicher für eine Fläche, die ein Fernseher aus drei Metern nicht auflöst.
-     * Fehlt die Datei oder ist sie kein Bild, bleibt es dunkel — die
-     * Einstellungsseite nennt den Pfad, eine Meldung auf der Home-Seite wäre Lärm.
+     * Decoding happens on the **background thread**, downscaled to screen size
+     * ([decodeScaled]): a 1080p photo would otherwise be 8 MB, a 4K photo 33 MB
+     * of memory for a surface a TV cannot resolve from three meters away. If
+     * the file is missing or not an image, the screen stays dark — the settings
+     * screen names the path; a message on the home screen would be noise.
      */
     private fun showImageBackground(file: File?) {
         backgroundScrim.visibility = View.GONE
@@ -540,11 +573,10 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     /**
-     * Dekodiert eine Bilddatei auf höchstens `maxWidth` × `maxHeight`.
+     * Decodes an image file to at most `maxWidth` × `maxHeight`.
      *
-     * `inJustDecodeBounds` zuerst: die Maße stehen im Dateikopf, ein vollständiges
-     * Dekodieren nur zum Messen wäre genau die Verschwendung, die diese zwei
-     * Zeilen vermeiden.
+     * `inJustDecodeBounds` first: the dimensions are in the file header; a full
+     * decode just to measure would be exactly the waste these two lines avoid.
      */
     private fun decodeScaled(file: File, maxWidth: Int, maxHeight: Int): Bitmap? {
         if (!file.isFile) return null
@@ -563,42 +595,102 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
                 BitmapFactory.Options().apply { inSampleSize = sample },
             )
         } catch (e: OutOfMemoryError) {
-            // Ein zu großes Bild darf den Launcher nicht umbringen: dunkel bleiben.
+            // An oversized image must not kill the launcher: stay dark.
             null
         }
     }
 
-    /** Langes OK auf „…“: die Einstellungen (eigene Activity, siehe dort). */
+    // ------------------------------------------------------------------
+    // Focus banner (0.17)
+    // ------------------------------------------------------------------
+
+    /**
+     * The banner of the app **currently** under the focus — the call after a
+     * focus change back to the grid, when `onItemSelected` does not fire again
+     * (the selection has not changed, after all).
+     */
+    private fun refreshFocusBanner() {
+        val position = grid.selectedItemPosition
+        if (position == AdapterView.INVALID_POSITION) {
+            clearFocusBanner()
+            return
+        }
+        showFocusBanner(position)
+    }
+
+    /**
+     * The TV banner (`android:banner`) of the app at this position as the
+     * background — the same artwork the system launcher shows behind the
+     * focused app. If the app has no banner, the screen stays dark; the mode
+     * flag decides both before loading **and** in the callback, so that a
+     * switch (or `adb push`) can no longer put a running decode on screen.
+     */
+    private fun showFocusBanner(position: Int) {
+        val adapter = adapter ?: return clearFocusBanner()
+        if (position < 0 || position >= adapter.count) return clearFocusBanner()
+        if (settings.current().background != BackgroundStyle.FOCUS) return
+        val entry = adapter.getItem(position)
+        val key = entry.packageName
+        backgroundImage.tag = key
+        // The same flag (`tag`) as for the icons: the decode can come back while
+        // the focus has long moved elsewhere.
+        val cached = bannerLoader.get(entry) { bitmap ->
+            if (backgroundImage.tag == key &&
+                settings.current().background == BackgroundStyle.FOCUS
+            ) {
+                showBanner(bitmap)
+            }
+        }
+        if (cached != null) showBanner(cached) else clearFocusBanner()
+    }
+
+    private fun showBanner(bitmap: Bitmap) {
+        backgroundImage.setImageBitmap(bitmap)
+        backgroundImage.visibility = View.VISIBLE
+        backgroundScrim.visibility = View.VISIBLE
+    }
+
+    /**
+     * Back to the dark base: no app under the focus, no banner layer. The same
+     * surface as [showDarkBackground] — but the flag (`tag`) must go too,
+     * otherwise a late decode would still end up on screen.
+     */
+    private fun clearFocusBanner() {
+        backgroundImage.tag = null
+        showDarkBackground()
+    }
+
+    /** Long press of OK on "…": the settings (its own activity, see there). */
     private fun openSettings() {
         startActivity(Intent(this, SettingsActivity::class.java))
     }
 
     // ------------------------------------------------------------------
-    // NowPlayingPanel.Listener — was der Block von der Home-Seite braucht
+    // NowPlayingPanel.Listener — what the block needs from the home screen
     // ------------------------------------------------------------------
 
     /**
-     * Sichtbar ist der Block nur, wenn er eingeschaltet ist **und** das Raster
-     * zugeklappt ist. Aufgeklappt gehört der Platz den Apps.
+     * The block is visible only when it is enabled **and** the grid is
+     * collapsed. When expanded, the space belongs to the apps.
      */
     override fun isEnabled(): Boolean = settings.current().nowPlaying && !expanded
 
-    /** Der Eintrag einer App: erst aus der Anzeige, dann aus der ganzen Liste. */
+    /** The entry of an app: first from the display list, then from the full list. */
     override fun entryOf(packageName: String): AppEntry? =
         display.firstOrNull { it.packageName == packageName }
             ?: allApps.firstOrNull { it.packageName == packageName }
 
     /**
-     * OK auf einer Now-Playing-Zeile: zurück in die App, die den Ton macht.
+     * OK on a Now Playing row: back into the app that is making the sound.
      *
-     * Zwei Wege, in dieser Reihenfolge:
+     * Two routes, in this order:
      *
-     *  1. `sessionActivity` der Session — der „Jetzt läuft“-Bildschirm, den die App
-     *     **selbst** anbietet (`PendingIntent`). Das ist der vorgesehene Weg: er
-     *     landet dort, wo der Nutzer weiterhört, nicht im Hauptmenü der App.
-     *  2. Sonst der Launcher-Intent, genau wie aus dem Raster ([launch]).
+     *  1. The session's `sessionActivity` — the "Now playing" screen the app
+     *     **itself** offers (`PendingIntent`). That is the intended route: it
+     *     lands where the user can keep listening, not in the app's main menu.
+     *  2. Otherwise the launcher intent, exactly as from the grid ([launch]).
      *
-     * Ohne Session tut die Zeile nichts, statt irgendetwas zu starten.
+     * Without a session the row does nothing instead of starting anything.
      */
     override fun openRow(packageName: String, sessionActivity: PendingIntent?) {
         if (sessionActivity != null) {
@@ -607,8 +699,8 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
                 sessionActivity.send()
                 return
             } catch (e: Exception) {
-                // Abgelaufen, schon benutzt oder vom Ersteller gesperrt: dann der
-                // normale Weg.
+                // Expired, already used, or blocked by its creator: then the
+                // normal route.
             }
         }
         val entry = entryOf(packageName)
@@ -619,18 +711,18 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
         }
     }
 
-    /** Der Block verschwindet (aufgeklappt): der Fokus gehört zurück ins Raster. */
+    /** The block disappears (expanded): the focus belongs back in the grid. */
     override fun onFocusLost() {
         focusGrid()
     }
 
     /**
-     * Der Block meldet seine Höhe; das Raster beginnt darunter.
+     * The block reports its height; the grid starts below it.
      *
-     * Seit 0.13 kann er **mehrere** Zeilen hoch sein (eine je App mit aktiver
-     * Media-Session). Ohne diese Rückmeldung läge die erste App-Zeile hinter der
-     * zweiten Now-Playing-Zeile: der Block liegt im `FrameLayout` über dem Raster,
-     * und das kennt nur seinen festen oberen Rand.
+     * Since 0.13 it can be **several** rows tall (one per app with an active
+     * media session). Without this feedback the first app row would sit behind
+     * the second Now Playing row: the block lies in the `FrameLayout` above the
+     * grid, and that only knows its fixed top edge.
      */
     override fun onHeightChanged(heightPx: Int) {
         val needed = if (heightPx <= 0) {
@@ -643,7 +735,7 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     // ------------------------------------------------------------------
-    // AppMenu.Listener — das Kontextmenü
+    // AppMenu.Listener — the context menu
     // ------------------------------------------------------------------
 
     override fun onMoveForward(entry: AppEntry) {
@@ -654,7 +746,7 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
         moveBackward(entry)
     }
 
-    /** Alle Hintergrund-Apps schließen — dieselbe Grenze wie [AppMenu.close]. */
+    /** Close all background apps — the same limit as [AppMenu.close]. */
     override fun onCloseAll() {
         val manager = getSystemService(ActivityManager::class.java) ?: return
         for (entry in allApps) {
@@ -664,18 +756,18 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     // ------------------------------------------------------------------
-    // Aktionen
+    // Actions
     // ------------------------------------------------------------------
 
     private fun launch(entry: AppEntry) {
-        // Wir verlassen die Home-Seite — auch dann, wenn die gestartete App
-        // durchsichtig ist und uns nur pausiert (onStop käme dann nicht).
+        // We are leaving the home screen — even when the app being launched is
+        // transparent and only pauses us (onStop would not fire then).
         homeOnScreen = false
         lastApp.remember(entry.packageName)
 
-        // Explizite Komponente + MAIN/LAUNCHER: genau das, was der Systemdienst
-        // LauncherApps intern tut. Die Kategorie ist bei expliziter Komponente ohne
-        // Bedeutung, deshalb startet das auch leanback-only Apps.
+        // Explicit component + MAIN/LAUNCHER: exactly what the LauncherApps
+        // system service does internally. The category is meaningless with an
+        // explicit component, so this also starts leanback-only apps.
         val intent = Intent(Intent.ACTION_MAIN)
             .addCategory(Intent.CATEGORY_LAUNCHER)
             .setComponent(entry.component)
@@ -688,8 +780,8 @@ class LauncherActivity : Activity(), NowPlayingPanel.Listener, AppMenu.Listener 
     }
 
     private companion object {
-        /** Einmal pro Minute reicht: eine Uhr mit Sekunden wäre ein Timer pro
-         *  Sekunde — auf dem Chromecast messbar, ohne Mehrwert. */
+        /** Once a minute is enough: a clock with seconds would be a timer per
+         *  second — measurable on the Chromecast, with no benefit. */
         const val CLOCK_INTERVAL_MS = 30_000L
     }
 }

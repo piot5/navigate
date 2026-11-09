@@ -2,45 +2,45 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- QUERY_ALL_PACKAGES: Navigate muss ALLE startbaren Apps finden — das ist
-         die Kernfunktion eines Launchers, nicht ein Nebeneffekt.
+    <!-- QUERY_ALL_PACKAGES: Navigate must find ALL launchable apps — that is
+         the core function of a launcher, not a side effect.
 
-         Warum es ohne nicht geht (auf dem Zielgerät gemessen):
-         - LauncherApps.getActivityList() kennt nur CATEGORY_LAUNCHER und
-           verschweigt damit jede leanback-only App: Prime Video
-           (com.amazon.amazonvideo.livingroom), WOW (com.wbd.stream) und
-           ARD (de.swr.avp.ard.tv) tragen NUR CATEGORY_LEANBACK_LAUNCHER.
-         - Die Package-Visibility-Regeln ab Android 11 haben KEINE Ausnahme für
-           die Home-App (developer.android.com/training/package-visibility/automatic
-           listet sie erschöpfend) — eine LEANBACK-Abfrage über den
-           PackageManager wäre also unvollständig.
-         Starten wäre auch ohne die Berechtigung möglich, FINDEN nicht. -->
+         Why it does not work without it (measured on the target device):
+         - LauncherApps.getActivityList() only knows CATEGORY_LAUNCHER and
+           thereby hides every leanback-only app: Prime Video
+           (com.amazon.amazonvideo.livingroom), WOW (com.wbd.stream) and
+           ARD (de.swr.avp.ard.tv) carry ONLY CATEGORY_LEANBACK_LAUNCHER.
+         - The package visibility rules since Android 11 have NO exception for
+           the home app (developer.android.com/training/package-visibility/automatic
+           lists them exhaustively) — a LEANBACK query via the
+           PackageManager would therefore be incomplete.
+         Launching would be possible even without the permission; FINDING not. -->
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
 
-    <!-- Optional, und ausdrücklich nur dafür: „HOME oder BACK auf der Home-Seite
-         → zurück in die letzte App“. Mit dem App-Op ist die Antwort exakt
-         (`UsageStatsManager.queryEvents`), ohne ihn greift der Merker der
-         zuletzt über Navigate gestarteten App.
-         Er wird NICHT zur Laufzeit erfragt (das kann ein Launcher nicht),
-         sondern per
+    <!-- Optional, and explicitly only for this: “HOME or BACK on the home
+         screen → back into the last app”. With the app op the answer is exact
+         (`UsageStatsManager.queryEvents`); without it the marker of the
+         app last launched via Navigate applies.
+         It is NOT requested at runtime (a launcher cannot do that),
+         but via
          `adb shell appops set com.piotv.navigate GET_USAGE_STATS allow`
-         (siehe docs/INSTALL.md). Fehlt er, startet Navigate trotzdem. -->
+         (see docs/INSTALL.md). If it is missing, Navigate still starts. -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
-    <!-- Kontextmenü (langes OK auf einer App):
-         - REQUEST_DELETE_PACKAGES zeigt den System-Dialog zum Deinstallieren
-           (ein Launcher darf nicht selbst deinstallieren),
-         - KILL_BACKGROUND_PROCESSES erlaubt das Schließen von Apps, die im
-           Hintergrund stehen. Beides sind normale Berechtigungen ohne Dialog. -->
+    <!-- Context menu (long OK on an app):
+         - REQUEST_DELETE_PACKAGES shows the system dialog for uninstalling
+           (a launcher may not uninstall on its own),
+         - KILL_BACKGROUND_PROCESSES allows closing apps that sit in the
+           background. Both are normal permissions without a dialog. -->
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
 
-    <!-- Kein Touchscreen nötig (Fernbedienung), TV ist Zielplattform, aber nicht
-         Pflicht: so läuft Navigate auch auf einem Tablet/Handy zum Testen. -->
+    <!-- No touchscreen needed (remote control); TV is the target platform but
+         not mandatory: this way Navigate also runs on a tablet/phone for testing. -->
     <uses-feature
         android:name="android.software.leanback"
         android:required="false" />
@@ -58,26 +58,26 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Navigate">
 
-        <!-- Eine einzige Activity, ein Zustand: die Home-Seite mit allen Apps im
-             Raster. Bis 0.5 gab es zusätzlich einen zweiten Zustand (nur die
-             untere Zeile über der laufenden App) — mit zwei HOME-Activities wäre
-             die Auflösung des Systems mehrdeutig (Chooser statt Direktstart),
-             deshalb war es eine Activity mit zwei Fenstergrößen; seit 0.6 ist es
-             eine Activity mit einem Inhalt.
+        <!-- One single activity, one state: the home screen with all apps in
+             the grid. Up to 0.5 there was additionally a second state (only the
+             bottom row above the running app) — with two HOME activities the
+             system's resolution would be ambiguous (chooser instead of direct
+             start), so it was one activity with two window sizes; since 0.6 it
+             is one activity with one content.
 
-             launchMode=singleTask: jeder HOME-Druck kommt als onNewIntent an,
-             es wird nie eine zweite Instanz gebaut.
-             excludeFromRecents: der Launcher gehört nicht in "Zuletzt benutzt".
-             stateNotNeeded: das System darf die Activity jederzeit neu starten.
-             configChanges: TV-Geräte melden uiMode/density-Änderungen; ohne
-             diese Liste würde die Activity neu erzeugt (= sichtbares Flackern).
+             launchMode=singleTask: every HOME press arrives as onNewIntent,
+             a second instance is never built.
+             excludeFromRecents: a launcher does not belong in "Recents".
+             stateNotNeeded: the system may restart the activity at any time.
+             configChanges: TV devices report uiMode/density changes; without
+             this list the activity would be recreated (= visible flicker).
 
-             screenOrientation=landscape mit tools:ignore="DiscouragedApi":
-             ab Android 16 ignorieren Systeme die feste Ausrichtung ohnehin
-             (lint: DiscouragedApi). Auf dem Zielgerät ist das folgenlos — ein
-             Fernseher kennt nur eine Ausrichtung.
-             android:label fehlt hier absichtlich: sie wäre identisch mit der
-             App-Beschriftung (lint: RedundantLabel). -->
+             screenOrientation=landscape with tools:ignore="DiscouragedApi":
+             from Android 16 on, systems ignore the fixed orientation anyway
+             (lint: DiscouragedApi). On the target device this has no effect — a
+             TV knows only one orientation.
+             android:label is deliberately absent here: it would be identical to
+             the app label (lint: RedundantLabel). -->
         <activity
             android:name=".LauncherActivity"
             android:alwaysRetainTaskState="true"
@@ -92,18 +92,18 @@
             android:theme="@style/Theme.Navigate"
             tools:ignore="DiscouragedApi">
 
-            <!-- HOME: damit ist Navigate eine Launcher-App.
-                 LEANBACK_LAUNCHER: damit sie zusätzlich in der TV-Apps-Liste
-                 auftaucht (z. B. um nach dem Deaktivieren wieder hinein zu
-                 kommen, ohne die Einstellungen zu bemühen).
+            <!-- HOME: this makes Navigate a launcher app.
+                 LEANBACK_LAUNCHER: so it additionally shows up in the TV apps
+                 list (e.g. to get back in after being deactivated, without
+                 resorting to the settings).
 
-                 priority=10 ist kein Zierwert: auf dem Chromecast (Google TV)
-                 trägt com.google.android.tungsten.setupwraith/.RecoveryActivity
-                 einen HOME-Filter mit priority=1 und gewinnt damit die
-                 Auflösung des HOME-Intents, obwohl Navigate die HOME-Rolle
-                 hält (gemessen am 2026-10-14 auf dem Zielgerät). Ein höherer
-                 Wert ist der einzige Weg, das ohne Deaktivieren einer
-                 System-App zu lösen. -->
+                 priority=10 is not decorative: on the Chromecast (Google TV),
+                 com.google.android.tungsten.setupwraith/.RecoveryActivity
+                 carries a HOME filter with priority=1 and thereby wins the
+                 resolution of the HOME intent, even though Navigate holds the
+                 HOME role (measured on 2026-10-14 on the target device). A
+                 higher value is the only way to solve that without disabling a
+                 system app. -->
             <intent-filter android:priority="10">
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
@@ -116,10 +116,10 @@
             </intent-filter>
         </activity>
 
-        <!-- Die Einstellungen. Keine HOME-Activity, kein Intent-Filter: sie wird
-             ausschließlich aus der Home-Seite gestartet (langes OK auf „…“) und
-             ist damit keine zweite Mehrdeutigkeit bei der HOME-Auflösung.
-             exported=false, weil niemand sonst sie starten können muss. -->
+        <!-- The settings. No HOME activity, no intent filter: it is started
+             only from the home screen (long OK on “…”) and is thus not a
+             second ambiguity in HOME resolution.
+             exported=false because nobody else needs to be able to start it. -->
         <activity
             android:name=".ui.SettingsActivity"
             android:excludeFromRecents="true"
@@ -127,15 +127,15 @@
             android:label="@string/settings_title"
             android:theme="@style/Theme.Navigate" />
 
-        <!-- Der Zugangsschlüssel zum „Now Playing“-Feld (siehe NowPlayingListener):
-             `MediaSessionManager.getActiveSessions` verlangt einen eingetragenen
-             Benachrichtigungs-Listener. Der Dienst liest **keine**
-             Benachrichtigungen — der eingetragene Komponentenname ist der
-             Ausweis. Freigabe (einmalig, docs/INSTALL.md Schritt 5b):
+        <!-- The access key to the “Now Playing” field (see NowPlayingListener):
+             `MediaSessionManager.getActiveSessions` requires a registered
+             notification listener. The service reads **no**
+             notifications — the registered component name is the
+             credential. Grant (once, docs/INSTALL.md step 5b):
                adb shell cmd notification allow_listener com.piotv.navigate/.NowPlayingListener
 
-             exported=true ist Pflicht (das System bindet den Dienst), und
-             BIND_NOTIFICATION_LISTENER_SERVICE lässt sonst niemanden hinein. -->
+             exported=true is mandatory (the system binds the service), and
+             BIND_NOTIFICATION_LISTENER_SERVICE keeps everyone else out. -->
         <service
             android:name=".NowPlayingListener"
             android:exported="true"

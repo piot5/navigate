@@ -1,17 +1,17 @@
 #!/bin/bash
-# Navigate Installer
-# Verwendung: bash install_navigate.sh [pfad/zur/apk]
+# Navigate installer
+# Usage: bash install_navigate.sh [path/to/apk]
 #
-# Gerät:  NAVIGATE_DEVICE=<ip>:5555 erzwingt genau dieses Gerät (keine Prüfung).
-#         Ohne die Variable wird das erste erreichbare **Fernsehgerät** genommen
-#         (`ro.build.characteristics` enthält `tv`). Emulatoren und Telefone
-#         werden übersprungen — das Entwicklungs-Telefon hängt oft gleichzeitig
-#         am adb, und ein Install dort wäre lautlos die falsche Zielscheibe.
-#         ADB=/pfad/zu/adb, falls adb nicht im PATH liegt.
+# Device: NAVIGATE_DEVICE=<ip>:5555 forces exactly this device (no check).
+#         Without the variable the first reachable **TV device** is used
+#         (`ro.build.characteristics` contains `tv`). Emulators and phones
+#         are skipped — the development phone is often attached to adb at the
+#         same time, and an install there would silently hit the wrong target.
+#         ADB=/path/to/adb if adb is not on the PATH.
 #
-# Das Skript installiert nur. Die Home-Rolle und das Abschalten des
-# Google-TV-Watchdogs sind bewusste, einzeln umkehrbare Schritte —
-# siehe docs/INSTALL.md.
+# The script only installs. The home role and switching off the
+# Google TV watchdog are deliberate, individually reversible steps —
+# see docs/INSTALL.md.
 
 set -e
 
@@ -23,12 +23,12 @@ ADB="${ADB:-adb}"
 PACKAGE="com.piotv.navigate"
 
 if [ ! -f "$APK_PATH" ]; then
-    echo "❌ Fehler: APK nicht gefunden: $APK_PATH"
-    echo "   Führe zuerst 'bash build_navigate.sh release' aus."
+    echo "❌ Error: APK not found: $APK_PATH"
+    echo "   Run 'bash build_navigate.sh release' first."
     exit 1
 fi
 
-# Gerät bestimmen: NAVIGATE_DEVICE gewinnt, sonst das erste Fernsehgerät.
+# Pick the device: NAVIGATE_DEVICE wins, otherwise the first TV device.
 if [ -z "$NAVIGATE_DEVICE" ]; then
     for serial in $("$ADB" devices | awk 'NR>1 && $2=="device" {print $1}'); do
         case "$serial" in
@@ -45,24 +45,24 @@ if [ -z "$NAVIGATE_DEVICE" ]; then
 fi
 
 if [ -z "$NAVIGATE_DEVICE" ]; then
-    echo "❌ Kein Fernsehgerät gefunden. Erreichbare Geräte:"
+    echo "❌ No TV device found. Reachable devices:"
     "$ADB" devices | awk 'NR>1 && $2=="device" {print "     " $1}'
-    echo "   Entweder 'adb connect <ip>:5555' ausführen oder das Ziel erzwingen:"
+    echo "   Either run 'adb connect <ip>:5555' or force the target:"
     echo "     NAVIGATE_DEVICE=<ip>:5555 bash install_navigate.sh"
     exit 1
 fi
 
 MODEL="$("$ADB" -s "$NAVIGATE_DEVICE" shell getprop ro.product.model 2>/dev/null | tr -d '\r' || true)"
-echo "📦 Installiere Navigate auf $NAVIGATE_DEVICE${MODEL:+ ($MODEL)} ..."
+echo "📦 Installing Navigate on $NAVIGATE_DEVICE${MODEL:+ ($MODEL)} ..."
 "$ADB" -s "$NAVIGATE_DEVICE" install -r "$APK_PATH" | tail -2
 
 echo ""
-echo "✅ Installation durchgelaufen."
+echo "✅ Installation finished."
 echo ""
-echo "Nächste Schritte (einzeln umkehrbar, Details in docs/INSTALL.md):"
-echo "  1) Home-Rolle:"
+echo "Next steps (individually reversible, details in docs/INSTALL.md):"
+echo "  1) Home role:"
 echo "     $ADB -s $NAVIGATE_DEVICE shell cmd role add-role-holder android.app.role.HOME $PACKAGE"
-echo "  2) Google-TV-Watchdog abschalten (sonst holt er sich HOME zurück):"
+echo "  2) Switch off the Google TV watchdog (otherwise it takes HOME back):"
 echo "     $ADB -s $NAVIGATE_DEVICE shell pm disable-user --user 0 com.google.android.tungsten.setupwraith"
 echo ""
-echo "Prüfen:  $ADB -s $NAVIGATE_DEVICE shell cmd role get-role-holders android.app.role.HOME"
+echo "Verify:  $ADB -s $NAVIGATE_DEVICE shell cmd role get-role-holders android.app.role.HOME"

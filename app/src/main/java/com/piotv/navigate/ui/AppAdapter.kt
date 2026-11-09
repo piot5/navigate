@@ -10,16 +10,16 @@ import com.piotv.navigate.R
 import com.piotv.navigate.data.AppEntry
 
 /**
- * Bindet die Apps ins Raster.
+ * Binds the apps into the grid.
  *
- * `limit` ist der ganze Trick hinter „nur die erste Zeile“: der Adapter meldet
- * dann nur die ersten `limit` Einträge — eine Zeile —, und die GridView hat
- * nichts zu scrollen. Beim Aufklappen fällt das Limit weg (`0`) und alle Apps
- * kommen dazu: es wird nichts umgebaut, nur mehr gemeldet.
+ * `limit` is the entire trick behind "only the first row": the adapter then
+ * reports only the first `limit` entries — one row — and the GridView has
+ * nothing to scroll. When expanding, the limit goes away (`0`) and all the
+ * apps join in: nothing is rebuilt, just more entries are reported.
  *
- * BaseAdapter + convertView: GridView ruft `getView` nur für sichtbare Zellen
- * auf (bei 6 Spalten und 4 Zeilen also ~24 statt aller Einträge) und recycelt
- * die Views. Eine Bindung kostet damit einen Cache-Lookup und zwei Zuweisungen.
+ * BaseAdapter + convertView: GridView calls `getView` only for visible cells
+ * (~24 entries instead of all of them at 6 columns and 4 rows) and recycles
+ * the views. A binding therefore costs one cache lookup and two assignments.
  */
 class AppAdapter(
     private val iconLoader: IconLoader,
@@ -30,11 +30,11 @@ class AppAdapter(
     private var limit = 0
 
     /**
-     * Übernimmt Apps und Limit.
+     * Takes over the apps and the limit.
      *
-     * @param limit Anzahl der Einträge, die gemeldet werden; `0` heißt alle.
-     * @return `true`, wenn sich wirklich etwas geändert hat — das spart den
-     *   `notifyDataSetChanged()`-Relayout bei jedem HOME-Druck.
+     * @param limit number of entries to report; `0` means all of them.
+     * @return `true` if anything actually changed — this saves the
+     *   `notifyDataSetChanged()` relayout on every press of HOME.
      */
     fun submit(apps: List<AppEntry>, limit: Int): Boolean {
         if (this.limit == limit && sameAs(apps)) return false
@@ -63,16 +63,16 @@ class AppAdapter(
         val entry = apps[position]
         holder.label.text = entry.label
         holder.icon.contentDescription = entry.label
-        // Keine Farbe hier: die Beschriftung ist `text_primary` (item_app.xml) und
-        // für jede App gleich. Bis 0.13 stand an dieser Stelle eine Zustandsfarbe
-        // (grün für „in den letzten 24 h aktiv", hellgrün für „zuletzt geöffnet")
-        // — sie ist in 0.14 entfallen, samt dem Takt, der dafür alle 5 Sekunden
-        // die Nutzungsstatistik befragte (siehe CHANGELOG 0.14.0).
+        // No color here: the label is `text_primary` (item_app.xml) and the same
+        // for every app. Until 0.13 there was a state color here (green for
+        // "active in the last 24 h", light green for "opened most recently") —
+        // it went away in 0.14, along with the ticker that queried the usage
+        // stats every 5 seconds for it (see CHANGELOG 0.14.0).
 
         val key = entry.iconKey(iconSizePx)
         holder.boundKey = key
         val cached = iconLoader.get(entry, iconSizePx) { loaded ->
-            // Die Zelle kann inzwischen eine andere App zeigen (Recycling).
+            // The cell may meanwhile show a different app (recycling).
             if (holder.boundKey == key) holder.icon.setImageBitmap(loaded)
         }
         if (cached != null) {

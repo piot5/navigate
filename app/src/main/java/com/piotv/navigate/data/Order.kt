@@ -1,20 +1,19 @@
 package com.piotv.navigate.data
 
 /**
- * Die Anzeige-Reihenfolge — reine Regeln ohne Android-Typen, deshalb ohne Gerät
- * prüfbar (OrderTest).
+ * The display order — pure rules without Android types, so testable without a
+ * device (OrderTest).
  *
- * Die Reihenfolge ist das **einzige**, was diese Oberfläche einstellt: die
- * Rasteransicht zeigt nur die erste Zeile, also entscheidet die Reihenfolge
- * darüber, welche Apps man ohne einen Tastendruck sieht.
+ * The order is the **only** thing this UI sets: the grid shows only the first
+ * row, so the order decides which apps you see without a keypress.
  *
- * Zwei Regeln:
- *  - [arrange] legt die konfigurierten Pakete nach vorne (in ihrer Reihenfolge)
- *    und hängt den Rest in seiner bisherigen (sprachsortierten) Reihenfolge an.
- *    Ein konfiguriertes Paket, das nicht installiert ist, fällt still weg.
- *  - [moveForward] schiebt ein Paket **eine** Position nach vorne. Ein Paket,
- *    das nicht in der Liste steht, wird angehängt — das ist genau eine Position
- *    nach vorne, weil es vorher hinter allen konfigurierten stand.
+ * Two rules:
+ *  - [arrange] puts the configured packages up front (in their order) and
+ *    appends the rest in its previous (language-sorted) order. A configured
+ *    package that is not installed is silently dropped.
+ *  - [moveForward] moves a package **one** position forward. A package not in
+ *    the list is appended — that is exactly one position forward, because it
+ *    previously sat behind all configured ones.
  */
 object Order {
 
@@ -29,11 +28,11 @@ object Order {
     }
 
     /**
-     * Schiebt ein Paket **eine** Position nach hinten.
+     * Moves a package **one** position backward.
      *
-     * Ein Paket, das nicht in der Liste steht, bleibt stehen: es steht bereits
-     * hinter allen konfigurierten, und „weiter hinten“ ließe sich nur ausdrücken,
-     * indem man eine andere App nach vorne schiebt.
+     * A package not in the list stays put: it already sits behind all
+     * configured ones, and "further back" could only be expressed by moving
+     * another app forward.
      */
     fun moveBackward(order: List<String>, packageName: String): List<String> {
         val index = order.indexOf(packageName)
@@ -47,9 +46,9 @@ object Order {
     fun moveForward(order: List<String>, packageName: String): List<String> {
         val index = order.indexOf(packageName)
         return when {
-            // Steht schon ganz vorne: nichts tun.
+            // Already at the very front: do nothing.
             index == 0 -> order
-            // Aus dem „Rest“: anhängen heißt eine Position nach vorne.
+            // From the "rest": appending means one position forward.
             index < 0 -> order + packageName
             else -> order.toMutableList().apply { add(index - 1, removeAt(index)) }
         }

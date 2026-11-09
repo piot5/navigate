@@ -1,39 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Home-Seite: opaker Hintergrund. Absichtlich sehr dunkel, aber nicht
-         schwarz — auf OLED/VA-Panels sind reine Schwarzflächen im Kontrast zu
-         den App-Icons unruhig. -->
+    <!-- Home screen: opaque background. Deliberately very dark, but not
+         black — on OLED/VA panels pure black areas look restless in contrast
+         to the app icons. -->
     <color name="bg_home">#FF0C0E12</color>
 
     <color name="item_focus_fill">#26FFFFFF</color>
     <color name="item_focus_stroke">#FF6EA8FE</color>
-    <!-- Ruhezustand des „…“-Knopfes: nur eine Ahnung eines Rahmens, damit die
-         Fläche auch ohne Fokus als Knopf erkennbar ist. -->
+    <!-- Idle state of the “…” button: only a hint of a border, so the area
+         reads as a button even without focus. -->
     <color name="item_idle_stroke">#33FFFFFF</color>
     <color name="icon_placeholder">#14FFFFFF</color>
 
-    <!-- Der Griff der Scrollbar im Now-Playing-Block (0.15.1): 40 % Weiß. Er
-         zeigt eine Position an und ist kein Bedienelement — sichtbar auf dem
-         dunklen Hintergrund, ohne mit der Fokus-Markierung zu konkurrieren. -->
+    <!-- The scrollbar thumb in the Now Playing block (0.15.1): 40% white. It
+         shows a position and is not a control — visible against the
+         dark background, without competing with the focus marker. -->
     <color name="scrollbar_thumb">#66FFFFFF</color>
 
-    <!-- Die Abdunkelung über einem Bild-Hintergrund (0.14). Ohne sie
-         konkurriert ein helles Foto mit den App-Beschriftungen — auf einem
-         Fernseher aus drei Metern ist das der Unterschied zwischen „lesbar“ und
-         „bunt“. 40 % Schwarz lässt das Bild noch erkennen und die Schrift
-         darüber stehen. -->
+    <!-- The dimming layer over an image background (0.14). Without it a bright
+         photo competes with the app labels — on a TV from three meters away
+         that is the difference between "readable" and "colorful". 40% black
+         keeps the image recognizable and the text on top standing. -->
     <color name="bg_scrim">#66000000</color>
 
     <color name="text_primary">#FFDADCE0</color>
     <color name="text_dim">#FF9AA0A6</color>
-    <!-- Seit 0.14 gibt es **keine grüne Schrift** mehr: jede App-Beschriftung im
-         Raster ist `text_primary`, unabhängig davon, ob die App zuletzt lief.
-         Bis 0.13 standen hier zwei Grüntöne (`text_active` für „in den letzten
-         24 h im Vordergrund", `text_last` für „zuletzt geöffnet"); sie machten
-         das Raster bunt, ohne dass der Farbunterschied etwas bediente — welcher
-         Ton welchen Zustand meinte, war ohne Doku nicht zu erraten. Mit ihnen
-         fiel der Takt weg, der die Nutzungsstatistik alle 5 Sekunden nach dem
-         „aktiv"-Stand fragte (siehe CHANGELOG 0.14.0). -->
+    <!-- Since 0.14 there is **no green text** anymore: every app label in the
+         grid is `text_primary`, regardless of whether the app ran recently.
+         Up to 0.13 there were two greens here (`text_active` for "in the
+         foreground in the last 24 h", `text_last` for "opened last"); they made
+         the grid colorful without the color difference meaning anything — which
+         tone meant which state was not guessable without docs. With them went
+         the tick that asked the usage stats for the "active" state every
+         5 seconds (see CHANGELOG 0.14.0). -->
 
     <color name="ic_launcher_background">#FF10151C</color>
 </resources>

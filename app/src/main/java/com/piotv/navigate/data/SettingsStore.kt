@@ -5,14 +5,15 @@ import android.os.SystemClock
 import java.io.File
 
 /**
- * Die Einstellungsdatei (`files/settings.conf`) als Datei — dieselbe Mechanik wie
- * [OrderStore], nur mit einem anderen Inhalt: zwei Orte, ein Stand ([ConfigFile]).
+ * The settings file (`files/settings.conf`) as a file — the same mechanics as
+ * [OrderStore], only with different content: two locations, one state
+ * ([ConfigFile]).
  *
- * Warum eine eigene Datei und nicht `SharedPreferences`: eine Einstellung des
- * Nutzers gehört dorthin, wo sie lesbar ist und per `adb push` hinkommt. Und
- * warum nicht in `navigate.conf`: die Reihenfolge-Datei ist eine
- * Paketnamen-Liste — eine `schlüssel=wert`-Zeile darin würde von [OrderCodec] als
- * Paketname gelesen. Zwei Dateien, zwei Formate, keine Sonderfälle.
+ * Why a separate file and not `SharedPreferences`: a user setting belongs
+ * where it is readable and where it can arrive via `adb push`. And why not in
+ * `navigate.conf`: the order file is a list of package names — a `key=value`
+ * line in it would be read as a package name by [OrderCodec]. Two files, two
+ * formats, no special cases.
  */
 class SettingsStore internal constructor(
     internalFile: File,
@@ -28,16 +29,16 @@ class SettingsStore internal constructor(
         serialize = SettingsCodec::serialize,
     )
 
-    /** Die Datei, die Navigate liest und schreibt (app-intern). */
+    /** The file Navigate reads and writes (app-internal). */
     val file: File get() = config.file
 
-    /** Für Diagnose und Doku: der Weg für `adb push`. */
+    /** For diagnostics and docs: the path for `adb push`. */
     val importPath: String? get() = config.importPath
 
-    /** Der aktuelle Stand — ohne Dateizugriff. */
+    /** The current state — without file access. */
     fun current(): NavigateSettings = config.current()
 
-    /** Sieht nach, ob sich die Datei geändert hat (`adb push`), und übernimmt sie. */
+    /** Checks whether the file has changed (`adb push`) and adopts it if so. */
     fun reloadIfChanged(): Boolean = config.reloadIfChanged()
 
     fun save(settings: NavigateSettings): Boolean = config.save(settings)
@@ -54,9 +55,9 @@ class SettingsStore internal constructor(
             }
 
         /**
-         * Der Produktivpfad: interner Speicher plus Import-Pfad plus die Uhr des
-         * Systems. Getrennt von [get], damit der Konstruktor für Tests frei
-         * bleibt (SettingsStoreTest) — ohne Context, ohne Gerät.
+         * The production paths: internal storage plus import path plus the
+         * system clock. Kept separate from [get] so the constructor stays free
+         * for tests (SettingsStoreTest) — without Context, without a device.
          */
         private fun create(context: Context): SettingsStore {
             val appContext = context.applicationContext

@@ -3,59 +3,62 @@ package com.piotv.navigate.data
 import java.io.File
 
 /**
- * Was hinter dem Raster liegt — **zwei** Möglichkeiten, mehr braucht ein
- * Fernseher nicht.
+ * What lies behind the grid — **three** options.
  *
- * | Wert | Was zu sehen ist | Woher das Bild kommt |
+ * | Value | What is shown | Where the image comes from |
  * |---|---|---|
- * | [DARK] | der einfarbige, sehr dunkle Hintergrund (Standard) | `@color/bg_home` |
- * | [IMAGE] | ein Bild, formatfüllend | eine **Mediendatei** (`background_file=`) |
+ * | [DARK] | the solid, very dark background (default) | `@color/bg_home` |
+ * | [IMAGE] | an image, filling the area | a **media file** (`background_file=`) |
+ * | [FOCUS] | the app's **TV banner** under the focus, otherwise dark | the app's `android:banner` (0.17) |
  *
- * Ein **Video**-Hintergrund gab es in 0.14 als dritte Möglichkeit; er ist
- * wieder entfernt. Ein Video belegt auf dem Chromecast dauerhaft einen
- * Hardware-Decoder — für eine Fläche, die hinter dem Raster liegt, ein Preis
- * ohne Nutzen. Zwei Möglichkeiten reichen, und [IMAGE] ist die einzige, die
- * eine Mediendatei braucht.
+ * A **video** background existed in 0.14 as a fourth option; it has since been
+ * removed again. A video permanently occupies a hardware decoder on the
+ * Chromecast — for a surface behind the grid, a price without benefit.
  *
- * Warum es **nicht** die Hintergründe sind, die Android TV „eingebaut“ hat: die
- * Bilder des Google-TV-Ambient-Modus („Backdrop“) liegen im privaten Speicher des
- * Google-TV-Launchers, die Empfehlungs-/Kanalbilder aus `TvContract` verlangen
- * eine TV-Input-Berechtigung, und `WallpaperManager` liefert auf dem Chromecast HD
- * kein Bild (kein Wallpaper-Dienst). Ein normaler Launcher kommt an keines davon
- * heran — siehe docs/LAST_SEEN_TITEL.md, Abschnitt „Hintergrund“.
+ * Why these are **not** the backgrounds Android TV has "built in": the images
+ * of Google TV's ambient mode ("Backdrop") live in the private storage of the
+ * Google TV launcher, the recommendation/channel images from `TvContract`
+ * require a TV input permission, and `WallpaperManager` returns no image on
+ * the Chromecast HD (no wallpaper service). A normal launcher cannot reach any
+ * of them — see docs/LAST_SEEN_TITEL.md, section "Background". The **banner**
+ * is the one exception: it is in the manifest of every Leanback app and
+ * readable without special rights (`PackageManager`) — exactly the artwork the
+ * system launcher also shows behind the focused app.
  */
 enum class BackgroundStyle {
     DARK,
     IMAGE,
+    FOCUS,
 }
 
 /**
- * Wo die Hintergrund-Datei liegt — reine Rechnung, ohne Android-Typen, damit sie
- * ohne Gerät prüfbar ist ([BackgroundPlanTest]).
+ * Where the background file lives — pure calculation, no Android types, so it
+ * can be tested without a device ([BackgroundPlanTest]).
  *
- * Zwei Orte, wie bei den Konfigurationsdateien: Ein **absoluter** Pfad
- * (`background_file=/sdcard/…`) gilt, wie er dasteht. Steht dort nichts, gilt der
- * Standardname im **externen App-Ordner** — derselbe Ordner, in den `adb push`
- * auch die Konfigurationsdateien legt (docs/CONFIG.md), also der einzige Ort, den
- * man ohne Root beschreiben kann.
+ * Two locations, as with the configuration files: an **absolute** path
+ * (`background_file=/sdcard/…`) applies as it stands. If nothing is set there,
+ * the default name in the **external app folder** applies — the same folder
+ * `adb push` also puts the configuration files in (docs/CONFIG.md), i.e. the
+ * only place one can write to without root.
  */
 object BackgroundPlan {
 
-    /** Der Standardname für [BackgroundStyle.IMAGE] im externen App-Ordner. */
+    /** The default name for [BackgroundStyle.IMAGE] in the external app folder. */
     const val DEFAULT_IMAGE_NAME = "background.jpg"
 
-    /** Der Standardname einer Bildart — `null` für [BackgroundStyle.DARK]. */
+    /** The default name of an image style — `null` for [BackgroundStyle.DARK] and [BackgroundStyle.FOCUS]. */
     fun defaultName(style: BackgroundStyle): String? = when (style) {
         BackgroundStyle.DARK -> null
         BackgroundStyle.IMAGE -> DEFAULT_IMAGE_NAME
+        BackgroundStyle.FOCUS -> null
     }
 
     /**
-     * Die Datei, die Navigate lesen soll — oder `null`, wenn keine gebraucht wird.
+     * The file Navigate should read — or `null` when none is needed.
      *
-     * @param configured Wert von `background_file` aus `settings.conf`.
-     * @param externalDir Absoluter Pfad des externen App-Ordners; `null`, wenn das
-     *   Gerät keinen hat (dann bleibt nur ein absoluter Pfad in [configured]).
+     * @param configured Value of `background_file` from `settings.conf`.
+     * @param externalDir Absolute path of the external app folder; `null` when
+     *   the device has none (then only an absolute path in [configured] works).
      */
     fun file(style: BackgroundStyle, configured: String?, externalDir: String?): File? {
         val name = defaultName(style) ?: return null
@@ -63,8 +66,8 @@ object BackgroundPlan {
         if (path.isEmpty()) {
             return externalDir?.let { File(it, name) }
         }
-        // Ein absoluter Pfad gilt unverändert; alles andere wird als Name im
-        // externen App-Ordner verstanden (`background_file=urlaub.jpg`).
+        // An absolute path applies as is; anything else is understood as a
+        // name in the external app folder (`background_file=vacation.jpg`).
         val direct = File(path)
         if (direct.isAbsolute) return direct
         return externalDir?.let { File(it, path) }

@@ -5,31 +5,33 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * Wo die Hintergrund-Datei liegt.
+ * Where the background file lives.
  *
- * Reine Rechnung ohne Android-Typen — deshalb ohne Gerät prüfbar, wie bei
- * [OrderCodec] und [SettingsCodec]. Geprüft werden die drei Fälle, die in der
- * Praxis vorkommen: kein Pfad (Standardname), ein absoluter Pfad (`/sdcard/…`)
- * und ein blosser Name. Dazu der Randfall „Gerät ohne externen Ordner“ — dann
- * bleibt nur ein absoluter Pfad, und ohne ihn gibt es keinen Hintergrund.
+ * Pure computation without Android types — therefore checkable without a
+ * device, like [OrderCodec] and [SettingsCodec]. The three cases that occur in
+ * practice are checked: no path (default name), an absolute path (`/sdcard/…`)
+ * and a bare name. Plus the edge case "device without an external folder" —
+ * then only an absolute path remains, and without one there is no background.
  */
 class BackgroundPlanTest {
 
     private val external = "/storage/emulated/0/Android/data/com.piotv.navigate/files"
 
     @Test
-    fun `ohne Bild-Hintergrund wird keine Datei gebraucht`() {
+    fun `without an image background no file is needed`() {
         assertNull(BackgroundPlan.file(BackgroundStyle.DARK, null, external))
         assertNull(BackgroundPlan.file(BackgroundStyle.DARK, "/sdcard/x.jpg", external))
+        // The focus banner comes from the app manifest, not from a file.
+        assertNull(BackgroundPlan.file(BackgroundStyle.FOCUS, null, external))
     }
 
     @Test
-    fun `ohne Pfad gilt der Standardname im externen Ordner`() {
+    fun `without a path the default name in the external folder applies`() {
         assertEquals(
             "$external/${BackgroundPlan.DEFAULT_IMAGE_NAME}",
             BackgroundPlan.file(BackgroundStyle.IMAGE, null, external)?.absolutePath,
         )
-        // Leerzeichen sind kein Pfad.
+        // Whitespace is not a path.
         assertEquals(
             "$external/${BackgroundPlan.DEFAULT_IMAGE_NAME}",
             BackgroundPlan.file(BackgroundStyle.IMAGE, "   ", external)?.absolutePath,
@@ -37,32 +39,32 @@ class BackgroundPlanTest {
     }
 
     @Test
-    fun `ein absoluter Pfad gilt unveraendert`() {
+    fun `an absolute path is used as is`() {
         assertEquals(
-            "/sdcard/Pictures/wand.jpg",
+            "/sdcard/Pictures/wall.jpg",
             BackgroundPlan.file(
                 BackgroundStyle.IMAGE,
-                "/sdcard/Pictures/wand.jpg",
+                "/sdcard/Pictures/wall.jpg",
                 external,
             )?.absolutePath,
         )
     }
 
     @Test
-    fun `ein blosser Name landet im externen Ordner`() {
+    fun `a bare name lands in the external folder`() {
         assertEquals(
-            "$external/urlaub.jpg",
-            BackgroundPlan.file(BackgroundStyle.IMAGE, "urlaub.jpg", external)?.absolutePath,
+            "$external/vacation.jpg",
+            BackgroundPlan.file(BackgroundStyle.IMAGE, "vacation.jpg", external)?.absolutePath,
         )
     }
 
     @Test
-    fun `ohne externen Ordner bleibt nur der absolute Pfad`() {
+    fun `without an external folder only the absolute path remains`() {
         assertNull(BackgroundPlan.file(BackgroundStyle.IMAGE, null, null))
-        assertNull(BackgroundPlan.file(BackgroundStyle.IMAGE, "urlaub.jpg", null))
+        assertNull(BackgroundPlan.file(BackgroundStyle.IMAGE, "vacation.jpg", null))
         assertEquals(
-            "/sdcard/wand.jpg",
-            BackgroundPlan.file(BackgroundStyle.IMAGE, "/sdcard/wand.jpg", null)?.absolutePath,
+            "/sdcard/wall.jpg",
+            BackgroundPlan.file(BackgroundStyle.IMAGE, "/sdcard/wall.jpg", null)?.absolutePath,
         )
     }
 }

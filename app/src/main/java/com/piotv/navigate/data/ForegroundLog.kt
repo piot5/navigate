@@ -1,29 +1,30 @@
 package com.piotv.navigate.data
 
 /**
- * Faltet Vordergrund-Ereignisse zu „welche App war zuletzt vorne?" — reine
- * Regeln ohne Android-Typen, deshalb ohne Gerät prüfbar (ForegroundLogTest).
+ * Folds foreground events into "which app was in front last?" — pure rules
+ * without Android types, so testable without a device (ForegroundLogTest).
  *
- * Die Ereignisse kommen aus der Nutzungsstatistik (`UsageEvents`); hier steht
- * nur, was daraus folgt. Die Frage ist die Grundlage für „HOME oder BACK auf der
- * Home-Seite → zurück in die letzte App".
+ * The events come from the usage stats (`UsageEvents`); only what follows
+ * from them lives here. The question underpins "HOME or BACK on the home
+ * screen → back to the last app".
  */
 object ForegroundLog {
 
     /**
-     * Ereignistyp für „diese Activity ist in den Vordergrund gekommen".
+     * Event type for "this activity came to the foreground".
      *
-     * Bewusst die **Zahl** und nicht `UsageEvents.Event.ACTIVITY_RESUMED`: die
-     * Konstante heißt erst ab API 29 so (davor `MOVE_TO_FOREGROUND`), und auf
-     * einem älteren Gerät (minSdk 23) wäre ein Zugriff darauf ein
-     * `NoSuchFieldError`. Der Wert ist in beiden Namen derselbe.
+     * Deliberately the **number** and not `UsageEvents.Event.ACTIVITY_RESUMED`:
+     * the constant has that name only from API 29 (before that it was
+     * `MOVE_TO_FOREGROUND`), and on an older device (minSdk 23) touching it
+     * would raise a `NoSuchFieldError`. The value is the same under both names.
      */
     const val RESUMED = 1
 
     /**
-     * @param events Paare aus Paketname und Ereignistyp, in zeitlicher Reihenfolge.
-     * @return das Paket des **letzten** Vordergrund-Ereignisses, das nicht das
-     *   eigene ist — oder `null`, wenn es keines gibt.
+     * @param events pairs of package name and event type, in chronological
+     *   order.
+     * @return the package of the **last** foreground event that is not our
+     *   own — or `null` when there is none.
      */
     fun lastResumed(ownPackage: String, events: List<Pair<String, Int>>): String? {
         var last: String? = null

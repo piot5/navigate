@@ -2,66 +2,75 @@
 <resources>
     <string name="app_name">Navigate</string>
 
-    <!-- Der „…“-Knopf am Ende der ersten Zeile. Die Glyphe steht hier und nicht
-         im Layout: ein hartcodierter Text wäre eine lint-Warnung, und Warnungen
-         sind in diesem Projekt Fehler. -->
+    <!-- The “…” button at the end of the first row. The glyph lives here and not
+         in the layout: hardcoded text would be a lint warning, and warnings
+         are errors in this project. -->
     <string name="more_glyph">•••</string>
-    <string name="more_label">Mehr anzeigen</string>
-    <string name="less_label">Weniger anzeigen</string>
+    <string name="more_label">Show more</string>
+    <string name="less_label">Show less</string>
 
-    <!-- Kontextmenü (langes OK auf einer App) -->
-    <string name="menu_move_forward">Position nach vorne</string>
-    <string name="menu_move_backward">Position nach hinten</string>
-    <string name="menu_uninstall">App deinstallieren</string>
-    <string name="menu_close">App schließen</string>
-    <string name="menu_close_all">Alle Apps schließen</string>
+    <!-- Context menu (long OK on an app) -->
+    <string name="menu_move_forward">Move forward</string>
+    <string name="menu_move_backward">Move backward</string>
+    <string name="menu_uninstall">Uninstall app</string>
+    <string name="menu_close">Close app</string>
+    <string name="menu_close_all">Close all apps</string>
 
-    <!-- Rückmeldungen. Kurz gehalten: ein Toast ist auf TV 1,5 s sichtbar,
-         lange Sätze liest dort niemand zu Ende. -->
-    <string name="toast_launch_failed">App lässt sich nicht starten</string>
-    <string name="toast_order_moved">Eine Position nach vorne</string>
-    <string name="toast_order_first">Steht schon ganz vorne</string>
-    <string name="toast_order_back">Eine Position nach hinten</string>
-    <string name="toast_order_last">Steht schon ganz hinten</string>
-    <string name="toast_uninstall_failed">Deinstallieren nicht möglich</string>
-    <string name="toast_closed_all">Hintergrund-Apps geschlossen</string>
+    <!-- Context menu of the “Last seen” row (long OK): the drop-down list
+         of older history entries. The title says what the list is; the
+         entries themselves are the rows (app · artist – title). -->
+    <string name="menu_history_older">Older entries</string>
 
-    <!-- Die Navigate-Einstellungen — erreichbar über langes OK auf „…“. -->
-    <string name="settings_title">Einstellungen</string>
-    <string name="settings_hint">OK schaltet um · ▲ ▼ wählt · ◀ oder BACK zurück</string>
-    <string name="settings_now_playing">Now Playing anzeigen</string>
-    <string name="settings_clock">Uhr anzeigen</string>
-    <string name="settings_background">Hintergrund</string>
-    <string name="background_dark">Dunkel</string>
-    <string name="background_image">Bild</string>
-    <string name="settings_on">An</string>
-    <string name="settings_off">Aus</string>
-    <!-- Ehrlich statt still: eine Einstellung, die eingeschaltet ist und dann
-         nichts tut, wäre die unangenehmste Sorte Einstellung. -->
-    <string name="settings_no_access">Kein Benachrichtigungszugriff — das Feld bleibt leer</string>
-    <string name="settings_path_label">Datei: %1$s</string>
+    <!-- Feedback. Kept short: a toast is visible on TV for 1.5 s —
+         nobody there finishes reading long sentences. -->
+    <string name="toast_launch_failed">Can\'t launch app</string>
+    <string name="toast_order_moved">Moved one position forward</string>
+    <string name="toast_order_first">Already at the front</string>
+    <string name="toast_order_back">Moved one position back</string>
+    <string name="toast_order_last">Already at the end</string>
+    <string name="toast_uninstall_failed">Uninstall failed</string>
+    <string name="toast_closed_all">Background apps closed</string>
+
+    <!-- Navigate settings — reached via long OK on “…”. -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_hint">OK toggles · ▲ ▼ selects · ◀ or BACK goes back</string>
+    <string name="settings_now_playing">Show Now Playing</string>
+    <string name="settings_clock">Show clock</string>
+    <string name="settings_background">Background</string>
+    <string name="background_dark">Dark</string>
+    <string name="background_image">Image</string>
+    <!-- The third background type (0.17): the focused app's TV banner as
+         background. A state word like the others — the row shows a state,
+         not a sentence. -->
+    <string name="background_focus">Focus</string>
+    <string name="settings_on">On</string>
+    <string name="settings_off">Off</string>
+    <!-- Honest instead of silent: a setting that is switched on and then
+         does nothing would be the most unpleasant kind of setting. -->
+    <string name="settings_no_access">No notification access — the field stays empty</string>
+    <string name="settings_path_label">File: %1$s</string>
     <string name="settings_import_path_label">Import (adb push): %1$s</string>
-    <!-- Der Hintergrund braucht eine Mediendatei, die Navigate nicht selbst
-         anlegen kann: hier steht, wohin sie gehört. -->
-    <string name="settings_background_path_label">Hintergrund-Datei (adb push): %1$s</string>
-    <string name="settings_background_missing">Datei fehlt — der Hintergrund bleibt dunkel</string>
+    <!-- The background needs a media file that Navigate cannot create
+         itself: this says where it belongs. -->
+    <string name="settings_background_path_label">Background file (adb push): %1$s</string>
+    <string name="settings_background_missing">File missing — the background stays dark</string>
 
-    <!-- Der Dienst, der den Blick in die Media-Sessions erlaubt. Sein Text steht
-         in Androids Liste der Benachrichtigungszugriffe — deshalb ein eigener
-         Text und nicht der App-Name. -->
+    <!-- The service that allows a look into media sessions. Its text shows up
+         in Android's list of notification accesses — hence its own
+         text and not the app name. -->
     <string name="now_playing_listener_label">Navigate — Now Playing</string>
 
-    <!-- Rückfall-Beschreibung des Cover-Bildes im „Now Playing“-Block. Sie wird
-         zur Laufzeit durch die Zeile ersetzt (LauncherActivity). -->
-    <string name="cd_now_playing_art">Cover</string>
+    <!-- Fallback description of the cover art in the “Now Playing” block. It is
+         replaced at runtime by the row (LauncherActivity). -->
+    <string name="cd_now_playing_art">Cover art</string>
 
-    <!-- Rückfall-Beschreibung für die Symbol-ImageView im Raster. Sie wird zur
-         Laufzeit durch den App-Namen ersetzt (AppAdapter) — der XML-Wert gilt
-         nur, solange eine recycelte Zelle noch nichts gebunden hat. -->
-    <string name="cd_app_icon">App-Symbol</string>
+    <!-- Fallback description for the icon ImageView in the grid. It is replaced
+         at runtime by the app name (AppAdapter) — the XML value only applies
+         while a recycled cell has nothing bound yet. -->
+    <string name="cd_app_icon">App icon</string>
 
-    <!-- Die Hintergrund-Ebene (0.14). Ein Bild als Hintergrund hat keine
-         Beschriftung, die ein Screenreader vorlesen könnte — der Text sagt
-         wenigstens, was die Fläche ist. -->
-    <string name="cd_background">Hintergrundbild</string>
+    <!-- The background layer (0.14). A background image has no
+         label a screen reader could read out — the text at least says
+         what the area is. -->
+    <string name="cd_background">Background image</string>
 </resources>

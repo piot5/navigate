@@ -1,28 +1,31 @@
 package com.piotv.navigate.data
 
 /**
- * Die Einstellungen, die Navigate annimmt.
+ * The settings Navigate accepts.
  *
- * Sie kommen aus der Datei ([SettingsStore]), nicht aus `SharedPreferences`: eine
- * Einstellung des Nutzers gehört dorthin, wo sie auch per `adb push` hinkommt und
- * wo man sie lesen kann (dieselbe Regel wie bei der Reihenfolge, siehe
- * [OrderStore]). Der Merker der zuletzt gestarteten App ist etwas anderes — ein
- * Laufzeitzustand, den nach einem Prozess-Neustart niemand mehr wissen muss.
+ * They come from the file ([SettingsStore]), not from `SharedPreferences`: a
+ * user setting belongs where it can arrive via `adb push` and where it can be
+ * read (the same rule as for the order, see [OrderStore]). The marker of the
+ * last started app is a different thing — runtime state that nobody needs to
+ * know anymore after a process restart.
  *
- * @property nowPlaying Das „Last seen“-Feld oben links zeigen? Es erscheint nur
- *   im **zugeklappten** Zustand — dort ist der Platz leer; aufgeklappt gehört er
- *   den Apps.
- * @property showClock Die Uhr oben rechts zeigen? Standard **an** (so war es bis
- *   0.13 immer). „Aus“ heißt nicht nur unsichtbar, sondern auch: kein Takt mehr
- *   ([com.piotv.navigate.ui.Ticker]) — ein Timer für ein Feld, das niemand sieht,
- *   wäre auf dem Chromecast messbar.
- * @property background Was hinter dem Raster liegt — [BackgroundStyle.DARK] ist
- *   der bisherige einfarbige Hintergrund und bleibt der Standard.
- * @property backgroundFile Der Pfad der Mediendatei für [BackgroundStyle.IMAGE];
- *   `null` heißt „der Standardname im externen App-Ordner“ (siehe
- *   [BackgroundPlan]). Ein absoluter Pfad gilt unverändert — damit funktioniert
- *   auch `/sdcard/…` (was auf Android 11+ nur für Medien-Ordner ohne Root lesbar
- *   ist, siehe docs/CONFIG.md).
+ * @property nowPlaying Show the "Last seen" field in the top left? It appears
+ *   only in the **collapsed** state — that space is empty there; expanded, it
+ *   belongs to the apps.
+ * @property showClock Show the clock in the top right corner? Default **on**
+ *   (that is how it always was until 0.13). "Off" means not only invisible but
+ *   also: no more ticking ([com.piotv.navigate.ui.Ticker]) — a timer for a
+ *   field nobody sees would be measurable on the Chromecast.
+ * @property background What lies behind the grid — [BackgroundStyle.DARK] is
+ *   the previous solid-color background and remains the default.
+ *   [BackgroundStyle.FOCUS] puts the TV banner of the app under the focus
+ *   behind the grid (0.17).
+ * @property backgroundFile The path of the media file for
+ *   [BackgroundStyle.IMAGE]; `null` means "the default name in the external
+ *   app folder" (see [BackgroundPlan]). An absolute path applies as is — that
+ *   way `/sdcard/…` works too (which on Android 11+ is only readable without
+ *   root for media folders, see docs/CONFIG.md). In focus mode the file stays
+ *   unused.
  */
 data class NavigateSettings(
     val nowPlaying: Boolean = false,

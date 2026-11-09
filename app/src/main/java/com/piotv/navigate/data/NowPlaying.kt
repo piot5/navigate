@@ -13,22 +13,22 @@ import com.piotv.navigate.NowPlayingListener
 import kotlin.math.max
 
 /**
- * Was gerade läuft — gelesen aus der Media-Session des Systems.
+ * What's playing now — read from the system's media session.
  *
- * Der Weg ist nicht der naheliegende: `MediaSessionManager.getActiveSessions`
- * verlangt, dass der Aufrufer ein **eingetragener Benachrichtigungs-Listener**
- * ist (oder `MEDIA_CONTENT_CONTROL` hält — eine Signatur-Berechtigung, die
- * `pm grant` nicht vergeben kann). Deshalb gibt es [NowPlayingListener]: er ist
- * der Ausweis, den diese Klasse beim Abfragen vorzeigt, und sonst nichts. Ohne
- * die Freigabe wirft der Aufruf eine `SecurityException` — die wird hier
- * geschluckt, und das Feld bleibt leer. Dieselbe Haltung wie bei „grün“: lieber
- * nichts als falsch.
+ * The route here is not the obvious one: `MediaSessionManager.getActiveSessions`
+ * requires the caller to be a **registered notification listener**
+ * (or to hold `MEDIA_CONTENT_CONTROL` — a signature permission that
+ * `pm grant` cannot hand out). That is what [NowPlayingListener] is for: it is
+ * the credential this class presents when polling, and nothing more. Without
+ * the grant the call throws a `SecurityException` — it is swallowed here,
+ * and the field stays empty. Same stance as with "green": rather
+ * nothing than something wrong.
  *
- * Es gibt **keinen** Rückkanal (kein `addOnActiveSessionsChangedListener`): die
- * Home-Seite fragt im Takt ihres eigenen Timers, solange sie sichtbar und
- * zugeklappt ist. Ein Listener bräuchte zusätzlich einen `MediaController.Callback`
- * pro Session, um Titelwechsel innerhalb einer Session zu sehen — mehr Code,
- * mehr Zustand, derselbe sichtbare Effekt.
+ * There is **no** callback channel (no `addOnActiveSessionsChangedListener`): the
+ * home page polls on the beat of its own timer while it is visible and
+ * collapsed. A listener would additionally need a `MediaController.Callback`
+ * per session to see track changes within a session — more code,
+ * more state, the same visible effect.
  */
 class NowPlaying(context: Context) {
 
@@ -36,18 +36,18 @@ class NowPlaying(context: Context) {
     private val manager = appContext.getSystemService(MediaSessionManager::class.java)
 
     /**
-     * Die Adresse des „Now Playing“-Dienstes, mit der Navigate beim System
-     * registriert werden muss (und die `getActiveSessions` dafür fordert).
+     * The address of the "Now Playing" service under which Navigate has to
+     * register with the system (and which `getActiveSessions` requires for that).
      *
-     * Der Wert ist **nicht** hart auf den qualifizierten Package-Namen
-     * (`com.piotv.navigate`) festgelegt: `applicationIdSuffix` (Debug-Builds) und
-     * andere Signatur-Konfigurationen bringen einen anderen Namen mit. Lässt man
-     * den Namen aus `applicationContext.packageName` folgen, passt er sich
-     * automatisch an, egal ob die Release-APK `com.piotv.navigate` oder die
-     * Debug-APK `com.piotv.navigate.debug` ist. Damit ist die Benachrichtigungs-
-     * Listener-Freigabe (siehe [NowPlayingListener] und docs/INSTALL.md,
-     * Schritt 5b) beim `adb shell cmd notification allow_listener` immer auf das
-     * Paket des gerade installierten APK ausgerichtet.
+     * The value is **not** hard-coded to the qualified package name
+     * (`com.piotv.navigate`): `applicationIdSuffix` (debug builds) and
+     * other signature configurations come with a different name. Letting the
+     * name follow `applicationContext.packageName` makes it adapt
+     * automatically, whether the release APK is `com.piotv.navigate` or the
+     * debug APK is `com.piotv.navigate.debug`. That way the notification-
+     * listener grant (see [NowPlayingListener] and docs/INSTALL.md,
+     * step 5b) always targets the package of the currently installed APK
+     * in `adb shell cmd notification allow_listener`.
      */
     private val listener = ComponentName(
         appContext.packageName,
@@ -55,48 +55,48 @@ class NowPlaying(context: Context) {
     )
 
     /**
-     * Verkleinerte Cover, nach **Bytes** begrenzt (siehe [art]).
+     * Scaled-down covers, limited by **bytes** (see [art]).
      */
     private val artCache = object : LruCache<String, Bitmap>(MAX_ART_BYTES) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
     }
 
     /**
-     * Darf Navigate die Sessions sehen?
+     * May Navigate see the sessions?
      *
-     * Wird **nur** von den Einstellungen gebraucht, um ehrlich sagen zu können,
-     * warum nichts erscheint. `false` heißt „kein Zugriff **oder** der Dienst
-     * antwortet nicht“ — beides führt zum selben leeren Feld.
+     * Needed **only** by the settings screen, so it can honestly say
+     * why nothing shows up. `false` means "no access **or** the service
+     * is not responding" — both lead to the same empty field.
      */
     fun hasAccess(): Boolean = sessions() != null
 
     /**
-     * **Alle** Sessions, die etwas zu zeigen haben — eine je App.
+     * **All** sessions that have something to show — one per app.
      *
-     * Bis 0.12 gab es hier genau eine Session: die, die „den Ton macht“. Läuft
-     * ein Hörbuch pausiert und daneben ein Radiosender, verschwand damit eine
-     * der beiden Angaben. Jetzt bekommt jede App mit einer aktiven Session ihre
-     * eigene Zeile.
+     * Until 0.12 there was exactly one session here: the one "making the
+     * sound". With an audiobook paused next to a radio station, one of the
+     * two entries disappeared. Now every app with an active session gets its
+     * own line.
      *
-     * Vorrang **je App** hat, was wirklich spielt; sonst die erste Session mit
-     * einem Titel (eine pausierte Aufnahme ist immer noch „was gerade läuft“,
-     * siehe [NowPlayingText.PAUSED]).
+     * Per app, what is actually playing wins; otherwise the first session with
+     * a title (a paused recording is still "what's playing now",
+     * see [NowPlayingText.PAUSED]).
      *
-     * @param artSizePx Kantenlänge, auf die ein Cover verkleinert wird. `0` heißt
-     *   „kein Bild“ — dann wird auch keines geholt.
-     * @return `null`, wenn die Abfrage **fehlgeschlagen** ist (kein Zugriff,
-     *   Session-Dienst antwortet nicht). Eine leere Liste heißt dagegen
-     *   „erfolgreich nachgesehen, es läuft nichts“. Der Unterschied ist die
-     *   Grundlage dafür, dass ein fehlgeschlagener Blick die Anzeige nicht
-     *   löscht — siehe [NowPlayingBoard.observe].
+     * @param artSizePx Edge length a cover is scaled down to. `0` means
+     *   "no image" — then none is fetched either.
+     * @return `null` when the poll **failed** (no access,
+     *   the session service is not responding). An empty list, by contrast,
+     *   means "looked successfully, nothing is playing". The difference is
+     *   what keeps a failed look from clearing the display —
+     *   see [NowPlayingBoard.observe].
      */
     fun active(artSizePx: Int = 0): List<NowPlayingTrack>? {
         val controllers = sessions() ?: return null
 
-        // Je Paket eine Session: die spielende gewinnt, sonst die erste. Eine
-        // Session **ohne** Metadaten bleibt dabei — sie ist die Auskunft „die App
-        // ist da, sagt aber gerade nichts“ (Ladescreen, Werbung, Menü) und darf
-        // eine bestehende Zeile nicht löschen (siehe [NowPlayingBoard]).
+        // One session per package: the playing one wins, otherwise the first. A
+        // session **without** metadata stays — it is the answer "the app
+        // is there but saying nothing right now" (loading screen, ads, menu) and
+        // must not delete an existing line (see [NowPlayingBoard]).
         val chosen = LinkedHashMap<String, MediaController>()
         for (controller in controllers) {
             val packageName = try {
@@ -104,7 +104,7 @@ class NowPlaying(context: Context) {
             } catch (e: Exception) {
                 ""
             }
-            // Ohne Paket lässt sich die Zeile weder benennen noch anspringen.
+            // Without a package the line can be neither named nor jumped to.
             if (packageName.isEmpty()) continue
             val existing = chosen[packageName]
             if (existing == null || (!isPlaying(existing) && isPlaying(controller))) {
@@ -117,8 +117,8 @@ class NowPlaying(context: Context) {
             val metadata = metadata(controller)
             tracks.add(
                 NowPlayingTrack(
-                    // Titel und Interpret können fehlen. Dann ist die Zeile leer,
-                    // und die Anzeige behält, was sie hatte — statt sie zu löschen.
+                    // Title and artist can be missing. Then the line is empty,
+                    // and the display keeps what it had — instead of deleting it.
                     info = NowPlayingInfo(
                         title = metadata?.let {
                             text(it, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE)

@@ -12,16 +12,16 @@ import com.piotv.navigate.util.Background
 import java.text.Collator
 
 /**
- * Die Liste aller startbaren Apps — pro Prozess genau einmal gehalten.
+ * The list of all launchable apps — held exactly once per process.
  *
- * Warum als Prozess-Singleton: der Launcher-Prozess lebt lange, und ein
- * HOME-Druck muss ohne Abfrage auskommen. Die Liste wird beim ersten Mal im
- * Hintergrund gebaut und danach nur noch aktualisiert.
+ * Why a process singleton: the launcher process lives long, and a HOME press
+ * must get by without a query. The list is built in the background the first
+ * time and afterwards only refreshed.
  *
- * Quelle sind ZWEI PackageManager-Abfragen (LAUNCHER und LEANBACK_LAUNCHER).
- * Das ist keine Vorsicht, sondern auf dem Zielgerät gemessen notwendig: Prime
- * Video, WOW und ARD deklarieren ausschließlich CATEGORY_LEANBACK_LAUNCHER und
- * fehlen in jeder reinen LAUNCHER-Abfrage — auch in LauncherApps.getActivityList.
+ * The source is TWO PackageManager queries (LAUNCHER and LEANBACK_LAUNCHER).
+ * This is not caution but measured necessity on the target device: Prime
+ * Video, WOW and ARD declare only CATEGORY_LEANBACK_LAUNCHER and are missing
+ * from every pure LAUNCHER query — including LauncherApps.getActivityList.
  */
 class AppRepository private constructor(context: Context) {
 
@@ -42,25 +42,26 @@ class AppRepository private constructor(context: Context) {
     private var dirty = true
     private var inFlight = false
 
-    /** Letzter Stand. Vor dem ersten Laden leer — das Raster zeigt dann kurz nichts. */
+    /** Latest state. Empty before the first load — the grid then briefly shows nothing. */
     val apps: List<AppEntry> get() = cached
 
     init {
         registerLauncherCallback()
     }
 
-    /** Etwas hat sich geändert (App installiert/deinstalliert/umbenannt). */
+    /** Something changed (app installed/uninstalled/renamed). */
     fun markDirty() {
         synchronized(lock) { dirty = true }
     }
 
     /**
-     * Lädt die Liste, falls nötig, und ruft [onReady] auf dem Main-Thread.
+     * Loads the list if needed and calls [onReady] on the main thread.
      *
-     * Ist der Stand frisch, kommt [onReady] sofort und synchron — der
-     * HOME-Druck soll auf keinen Fall auf Platte oder Binder warten.
+     * When the state is fresh, [onReady] fires immediately and synchronously —
+     * the HOME press must never wait on disk or Binder.
      *
-     * @param force auch bei frischem Stand neu laden (nach Konfigurationswechsel).
+     * @param force reload even when the state is fresh (after a configuration
+     *   change).
      */
     fun refresh(force: Boolean, onReady: (List<AppEntry>) -> Unit) {
         var readyNow: List<AppEntry>? = null
@@ -85,7 +86,7 @@ class AppRepository private constructor(context: Context) {
         val fresh = try {
             queryApps()
         } catch (e: Exception) {
-            // Lieber die alte Liste behalten als ein leeres Raster zeigen.
+            // Prefer keeping the old list over showing an empty grid.
             cached
         }
         val callbacks: List<(List<AppEntry>) -> Unit>
@@ -102,19 +103,18 @@ class AppRepository private constructor(context: Context) {
     }
 
     private fun queryApps(): List<AppEntry> {
-        // Reihenfolge ist Absicht: wer zuerst kommt, gewinnt — siehe
-        // [AppCatalog.select]. LAUNCHER zuerst, damit Apps mit beiden
-        // Kategorien (Netflix, Disney+, YouTube, Stremio ...) über ihren
-        // LAUNCHER-Eintrag erscheinen, denselben, den der Hersteller-Launcher
-        // benutzt.
+        // The order is intentional: first come, first served — see
+        // [AppCatalog.select]. LAUNCHER first, so apps with both categories
+        // (Netflix, Disney+, YouTube, Stremio ...) appear via their LAUNCHER
+        // entry, the same one the vendor launcher uses.
         val candidates = ArrayList<AppCatalog.Candidate>(64)
         val applicationInfos = HashMap<String, ApplicationInfo>(64)
         collect(Intent.CATEGORY_LAUNCHER, candidates, applicationInfos)
         collect(Intent.CATEGORY_LEANBACK_LAUNCHER, candidates, applicationInfos)
 
-        // Die Regeln (deaktiviert, eigener Launcher, erster gewinnt, leere
-        // Beschriftung, Sortierung) stehen in AppCatalog — reines Kotlin und
-        // damit ohne Gerät geprüft (AppCatalogTest).
+        // The rules (disabled, own launcher, first wins, empty label,
+        // sorting) live in AppCatalog — pure Kotlin and thus tested without a
+        // device (AppCatalogTest).
         return AppCatalog.select(
             candidates = candidates,
             ownPackage = appContext.packageName,
@@ -131,8 +131,8 @@ class AppRepository private constructor(context: Context) {
     }
 
     /**
-     * Sortierung wie der System-Launcher: sprachabhängig über `Collator`, nicht
-     * nach Zeichencode (sonst stünde „Ä" hinter „Z").
+     * Sorting like the system launcher: language-aware via `Collator`, not by
+     * character code (otherwise umlauts would sort after "Z").
      */
     private fun labelOrder(): Comparator<String> {
         val collator = Collator.getInstance()
@@ -162,16 +162,16 @@ class AppRepository private constructor(context: Context) {
                     enabled = application.enabled,
                 )
             )
-            // Erster Eintrag je Paket: passt zur Auswahl in AppCatalog.
+            // First entry per package: matches the selection in AppCatalog.
             if (!infos.containsKey(packageName)) infos[packageName] = application
         }
     }
 
     /**
-     * Live-Aktualisierung: installiert oder deinstalliert jemand eine App,
-     * markiert der Systemaufruf den Stand als veraltet. Der nächste Raster-Aufbau
-     * lädt nach — bewusst NICHT sofort, weil das Raster im Hintergrund niemanden
-     * interessiert und ein Neuaufbau nur Arbeit wäre.
+     * Live updates: when someone installs or uninstalls an app, the system
+     * call marks the state as stale. The next grid build reloads —
+     * deliberately NOT immediately, because nobody cares about the grid while
+     * it is in the background and a rebuild would just be busywork.
      */
     private fun registerLauncherCallback() {
         val launcher = launcherApps ?: return
@@ -197,16 +197,16 @@ class AppRepository private constructor(context: Context) {
         try {
             launcher.registerCallback(callback, Background.main)
         } catch (e: Exception) {
-            // Ohne Callback greift der Alters-Check in refresh(); der Launcher
-            // soll deswegen nicht schlechter starten.
+            // Without the callback the staleness check in refresh() kicks in;
+            // the launcher should not start any worse because of it.
         }
     }
 
     companion object {
         /**
-         * Sicherheitsnetz gegen verpasste Änderungen: älter als 30 s → neu laden.
-         * Kostet eine PackageManager-Abfrage im Hintergrund und macht den
-         * Launcher unabhängig davon, ob ein Callback angekommen ist.
+         * Safety net against missed changes: older than 30 s → reload. Costs
+         * one PackageManager query in the background and makes the launcher
+         * independent of whether a callback arrived.
          */
         private const val STALE_AFTER_MS = 30_000L
 

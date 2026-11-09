@@ -1,16 +1,16 @@
 # Navigate — CI
 #
-# Was hier läuft, ist genau das, was lokal auch läuft: Unit-Tests, Coverage-Gate,
-# Lint und der Release-Build mit R8. Kein Instrumented-Test, weil Navigate keine
-# AndroidX-Test-Abhängigkeit hat (und keine haben soll — siehe app/build.gradle.kts).
+# What runs here is exactly what also runs locally: unit tests, coverage gate,
+# lint and the release build with R8. No instrumented test, because Navigate has
+# no AndroidX test dependency (and is not supposed to get one — see app/build.gradle.kts).
 #
-# Die Reihenfolge ist Absicht: erst die schnellen Gates (Tests, Coverage, Lint),
-# dann der teure Release-Build, dann das Doku-Gate — es braucht das APK.
+# The order is intentional: first the fast gates (tests, coverage, lint),
+# then the expensive release build, then the docs gate — it needs the APK.
 #
-# Signing: ohne die Secrets NAVIGATE_KEYSTORE_PASSWORD / NAVIGATE_KEY_PASSWORD
-# bleibt das Release-APK unsigniert (das Buildfile warnt dann nur, es bricht
-# nicht ab). Wer signierte Artefakte braucht, legt die Secrets an — der
-# Keystore selbst gehört nie ins Repo (siehe .gitignore).
+# Signing: without the secrets NAVIGATE_KEYSTORE_PASSWORD / NAVIGATE_KEY_PASSWORD
+# the release APK stays unsigned (the build file only warns then, it does not
+# abort). Whoever needs signed artifacts creates the secrets — the
+# keystore itself never belongs in the repo (see .gitignore).
 
 name: CI
 
@@ -34,13 +34,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # Die Runner-Images bringen das Android-SDK mit (ANDROID_HOME gesetzt,
-      # Lizenzen akzeptiert). Der Schritt `android-actions/setup-android@v3`,
-      # der bis 0.4 hier stand, scheitert auf den aktuellen Images: er ruft
-      # `sdkmanager tools` auf, und das Paket „tools" existiert im Repository
-      # nicht mehr (ersetzt durch cmdline-tools) — genau daran ist der erste
-      # CI-Lauf dieses Repos gescheitert. Jetzt wird nur geprüft, was fehlt.
-      - name: Android SDK prüfen
+      # The runner images ship with the Android SDK (ANDROID_HOME set,
+      # licenses accepted). The `android-actions/setup-android@v3` step
+      # that stood here until 0.4 fails on the current images: it calls
+      # `sdkmanager tools`, and the "tools" package no longer exists in the
+      # repository (replaced by cmdline-tools) — that is exactly what the first
+      # CI run of this repo failed on. Now only what is missing gets checked.
+      - name: Check Android SDK
         run: |
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           echo "ANDROID_HOME=$SDK"
@@ -55,54 +55,54 @@ jobs:
           fi
           ls -d "$SDK/platforms"/* || true
 
-      # Abhängigkeiten und Build-Ausgaben über Läufe hinweg behalten: sonst lädt
-      # jeder Lauf Kotlin- und AGP-Artefakte neu (in 0.4 nachgemessen: der
-      # Release-Build allein braucht auf schwacher Hardware ~15 min).
-      - name: Gradle-Cache
+      # Keep dependencies and build outputs across runs: otherwise every run
+      # downloads Kotlin and AGP artifacts again (re-measured in 0.4: the
+      # release build alone needs ~15 min on weak hardware).
+      - name: Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Unit-Tests
+      - name: Unit tests
         run: sh ./gradlew --no-daemon :app:testDebugUnitTest
 
-      - name: Coverage (Gate + Bericht)
+      - name: Coverage (gate + report)
         run: sh ./gradlew --no-daemon :app:unitTestCoverageReport :app:unitTestCoverageVerification
 
-      - name: Lint (Warnungen sind Fehler)
+      - name: Lint (warnings are errors)
         run: sh ./gradlew --no-daemon :app:lintDebug
 
-      - name: Release-APK (R8, unsigniert ohne Secrets)
+      - name: Release APK (R8, unsigned without secrets)
         run: sh ./gradlew --no-daemon :app:assembleRelease
 
-      # Der Name des APK hängt davon ab, ob signiert wurde: mit Credentials
-      # `app-release.apk`, ohne sie `app-release-unsigned.apk`. Beide Fälle sind
-      # vorgesehen (das Signieren braucht ein Secret), deshalb wird hier **das
-      # gebaute** APK unter einem festen Namen abgelegt — sonst scheitert der
-      # nächste Schritt an einem Pfad, den es nicht gibt.
-      - name: APK benennen
+      # The APK name depends on whether it was signed: with credentials
+      # `app-release.apk`, without them `app-release-unsigned.apk`. Both cases
+      # are provided for (signing needs a secret), which is why the **built**
+      # APK is stashed here under a fixed name — otherwise the next step
+      # fails on a path that does not exist.
+      - name: Name the APK
         run: |
           src=$(ls app/build/outputs/apk/release/*.apk | head -1)
           cp "$src" navigate-release.apk
-          echo "Gebaut: $(basename "$src")"
+          echo "Built: $(basename "$src")"
           ls -l navigate-release.apk
 
-      - name: Doku-Gate (Messwerte gegen das APK)
+      - name: Docs gate (measured values against the APK)
         run: bash tools/check_docs_drift.sh
 
-      - name: Testbericht
+      - name: Test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: testbericht
           path: app/build/reports/tests/testDebugUnitTest/
 
-      - name: Coverage-Bericht
+      - name: Coverage report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: app/build/reports/jacoco/unitTestCoverageReport/
 
-      - name: Lint-Bericht
+      - name: Lint report
         if: always()
         uses: actions/upload-artifact@v4
         with:

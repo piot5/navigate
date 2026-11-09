@@ -8,30 +8,29 @@ import com.piotv.navigate.data.AppEntry
 import java.io.File
 
 /**
- * Dateinamen des Symbol-Caches — die einzige Stelle, an der aus einem
- * Paketnamen ein Dateiname wird. Reines Kotlin → testbar (IconCacheKeysTest).
+ * File names of the icon cache — the only place where a package name becomes
+ * a file name. Pure Kotlin → testable (IconCacheKeysTest).
  *
- * Warum überhaupt ein Dateiname aus fremden Daten: der Paketname kommt vom
- * System, ist also vertrauenswürdig — aber eine Datei, deren Name aus einer
- * Zeichenkette entsteht, darf niemals Pfadanteile enthalten können. Deshalb
- * wird alles außer `A–Z a–z 0–9 . _ -` ersetzt; ein Pfadtrenner überlebt das
- * nicht. Der feste Präfix `v<version>-<größe>px-` sorgt zusätzlich dafür, dass
- * der Name niemals `.` oder `..` lauten kann.
+ * Why a file name from foreign data at all: the package name comes from the
+ * system and is therefore trusted — but a file whose name is derived from a
+ * string must never be able to contain path parts. That is why everything
+ * except `A–Z a–z 0–9 . _ -` is replaced; a path separator does not survive
+ * that. The fixed prefix `v<version>-<size>px-` additionally ensures the name
+ * can never be `.` or `..`.
  */
 object IconCacheKeys {
 
     /**
-     * Format-Version im Dateinamen. Ändert sich das Speicherformat, findet der
-     * Launcher die alten Dateien nicht mehr und legt sie neu an — statt eine
-     * halb passende Datei zu lesen.
+     * Format version in the file name. If the storage format changes, the
+     * launcher no longer finds the old files and creates them anew — instead
+     * of reading a half-matching file.
      */
     const val FORMAT_VERSION = 1
 
     private const val SAFE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
 
-    /** Die Größe gehört in den Namen: eine geänderte Rastergröße soll eine
-     *  eigene Datei bekommen statt einer hochskalierten (siehe
-     *  [AppEntry.iconKey]). */
+    /** The size belongs in the name: a changed grid size should get its own
+     *  file instead of an upscaled one (see [AppEntry.iconKey]). */
     fun fileName(packageName: String, sizePx: Int): String =
         "v$FORMAT_VERSION-${sizePx}px-${sanitize(packageName)}.webp"
 
@@ -41,23 +40,23 @@ object IconCacheKeys {
 }
 
 /**
- * Symbole als kleine WebP-Dateien im app-**internen** Speicher.
+ * Icons as small WebP files in the app-**internal** storage.
  *
- * Warum Platte und nicht nur der LRU-Cache: ein Symbol zu gewinnen heißt, die
- * Ressourcen einer fremden App zu mappen (`getResourcesForApplication`). Genau
- * das erzeugt auf dem Zielgerät die gemessenen ~25 MB „Private Clean"
- * (docs/DEVICE_PERF.md) und kostet bei jedem Prozess-Neustart wieder Zeit. Eine
- * 128-px-WebP-Datei sind ~8 KB; sie zu lesen und zu dekodieren ist ein
- * Dateizugriff ohne Fremd-APK.
+ * Why disk and not just the LRU cache: obtaining an icon means mapping the
+ * resources of a foreign app (`getResourcesForApplication`). That is exactly
+ * what produces the measured ~25 MB "Private Clean" on the target device
+ * (docs/DEVICE_PERF.md) and costs time again at every process restart. A
+ * 128-px WebP file is ~8 KB; reading and decoding it is a file access without
+ * a foreign APK.
  *
- * Warum interner und nicht externer Speicher: `/sdcard` läuft über den
- * MediaProvider-FUSE-Daemon, und `stat`/`open` gehen dort **immer** durch den
- * Daemon — FUSE-Passthrough hilft nur für read/write nach dem Öffnen
- * (source.android.com/docs/core/storage/fuse-passthrough). Für einen Cache, der
- * bei jedem HOME-Druck gelesen wird, ist das der falsche Ort.
+ * Why internal and not external storage: `/sdcard` runs through the
+ * MediaProvider FUSE daemon, and `stat`/`open` there go through the daemon
+ * **always** — FUSE passthrough only helps for read/write after opening
+ * (source.android.com/docs/core/storage/fuse-passthrough). For a cache read on
+ * every press of HOME, that is the wrong place.
  *
- * Der Cache ist jederzeit wegwerfbar: fehlt eine Datei, wird sie im Hintergrund
- * aus den Ressourcen der App neu erzeugt.
+ * The cache is disposable at any time: if a file is missing, it is rebuilt in
+ * the background from the app's resources.
  */
 class IconDiskCache private constructor(context: Context) {
 
@@ -66,7 +65,7 @@ class IconDiskCache private constructor(context: Context) {
     private fun fileFor(entry: AppEntry, sizePx: Int): File =
         File(dir, IconCacheKeys.fileName(entry.packageName, sizePx))
 
-    /** Symbol von Platte oder `null`. Läuft im Hintergrund (siehe [IconLoader]). */
+    /** Icon from disk or `null`. Runs in the background (see [IconLoader]). */
     fun load(entry: AppEntry, sizePx: Int): Bitmap? {
         val file = fileFor(entry, sizePx)
         if (!file.isFile) return null
@@ -80,9 +79,9 @@ class IconDiskCache private constructor(context: Context) {
     }
 
     /**
-     * Schreibt das Symbol. Erst in eine temporäre Datei, dann umbenennen: ein
-     * abgebrochener Schreibvorgang darf keine halbe Datei hinterlassen, die
-     * beim nächsten Start als „Symbol vorhanden" durchgeht.
+     * Writes the icon. First into a temporary file, then rename: an
+     * interrupted write must not leave a half file that passes as "icon
+     * present" on the next start.
      */
     fun store(entry: AppEntry, sizePx: Int, bitmap: Bitmap): Boolean {
         return try {
@@ -106,22 +105,22 @@ class IconDiskCache private constructor(context: Context) {
     }
 
     /**
-     * Wirft alles weg. Wird gebraucht, wenn sich das Speicherformat ändert
-     * ([IconCacheKeys.FORMAT_VERSION]) — sonst sammeln sich Dateien an, die
-     * niemand mehr liest.
+     * Throws everything away. Needed when the storage format changes
+     * ([IconCacheKeys.FORMAT_VERSION]) — otherwise files pile up that nobody
+     * reads anymore.
      */
     fun wipe() {
         try {
             dir.listFiles()?.forEach { it.delete() }
         } catch (e: Exception) {
-            // Ein nicht löschbarer Cache ist kein Grund, den Launcher zu stören.
+            // A cache that cannot be deleted is no reason to disturb the launcher.
         }
     }
 
     /**
-     * Räumt auf, wenn die Format-Version nicht mehr stimmt. Der Merker ist eine
-     * Datei im Cache-Ordner selbst — damit braucht der Cache keinen Eintrag in
-     * den Launcher-Einstellungen und bleibt in sich geschlossen.
+     * Cleans up when the format version no longer matches. The marker is a file
+     * inside the cache folder itself — that way the cache needs no entry in the
+     * launcher settings and stays self-contained.
      */
     fun ensureFormatVersion() {
         val marker = File(dir, MARKER_NAME)
@@ -137,7 +136,7 @@ class IconDiskCache private constructor(context: Context) {
                 marker.writeText(IconCacheKeys.FORMAT_VERSION.toString())
             }
         } catch (e: Exception) {
-            // Ohne Merker wird beim nächsten Start erneut aufgeräumt — harmlos.
+            // Without the marker the cleanup runs again on the next start — harmless.
         }
     }
 

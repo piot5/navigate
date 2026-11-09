@@ -1,32 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Die Home-Seite: das App-Raster, der „…“-Knopf und die obere Zeile.
+<!-- The home screen: the app grid, the “…” button and the top row.
 
-     Zugeklappt (Standard): unten steht **eine** Zeile mit Apps; darunter, in
-     der Zeile darunter, der „…“-Knopf. Der Rest des Bildschirms bleibt leer.
-     Aufgeklappt: das Raster füllt den Bildschirm und scrollt; der „…“-Knopf
-     bleibt ganz unten stehen.
+     Collapsed (default): at the bottom there is **one** row of apps; below it,
+     in the row beneath, the “…” button. The rest of the screen stays empty.
+     Expanded: the grid fills the screen and scrolls; the “…” button
+     stays at the very bottom.
 
-     Damit beides ohne zweites Layout funktioniert, hängt die Spalte
-     (`@id/column`) am **unteren** Rand: zugeklappt ist das Raster nur eine
-     Zeile hoch (der Adapter meldet dann nur eine Zeile), aufgeklappt bekommt es
-     per `layout_weight` den ganzen Platz darüber.
+     So both states work without a second layout, the column
+     (`@id/column`) hangs at the **bottom** edge: collapsed, the grid is only
+     one row tall (the adapter then reports only one row); expanded, it gets
+     all the space above via `layout_weight`.
 
-     Der Wurzelknoten ist bewusst `<merge>`: beide Kinder landen direkt im
-     Inhalts-Container der Activity. Der Hintergrund steht im Theme
-     (`Theme.Navigate → android:windowBackground`) — ihn zusätzlich hier zu
-     malen wäre Overdraw. -->
+     The root node is deliberately `<merge>`: both children land directly in
+     the activity's content container. The background lives in the theme
+     (`Theme.Navigate → android:windowBackground`) — painting it here too
+     would be overdraw. -->
 <merge xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <!-- Der Hintergrund (0.14) — zwei Möglichkeiten, siehe data/Background.kt.
-         Die View liegt **hinter** dem Raster: Kinder eines `<merge>` landen in
-         ihrer Reihenfolge im Inhalts-Container, das erste Kind ist also die
-         unterste Ebene. Sie ist standardmäßig `gone` — der einfarbige
-         Hintergrund des Themes (@color/bg_home) bleibt der Standard.
+    <!-- The background (0.14) — two options, see data/Background.kt.
+         The view sits **behind** the grid: children of a `<merge>` land in
+         their order in the content container, so the first child is the
+         bottom layer. It is `gone` by default — the theme's solid
+         background (@color/bg_home) remains the default.
 
-         Das Bild wird auf Bildschirmgröße verkleinert dekodiert
-         (LauncherActivity): ein 4K-Foto wären 33 MB im Speicher für eine Fläche,
-         die ein Fernseher aus drei Metern nicht auflöst. -->
+         The image is decoded downscaled to screen size
+         (LauncherActivity): a 4K photo would be 33 MB in memory for a surface
+         that a TV cannot resolve from three meters away. -->
     <ImageView
         android:id="@+id/background_image"
         android:layout_width="match_parent"
@@ -35,9 +35,9 @@
         android:scaleType="centerCrop"
         android:visibility="gone" />
 
-    <!-- Die Abdunkelung über dem Hintergrund: ohne sie konkurriert ein helles
-         Foto mit den App-Beschriftungen. Sie liegt über dem Bild und unter dem
-         Raster — und ist nur sichtbar, wenn es einen Hintergrund gibt. -->
+    <!-- The dimming layer over the background: without it a bright photo
+         competes with the app labels. It sits above the image and below the
+         grid — and is only visible when there is a background. -->
     <View
         android:id="@+id/background_scrim"
         android:layout_width="match_parent"
@@ -53,15 +53,15 @@
         android:gravity="bottom"
         android:orientation="vertical">
 
-        <!-- GridView (Framework) statt RecyclerView: D-Pad-Navigation, Scrollen
-             und View-Recycling sind eingebaut und kosten keine zusätzliche
-             Abhängigkeit.
+        <!-- GridView (framework) instead of RecyclerView: D-pad navigation,
+             scrolling and view recycling are built in and cost no extra
+             dependency.
 
-             listSelector ausdrücklich transparent statt "@null": das Theme
-             bringt einen eigenen Auswahl-Hintergrund mit (auf dem Zielgerät ein
-             oranges Feld), und "@null" schaltet ihn nicht ab. Die Markierung
-             macht ausschließlich @drawable/bg_grid_item (abgerundeter blauer
-             Rahmen). -->
+             listSelector explicitly transparent instead of "@null": the theme
+             ships its own selection background (on the target device an
+             orange box), and "@null" does not switch it off. The marker is
+             drawn solely by @drawable/bg_grid_item (rounded blue
+             border). -->
         <com.piotv.navigate.ui.HomeGridView
             android:id="@+id/grid"
             android:layout_width="match_parent"
@@ -79,9 +79,9 @@
             android:focusable="true"
             android:focusableInTouchMode="true" />
 
-        <!-- Die Zeile unter der App-Zeile: der „…“-Knopf, rechtsbündig unter der
-             letzten Zelle. Die Ränder entsprechen denen des Rasters, damit er
-             genau darunter steht. -->
+        <!-- The row below the app row: the “…” button, right-aligned under the
+             last cell. The insets match those of the grid so it sits
+             exactly beneath it. -->
         <LinearLayout
             android:id="@+id/more_row"
             android:layout_width="match_parent"
@@ -111,28 +111,28 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Die obere Zeile: links „Now Playing“ (nur wenn eingeschaltet **und** das
-         Raster zugeklappt ist), rechts die Uhr. Beides in einer Zeile, damit ein
-         langer Titel die Uhr nicht überholen kann: der Text bekommt per
-         `layout_weight` genau den Platz, der übrig bleibt, und schneidet mit
-         einer Ellipse ab.
+    <!-- The top row: “Now Playing” on the left (only when switched on **and**
+         the grid is collapsed), the clock on the right. Both in one row so a
+         long title cannot overtake the clock: the text gets, via
+         `layout_weight`, exactly the space that is left and cuts off with
+         an ellipsis.
 
-         Der Container ist seit 0.13 **leer**: die Zeilen baut NowPlayingPanel,
-         aktuelle je App mit aktiver Media-Session plus Verlauf darunter
-         (item_now_playing.xml). Ein eigener Block war es bis 0.12 — damals gab
-         es genau eine Zeile, und die konnte im Layout stehen.
+         The container has been **empty** since 0.13: NowPlayingPanel builds the
+         rows, one per app with an active media session plus the history below
+         (item_now_playing.xml). A block of its own it was until 0.12 — back then
+         there was exactly one row, and it could live in the layout.
 
-         Der Verlauf wächst dynamisch: die ScrollView (`PanelScrollView`) nimmt
-         höchstens `now_playing_max_height` ein, danach scrollt der Block — das
-         Raster rutscht nicht endlos nach unten. **Das gilt erst seit 0.15.1:**
-         bis dahin stand der Wert als `android:maxHeight` an der ScrollView, und
-         dieses Attribut gibt es dort nicht — die Ansicht wuchs mit dem Verlauf,
-         bis das Raster aus dem Bild war. Der Wert kommt jetzt als `app:maxHeight`
-         aus dem eigenen Namensraum (`res/values/attrs.xml`), und die Scrollbar
-         steht dauerhaft, damit sichtbar ist, dass es weitergeht.
+         The history grows dynamically: the ScrollView (`PanelScrollView`) takes
+         at most `now_playing_max_height`, after that the block scrolls — the
+         grid does not slide down endlessly. **That only holds since 0.15.1:**
+         until then the value sat on the ScrollView as `android:maxHeight`, and
+         that attribute does not exist there — the view grew with the history
+         until the grid was out of the picture. The value now comes as
+         `app:maxHeight` from our own namespace (`res/values/attrs.xml`), and
+         the scrollbar is always visible so it is apparent that there is more.
 
-         Die Uhr wird im Minutentakt aktualisiert (ein Sekundentakt wäre ein Timer
-         pro Sekunde — auf dem Chromecast messbar, ohne Mehrwert). -->
+         The clock is updated once a minute (a per-second tick would be a timer
+         per second — measurable on the Chromecast, without benefit). -->
     <LinearLayout
         android:id="@+id/top_row"
         android:layout_width="match_parent"
@@ -144,17 +144,17 @@
         android:paddingTop="@dimen/top_row_padding_top"
         android:paddingEnd="@dimen/clock_margin">
 
-        <!-- PanelScrollView statt ScrollView: die Höhengrenze (app:maxHeight),
-             die das Framework am ScrollView nicht kennt, und die zeilenweise
-             Pfeiltasten-Steuerung stehen in ui/PanelScrollView.kt.
+        <!-- PanelScrollView instead of ScrollView: the height limit (app:maxHeight),
+             which the framework does not know on ScrollView, and the row-by-row
+             arrow-key handling live in ui/PanelScrollView.kt.
 
-             focusable="false": nicht die Fläche soll den Fokus bekommen, sondern
-             eine Zeile. Sonst gäbe es beim ▲ aus dem Raster einen Fokus ohne
-             Markierung.
+             focusable="false": the area itself must not take focus, but
+             a row. Otherwise ▲ from the grid would land on a focus with no
+             marker.
 
-             Die Scrollbar steht dauerhaft (fadeScrollbars="false") und liegt
-             innen (scrollbarStyle="insideInset"), damit sie den Zeilentext nicht
-             überdeckt. -->
+             The scrollbar is always visible (fadeScrollbars="false") and sits
+             inside (scrollbarStyle="insideInset") so it does not cover the row
+             text. -->
         <com.piotv.navigate.ui.PanelScrollView
             android:id="@+id/now_playing_scroll"
             android:layout_width="0dp"
@@ -177,11 +177,15 @@
                 android:orientation="vertical" />
         </com.piotv.navigate.ui.PanelScrollView>
 
+        <!-- layout_gravity="top" (0.17): the clock stays at the top edge of the
+             row even when the Now Playing block next to it grows taller — before
+             it centered itself next to it. -->
         <TextView
             android:id="@+id/clock"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:includeFontPadding="false"
+            android:layout_gravity="top"
             android:textColor="@color/text_dim"
             android:textSize="@dimen/clock_text_size" />
     </LinearLayout>

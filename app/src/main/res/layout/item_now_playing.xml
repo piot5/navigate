@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Eine „Now Playing“-Zeile: Cover, App-Name und was läuft.
+<!-- A “Now Playing” row: cover, app name and what is playing.
 
-     Sie wird für **jede** App mit aktiver Media-Session einmal aufgeblasen
-     (NowPlayingPanel) und danach wiederverwendet — dieselbe Idee wie
-     `convertView` im Raster. Deshalb ist sie eine eigene Datei und nicht ein
-     Kind von activity_home.xml.
+     It is inflated once for **every** app with an active media session
+     (NowPlayingPanel) and then reused — the same idea as
+     `convertView` in the grid. That is why it is its own file and not a
+     child of activity_home.xml.
 
-     Fokussierbar wie eine Rasterzelle: OK auf der Zeile holt die spielende App
-     zurück (der „Jetzt läuft“-Bildschirm, sonst die App selbst). Die
-     Fokus-Markierung ist dieselbe wie beim früheren Einzelblock
+     Focusable like a grid cell: OK on the row brings the playing app
+     back (the “now playing” screen, otherwise the app itself). The
+     focus marker is the same as the earlier single block's
      (bg_now_playing, state_focused). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/now_playing_row"

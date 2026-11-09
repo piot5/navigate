@@ -3,21 +3,21 @@ package com.piotv.navigate
 import android.service.notification.NotificationListenerService
 
 /**
- * Der Zugangsschlüssel zum „Now Playing“-Feld — und sonst nichts.
+ * The access key to the "Now Playing" field — and nothing else.
  *
- * Eine normale App darf die aktiven Media-Sessions **nicht** abfragen:
- * `MediaSessionManager.getActiveSessions` verlangt, dass der Aufrufer ein
- * eingetragener Benachrichtigungs-Listener ist (oder `MEDIA_CONTENT_CONTROL`
- * hält — eine Signatur-Berechtigung, die `pm grant` nicht vergeben kann).
+ * A normal app must **not** query the active media sessions:
+ * `MediaSessionManager.getActiveSessions` requires the caller to be a
+ * registered notification listener (or to hold `MEDIA_CONTENT_CONTROL` — a
+ * signature permission that `pm grant` cannot grant).
  *
- * Dieser Dienst erfüllt genau die erste Bedingung. Er tut dabei **nichts**:
- * keine Benachrichtigung wird gelesen, gespeichert oder weitergegeben — der
- * eingetragene Komponentenname ist der Ausweis, den `getActiveSessions`
- * verlangt. Ohne die Freigabe bleibt der Dienst ungebunden und das Feld leer;
- * Navigate läuft unverändert weiter (siehe docs/INSTALL.md, Schritt 5b).
+ * This service fulfills exactly the first condition. And it does **nothing**:
+ * no notification is read, stored or passed on — the registered component
+ * name is the credential that `getActiveSessions` requires. Without the
+ * grant the service stays unbound and the field stays empty; Navigate keeps
+ * running unchanged (see docs/INSTALL.md, step 5b).
  *
- * Der Name hier ist auch der Name in der Freigabe:
- * `adb shell cmd notification allow_listener <Installation-Paket>/.NowPlayingListener`
- * (Release: `com.piotv.navigate/`, Debug: `com.piotv.navigate.debug/`)
+ * The name here is also the name in the grant:
+ * `adb shell cmd notification allow_listener <installed package>/.NowPlayingListener`
+ * (release: `com.piotv.navigate/`, debug: `com.piotv.navigate.debug/`)
  */
 class NowPlayingListener : NotificationListenerService()

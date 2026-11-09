@@ -1,15 +1,15 @@
 package com.piotv.navigate.data
 
 /**
- * Ein Verlaufseintrag: was lief, wo — und wann.
+ * A history entry: what played, where — and when.
  *
- * Reines Kotlin ohne Android-Typen: geschrieben wird er vom Now-Playing-Takt
- * ([NowPlayingBoard]), gelesen vom Panel — die Regel, nicht die Verdrahtung,
- * ist hier prüfbar (HistoryCodecTest).
+ * Pure Kotlin without Android types: written by the now-playing tick
+ * ([NowPlayingBoard]), read by the panel — the rule, not the wiring, is what
+ * is testable here (HistoryCodecTest).
  *
- * @property packageName Paket der App, aus der der Titel kommt.
- * @property line Der fertige Zeilentext (wie er in der Anzeige stand).
- * @property seenAtMillis Wann der Titel gesehen wurde (Systemzeit).
+ * @property packageName package of the app the title comes from.
+ * @property line the final line text (as it appeared on screen).
+ * @property seenAtMillis when the title was seen (system time).
  */
 data class HistoryEntry(
     val packageName: String,

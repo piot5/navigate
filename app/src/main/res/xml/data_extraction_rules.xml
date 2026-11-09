@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Siehe AndroidManifest.xml (application/@android:dataExtractionRules) und
-     app/build.gradle.kts. Kurz: `allowBackup=false` bleibt die Aussage, diese
-     Datei ist die Form, die Android 12 dafür verlangt. Ausgeschlossen ist alles
-     — die Konfiguration eines Launchers besteht aus Paketnamen und Pfaden, die
-     auf einem anderen Gerät fehlen oder falsch sein können. -->
+<!-- See AndroidManifest.xml (application/@android:dataExtractionRules) and
+     app/build.gradle.kts. In short: `allowBackup=false` remains the statement;
+     this file is the form Android 12 requires for it. Everything is excluded
+     — a launcher's configuration consists of package names and paths that
+     may be missing or wrong on another device. -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="root" path="." />

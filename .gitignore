@@ -1,6 +1,6 @@
-# --- Build-Ausgaben ---------------------------------------------------------
-# Alles, was Gradle/AGP erzeugt. Wird nie versioniert: es ist reproduzierbar
-# (siehe README „Bauen") und auf einem schwachen Gerät mehrere hundert MB groß.
+# --- Build outputs ----------------------------------------------------------
+# Everything Gradle/AGP produces. Never versioned: it is reproducible
+# (see README "Building") and several hundred MB in size on a weak device
 build/
 .gradle/
 .kotlin/
@@ -13,27 +13,27 @@ captures/
 *.class
 *.hprof
 
-# --- Lokale Konfiguration ---------------------------------------------------
-# Enthält den SDK-Pfad der jeweiligen Maschine (sdk.dir) — pro Rechner anders.
+# --- Local configuration ----------------------------------------------------
+# Contains the SDK path of the respective machine (sdk.dir) — different per computer.
 local.properties
 
-# --- Signing-Material: niemals ins Repo (wie KeyTab) ------------------------
-# Der Release-Keystore und seine Passwörter liegen nur lokal bzw. als
-# CI-Secret. app/build.gradle.kts liest sie aus der Umgebung oder aus
-# keystore/keystore.properties und bricht ohne sie nicht ab — es bleibt dann
-# beim unsignierten APK.
+# --- Signing material: never into the repo (like KeyTab) --------------------
+# The release keystore and its passwords live only locally or as a
+# CI secret. app/build.gradle.kts reads them from the environment or from
+# keystore/keystore.properties and does not abort without them — it stays
+# with the unsigned APK.
 keystore/
 *.jks
 *.keystore
 
-# --- IDE und Editor ---------------------------------------------------------
+# --- IDE and editor ---------------------------------------------------------
 *.iml
 .idea/
 .vscode/
 *.swp
 *~
 
-# --- Protokolle und Wegwerf-Dateien -----------------------------------------
+# --- Logs and throwaway files -----------------------------------------------
 build_*.log
 *.log
 __pycache__/
@@ -42,9 +42,9 @@ __pycache__/
 *.orig
 *.rej
 
-# --- Betriebssystem ---------------------------------------------------------
+# --- Operating system -------------------------------------------------------
 .DS_Store
 Thumbs.db
 
-# Hinweis: gradle/wrapper/gradle-wrapper.jar bleibt absichtlich versioniert —
-# ohne ihn läuft ./gradlew nicht. Deshalb hier kein "*.jar".
+# Note: gradle/wrapper/gradle-wrapper.jar is deliberately kept versioned —
+# without it ./gradlew does not run. Hence no "*.jar" here.

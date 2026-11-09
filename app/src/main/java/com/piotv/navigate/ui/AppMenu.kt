@@ -11,29 +11,28 @@ import com.piotv.navigate.data.AppEntry
 import com.piotv.navigate.util.shortToast
 
 /**
- * Das Kontextmenü einer App (langes OK) und die Aktionen dahinter.
+ * An app's context menu (long press of OK) and the actions behind it.
  *
- * Es stand bis 0.12 in [com.piotv.navigate.LauncherActivity] — nicht, weil es
- * dorthin gehört, sondern weil es dort am kürzesten war. Es gehört hierher: die
- * Klasse kennt nur den Dialog, die drei Intents und die Toast-Texte, und was sie
- * **nicht** weiß, ist der Zustand des Rasters (Reihenfolge, App-Liste). Genau
- * das sagt sie dem Aufrufer über [Listener] — dieselbe Trennung wie zwischen
- * [AppAdapter] und der Home-Seite.
+ * It lived in [com.piotv.navigate.LauncherActivity] until 0.12 — not because it
+ * belonged there, but because it was shortest there. It belongs here: the class
+ * knows only the dialog, the three intents and the toast texts, and what it
+ * does **not** know is the state of the grid (order, app list). Exactly that it
+ * tells the caller via [Listener] — the same separation as between
+ * [AppAdapter] and the home screen.
  *
- * Der Dialog ist der des Frameworks: ein eigenes Menü wäre eine zweite
- * Bedienoberfläche für fünf Einträge, mit eigener Fokus-Logik auf einem Gerät,
- * auf dem man mit vier Tasten navigiert.
+ * The dialog is the framework's one: a custom menu would be a second UI for
+ * five entries, with its own focus logic, on a device navigated with four keys.
  */
 class AppMenu(private val activity: Activity, private val listener: Listener) {
 
     interface Listener {
-        /** Eine Position nach vorne (schreibt die Reihenfolge sofort). */
+        /** One position forward (writes the order immediately). */
         fun onMoveForward(entry: AppEntry)
 
-        /** Eine Position nach hinten. */
+        /** One position backward. */
         fun onMoveBackward(entry: AppEntry)
 
-        /** Alle Apps im Hintergrund schließen — die Liste kennt nur der Aufrufer. */
+        /** Close all apps in the background — only the caller knows the list. */
         fun onCloseAll()
     }
 
@@ -59,7 +58,7 @@ class AppMenu(private val activity: Activity, private val listener: Listener) {
             .show()
     }
 
-    /** Deinstallieren darf nur das System: wir zeigen seinen Dialog. */
+    /** Only the system may uninstall: we show its dialog. */
     fun uninstall(entry: AppEntry) {
         try {
             activity.startActivity(
@@ -72,13 +71,13 @@ class AppMenu(private val activity: Activity, private val listener: Listener) {
     }
 
     /**
-     * Schließt eine App im Hintergrund.
+     * Closes an app in the background.
      *
-     * `killBackgroundProcesses` ist der einzige Weg, den eine normale App hat —
-     * und er greift nur, solange die App **nicht** im Vordergrund ist. Auf der
-     * Home-Seite ist genau das der Fall (unser opakes Fenster hat die App
-     * gestoppt). Eine gerade laufende App kann eine App nicht beenden; dafür gibt
-     * es keinen öffentlichen Weg.
+     * `killBackgroundProcesses` is the only route a normal app has — and it
+     * only works while the app is **not** in the foreground. On the home screen
+     * that is exactly the case (our opaque window has stopped the app). An app
+     * that is currently running cannot be closed by an app; there is no public
+     * route for that.
      */
     fun close(entry: AppEntry) {
         val manager = activity.getSystemService(ActivityManager::class.java) ?: return

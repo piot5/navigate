@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Fokus-Markierung des „Now Playing“-Blocks.
-     Anders als im Raster (dort ist der Auslöser state_selected, siehe
-     bg_grid_item) ist es hier state_focused: der Block ist ein anklickbares Kind
-     in einem gewöhnlichen Layout, kein Eintrag einer GridView. Ohne Fokus bleibt
-     er ohne Rahmen — die Zeile soll wie Text aussehen, nicht wie ein Knopf. -->
+<!-- Focus marker of the “Now Playing” block.
+     Unlike in the grid (where the trigger is state_selected, see
+     bg_grid_item) it is state_focused here: the block is a clickable child
+     in an ordinary layout, not an entry of a GridView. Without focus it stays
+     without a border — the row should look like text, not like a button. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_focused="true">
         <shape android:shape="rectangle">

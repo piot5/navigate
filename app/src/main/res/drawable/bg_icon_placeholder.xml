@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Platzhalter, solange ein App-Symbol im Hintergrund dekodiert wird.
-     Gleiche Rundung wie die dekodierten Icons (22 % wie bei Android-Icons),
-     damit beim Nachladen nichts springt. -->
+<!-- Placeholder while an app icon is decoded in the background.
+     Same rounding as the decoded icons (22%, as with Android icons),
+     so nothing jumps when they load in. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="@color/icon_placeholder" />

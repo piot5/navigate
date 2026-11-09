@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Die Navigate-Einstellungen: eine Liste mit Schaltern.
+<!-- The Navigate settings: a list of toggles.
 
-     Kein eigener Hintergrund am Wurzel-Layout: das Theme
-     (Theme.Navigate → android:windowBackground) malt ihn schon, ein zweites Mal
-     wäre Overdraw (lint: Overdraw). -->
+     No background of its own on the root layout: the theme
+     (Theme.Navigate → android:windowBackground) already paints it; a second time
+     would be overdraw (lint: Overdraw). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -43,9 +43,9 @@
         android:listSelector="@drawable/bg_item_selected"
         android:scrollbars="none" />
 
-    <!-- Nur sichtbar, wenn die Einstellung an ist und der Zugriff fehlt.
-         Farbe `text_dim` wie jeder Hinweis auf dieser Seite: die Zeile war bis
-         0.13 grün (`text_active`) — seit 0.14 gibt es keine grüne Schrift mehr. -->
+    <!-- Only visible when the setting is on and access is missing.
+         Color `text_dim` like every hint on this page: the row was green until
+         0.13 (`text_active`) — since 0.14 there is no green text anymore. -->
     <TextView
         android:id="@+id/settings_warning"
         android:layout_width="match_parent"
@@ -67,8 +67,8 @@
         android:textColor="@color/text_dim"
         android:textSize="@dimen/settings_path_text_size" />
 
-    <!-- Der Weg für `adb push`: die interne Datei kann ADB ohne Root nicht
-         schreiben, der externe Pfad wird beim nächsten Zugriff übernommen. -->
+    <!-- The route for `adb push`: ADB cannot write the internal file without
+         root; the external path is picked up on the next access. -->
     <TextView
         android:id="@+id/settings_import_path"
         android:layout_width="match_parent"
@@ -79,9 +79,9 @@
         android:textColor="@color/text_dim"
         android:textSize="@dimen/settings_path_text_size" />
 
-    <!-- Der Pfad der Hintergrund-Datei (0.14) — sichtbar nur, wenn ein Bild
-         gewählt ist, und dann mit der ehrlichen Antwort, ob die Datei da
-         ist. Nur `adb push` kann sie füllen. -->
+    <!-- The path of the background file (0.14) — visible only when an image
+         is chosen, and then with the honest answer of whether the file
+         exists. Only `adb push` can fill it. -->
     <TextView
         android:id="@+id/settings_background_path"
         android:layout_width="match_parent"

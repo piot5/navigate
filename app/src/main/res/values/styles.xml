@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- Bewusst das gewöhnlichste Theme, das es gibt: opak, ohne Translucenz,
-         ohne eigene Fenster-Animationen, ohne Fenstergrößen-Tricks.
+    <!-- Deliberately the most ordinary theme there is: opaque, no translucency,
+         no custom window animations, no window-size tricks.
 
-         Warum so streng: Bis 0.6 war das Theme translucide (damit beim
-         HOME-Druck kein schwarzer Blitz kommt) und setzte alle
-         Fenster-Animationen auf @null. Auf dem Zielgerät war das Fenster danach
-         gezeichnet, fokussiert und **bedienbar** — aber nicht sichtbar; nur bei
-         einem Klick blitzte es kurz auf. Ein translucentes Fenster lässt die App
-         darunter am Leben (nur pausiert); jede auf diesem Fernseher sichtbare
-         App hat ein opakes Fenster, bei dem die App darunter gestoppt wird. Der
-         Neubau nimmt genau das: ein opakes Theme, sonst nichts.
+         Why so strict: up to 0.6 the theme was translucent (to avoid a black
+         flash when pressing HOME) and set all
+         window animations to @null. On the target device the window was then
+         drawn, focused and **usable** — but not visible; only on
+         a click did it flash up briefly. A translucent window keeps the app
+         below alive (merely paused); every app visible on this TV has an
+         opaque window, where the app below is stopped. The
+         rebuild takes exactly that: an opaque theme, nothing else.
 
-         `windowBackground` ist derselbe Farbton wie die Home-Seite — das
-         Starting-Window ist damit ein dunkles Rechteck statt eines weißen oder
-         schwarzen Blitzes, und `windowDisablePreview` (eine Sonderbehandlung)
-         wird nicht gebraucht. -->
+         `windowBackground` is the same shade as the home screen — the
+         starting window is then a dark rectangle instead of a white or
+         black flash, and `windowDisablePreview` (a special measure) is
+         not needed. -->
     <style name="Theme.Navigate" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/bg_home</item>
         <item name="android:colorBackground">@color/bg_home</item>

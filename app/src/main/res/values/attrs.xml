@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Eigene Attribute. Es gibt genau eines, und der Grund dafür steht in
-     ui/PanelScrollView.kt: `android:maxHeight` gibt es am ScrollView nicht —
-     die Plattform kennt es nur für ImageView, ExpandableListView und das interne
-     MaxHeightFrameLayout. Ein Attribut im eigenen Namensraum (`app:maxHeight`)
-     lässt sich nicht still ignorieren: es ist hier deklariert und wird gelesen. -->
+<!-- Custom attributes. There is exactly one, and the reason for it is in
+     ui/PanelScrollView.kt: `android:maxHeight` does not exist on ScrollView —
+     the platform only knows it for ImageView, ExpandableListView and the internal
+     MaxHeightFrameLayout. An attribute in our own namespace (`app:maxHeight`)
+     cannot be silently ignored: it is declared here and read. -->
 <resources>
     <declare-styleable name="PanelScrollView">
-        <!-- Höchstens so hoch; danach scrollt die Ansicht in sich, statt den
-             Block (und mit ihm das Raster darunter) wachsen zu lassen. -->
+        <!-- At most this tall; beyond that the view scrolls within itself instead
+             of letting the block (and with it the grid below) grow. -->
         <attr name="maxHeight" format="dimension" />
     </declare-styleable>
 </resources>

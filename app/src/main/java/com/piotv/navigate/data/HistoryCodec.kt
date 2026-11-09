@@ -1,41 +1,41 @@
 package com.piotv.navigate.data
 
 /**
- * Die Verlauf-Datei als Text: ein Eintrag pro Zeile.
+ * The history file as text: one entry per line.
  *
  * ```
- * # Navigate — Verlauf (Now Playing)
+ * # Navigate — history (Now Playing)
  * 1730000000000|com.zdf|ZDF · Tagesschau
  * ```
  *
- * Reines Kotlin ohne Android-Typen — wie [OrderCodec] an genau der Stelle, an
- * der eine handgeschriebene Datei still kaputtgeht. Toleranz ist Absicht:
- * `#`-Kommentare, Leerzeilen, umgebende Leerzeichen und Zeilen ohne die drei
- * Felder werden **ignoriert** statt als Fehler behandelt — eine unbekannte
- * Zeile darf Navigate nie am Starten hindern. Doppelte Einträge (gleiches
- * Paket, gleiche Zeile, gleiche Zeit) fallen weg.
+ * Pure Kotlin without Android types — like [OrderCodec], at exactly the place
+ * where a hand-written file silently breaks. Tolerance is intentional:
+ * `#` comments, blank lines, surrounding whitespace and lines without the
+ * three fields are **ignored** instead of treated as errors — an unknown line
+ * must never stop Navigate from starting. Duplicate entries (same package,
+ * same line, same time) are dropped.
  *
- * Bekannt, ehrlich gesagt: `#` beginnt einen Kommentar — auch mitten im Titel.
- * Ein Titel mit `#` wird an dieser Stelle gekürzt. Der Grund ist derselbe wie
- * bei der Reihenfolge-Datei ([OrderCodec]): handgeschriebene `#`-Kommentare
- * müssen möglich bleiben, und der Verlauf wird von Navigate selbst geschrieben,
- * nicht von Hand. Wer Titel mit `#` braucht, zieht per `adb pull` — dort steht
- * der volle Text nicht, sondern der gekürzte. Das ist die bewusste Grenze
- * dieses Formats.
+ * Known, honestly: `#` starts a comment — even in the middle of a title. A
+ * title with `#` is cut off at that point. The reason is the same as for the
+ * order file ([OrderCodec]): hand-written `#` comments must remain possible,
+ * and the history is written by Navigate itself, not by hand. Anyone who
+ * needs titles with `#` pulls via `adb pull` — what is stored there is not
+ * the full text but the cut one. That is the deliberate limit of this
+ * format.
  *
- * Die Datei wächst nur nach hinten: neue Einträge kommen dazu, gelesen wird
- * von hinten (neueste zuerst). Genau deshalb ist das Format eine Zeile pro
- * Eintrag und kein `schlüssel=wert` — dahinter steckt kein Parser für Blöcke,
- * sondern ein Zeilenleser, der bei Bedarf nur das Ende der Datei anfasst.
+ * The file only grows at the end: new entries are appended, and reading goes
+ * from the back (newest first). That is exactly why the format is one line
+ * per entry and not `key=value` — behind it sits no block parser but a line
+ * reader that, when needed, touches only the end of the file.
  */
 object HistoryCodec {
 
-    /** Trennt Zeit, Paket und Zeile — ein Zeichen, das in Titeln selten steht. */
+    /** Separates time, package and line — a character rarely found in titles. */
     const val SEPARATOR = '|'
 
     /**
-     * @param nowMillis Systemzeit für Einträge ohne Zeitstempel; `0` heißt
-     *   „kein Fallback“ — dann fallen solche Zeilen weg.
+     * @param nowMillis system time for entries without a timestamp; `0` means
+     *   "no fallback" — such lines are then dropped.
      */
     fun parse(text: String?, nowMillis: Long = 0L): List<HistoryEntry> {
         if (text == null) return emptyList()
@@ -48,19 +48,15 @@ object HistoryCodec {
             val rawTime = parts[0].trim()
             val seenAt = if (rawTime.isEmpty()) nowMillis else rawTime.toLongOrNull() ?: continue
             val packageName = parts[1].trim()
-            // Der Verlauf hält den **Inhalt**, nicht den Zustand: ein „· pausiert“
-            // am Ende stammt aus einer älteren Fassung (bis 0.14.0) und wird hier
-            // abgeschnitten. Sonst stünde derselbe Titel zweimal in der Liste —
-            // einmal mit, einmal ohne Zusatz.
-            val text_ = parts[2].trim().removeSuffix(NowPlayingText.PAUSED).trim()
+            // The history keeps the content, not the state: also strip the legacy German pause suffix written up to 0.14.0.
+            val text_ = parts[2].trim().removeSuffix(NowPlayingText.PAUSED).removeSuffix(" · pausiert").trim()
             if (packageName.isEmpty() || text_.isEmpty()) continue
             if (seenAt <= 0L) continue
             val entry = HistoryEntry(packageName, text_, seenAt)
             if (result.contains(entry)) continue
-            // Angrenzende Dopplungen zusammenziehen — genau das Paar, das der
-            // Pausenzusatz hinterlassen hat. **Nicht** global: derselbe Titel, der
-            // nach einem anderen wiederkehrt, bleibt zweimal im Verlauf (siehe
-            // HistoryStore.append).
+            // Collapse adjacent duplicates — exactly the pair the pause suffix
+            // left behind. **Not** global: the same title returning after another
+            // one stays twice in the history (see HistoryStore.append).
             val previous = result.lastOrNull()
             if (previous != null && previous.packageName == packageName && previous.line == text_) continue
             result.add(entry)
@@ -69,11 +65,11 @@ object HistoryCodec {
     }
 
     fun serialize(entries: List<HistoryEntry>): String = buildString {
-        appendLine("# Navigate — Verlauf (Now Playing)")
+        appendLine("# Navigate — history (Now Playing)")
         appendLine("#")
-        appendLine("# Eine Zeile pro Eintrag: zeit|paket|zeile, neueste zuletzt.")
-        appendLine("# Diese Datei schreibt Navigate selbst; sie ist zusätzlich")
-        appendLine("# per 'adb pull' lesbar (siehe docs/CONFIG.md).")
+        appendLine("# One entry per line: time|package|line, newest last.")
+        appendLine("# This file is written by Navigate itself; it is also")
+        appendLine("# readable via 'adb pull' (see docs/CONFIG.md).")
         appendLine()
         for (entry in entries) {
             append(entry.seenAtMillis).append(SEPARATOR)

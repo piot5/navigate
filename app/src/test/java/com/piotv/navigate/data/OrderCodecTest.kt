@@ -5,30 +5,30 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Der Parser der Reihenfolge-Datei. Sie hält die **Reihenfolge** der Apps (die
- * Einstellungen stehen daneben in `settings.conf`) und wird von Hand geschrieben
- * (oder per `adb push`) — hier steht, was passiert, wenn sie krumm ist.
- * Grundsatz wie überall in diesem Projekt: eine handgeschriebene Datei darf den
- * Launcher nie daran hindern zu starten.
+ * The parser of the order file. It holds the **order** of the apps (the
+ * settings live next door in `settings.conf`) and is written by hand (or via
+ * `adb push`) — this is where what happens when it is crooked is written down.
+ * Principle as everywhere in this project: a hand-written file must never keep
+ * the launcher from starting.
  */
 class OrderCodecTest {
 
     @Test
-    fun `fehlende Datei ergibt eine leere Reihenfolge`() {
+    fun `a missing file gives an empty order`() {
         assertEquals(emptyList<String>(), OrderCodec.parse(null))
         assertEquals(emptyList<String>(), OrderCodec.parse(""))
     }
 
     @Test
-    fun `eine Paketnamen-Zeile pro Eintrag`() {
+    fun `one package-name line per entry`() {
         assertEquals(listOf("com.a", "com.b"), OrderCodec.parse("com.a\ncom.b"))
     }
 
     @Test
-    fun `Kommentare Leerzeilen und Leerzeichen stoeren nicht`() {
+    fun `comments blank lines and whitespace do not interfere`() {
         val order = OrderCodec.parse(
             """
-            # Kommentar
+            # comment
 
                com.a
             com.b
@@ -38,29 +38,29 @@ class OrderCodecTest {
     }
 
     @Test
-    fun `Komma-Listen und die alte schluessel-gleich-wert-Form`() {
-        // Frühere Fassungen hatten "schlüssel=wert" (favorites=…). Eine solche
-        // Datei darf nicht dazu führen, dass die Home-Seite leer bleibt.
+    fun `comma lists and the old key-equals-value form`() {
+        // Earlier versions had "key=value" (favorites=…). Such a file must not
+        // leave the home page empty.
         assertEquals(listOf("com.a", "com.b"), OrderCodec.parse("order=com.a, com.b"))
     }
 
     @Test
-    fun `doppelte Eintraege fallen weg`() {
-        // Ein doppelter Name würde eine App zweimal in die erste Zeile setzen.
+    fun `duplicate entries are dropped`() {
+        // A duplicate name would put an app twice into the first row.
         assertEquals(listOf("com.a", "com.b"), OrderCodec.parse("com.a\ncom.b\ncom.a"))
     }
 
     @Test
-    fun `Schreiben und Lesen sind verlustfrei`() {
+    fun `writing and reading are lossless`() {
         val order = listOf("com.netflix.ninja", "de.swr.avp.ard.tv")
         assertEquals(order, OrderCodec.parse(OrderCodec.serialize(order)))
     }
 
     @Test
-    fun `die geschriebene Datei erklaert sich selbst`() {
+    fun `the written file explains itself`() {
         val text = OrderCodec.serialize(listOf("com.a"))
         assertTrue(text.contains("com.a"))
-        // Kommentarzeilen sind der Grund, warum die Datei von Hand editierbar ist.
+        // Comment lines are the reason the file can be edited by hand.
         assertTrue(text.lines().any { it.startsWith("#") })
     }
 }

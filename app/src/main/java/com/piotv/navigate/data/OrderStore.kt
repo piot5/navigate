@@ -5,13 +5,13 @@ import android.os.SystemClock
 import java.io.File
 
 /**
- * Die Reihenfolge-Datei (`files/navigate.conf`) — der Stand, den die Home-Seite
- * bei jedem Aufbau des Rasters liest.
+ * The order file (`files/navigate.conf`) — the state the home screen reads on
+ * every build of the grid.
  *
- * Die Datei-Mechanik (intern lesen und schreiben, `adb push` über den externen
- * Import-Pfad, gedrosseltes Nachsehen) steht in [ConfigFile] — dieselbe wie bei
- * den Einstellungen ([SettingsStore]). Hier steht nur, **was** in der Datei
- * steht: eine Paketnamen-Zeile pro Eintrag, gelesen von [OrderCodec].
+ * The file mechanics (read and write internally, `adb push` via the external
+ * import path, throttled re-checks) live in [ConfigFile] — the same as for
+ * the settings ([SettingsStore]). Only **what** is in the file lives here:
+ * one package-name line per entry, read by [OrderCodec].
  */
 class OrderStore internal constructor(
     internalFile: File,
@@ -20,9 +20,10 @@ class OrderStore internal constructor(
 ) {
 
     /**
-     * Die Datei-Mechanik (zwei Orte, Drossel, Cache) liegt seit 0.12 in
-     * [ConfigFile] — dieselbe wie bei den Einstellungen ([SettingsStore]), und in
-     * ihr saß der Fehler, den `OrderStoreTest` in 0.4 gefunden hat.
+     * The file mechanics (two locations, throttling, cache) live in
+     * [ConfigFile] since 0.12 — the same as for the settings
+     * ([SettingsStore]); that is also where the bug lived that
+     * `OrderStoreTest` found in 0.4.
      */
     private val config = ConfigFile<List<String>>(
         internalFile = internalFile,
@@ -32,36 +33,35 @@ class OrderStore internal constructor(
         serialize = OrderCodec::serialize,
     )
 
-    /** Die Datei, die Navigate liest und schreibt (app-intern). */
+    /** The file Navigate reads and writes (app-internal). */
     val file: File get() = config.file
 
-    /** Für Diagnose und Doku: der Weg für `adb push`. */
+    /** For diagnostics and docs: the path for `adb push`. */
     val importPath: String? get() = config.importPath
 
     /**
-     * Aktueller Stand — **ohne Dateizugriff**.
+     * Current state — **no file access**.
      *
-     * Der Launcher liest die Reihenfolge bei jedem Aufbau des Rasters. Jeder
-     * dieser Aufrufe machte vorher ein `stat` auf den externen Speicher — also
-     * einen FUSE-Roundtrip. Der Stand liegt jetzt im Speicher;
-     * [reloadIfChanged] ist die einzige Stelle, die nachsieht.
+     * The launcher reads the order on every build of the grid. Each of those
+     * calls used to `stat` external storage — a FUSE round trip. The state
+     * now lives in memory; [reloadIfChanged] is the only place that looks.
      */
     fun current(): List<String> = config.current()
 
     /**
-     * Sieht nach, ob sich die Datei geändert hat, und übernimmt sie dann.
+     * Checks whether the file has changed, and adopts it if so.
      *
-     * @return `true`, wenn ein neuer Stand gilt (dann muss der Aufrufer das
-     *   Raster neu aufbauen).
+     * @return `true` when a new state applies (the caller must then rebuild
+     *   the grid).
      */
     fun reloadIfChanged(): Boolean = config.reloadIfChanged()
 
     /**
-     * Schiebt ein Paket eine Position nach vorne (siehe [Order.moveForward]) und
-     * schreibt das Ergebnis sofort.
+     * Moves a package one position forward (see [Order.moveForward]) and
+     * writes the result immediately.
      *
-     * @return `true`, wenn sich etwas geändert hat. Steht das Paket schon ganz
-     *   vorne, bleibt die Datei unangetastet.
+     * @return `true` when something changed. If the package is already at the
+     *   very front, the file stays untouched.
      */
     fun moveForward(packageName: String): Boolean {
         val next = Order.moveForward(config.current(), packageName)
@@ -70,7 +70,7 @@ class OrderStore internal constructor(
         return true
     }
 
-    /** Wie [moveForward], nur eine Position nach hinten (Kontextmenü). */
+    /** Like [moveForward], but one position backward (context menu). */
     fun moveBackward(packageName: String): Boolean {
         val next = Order.moveBackward(config.current(), packageName)
         if (next == config.current()) return false
@@ -84,8 +84,9 @@ class OrderStore internal constructor(
         private const val FILE_NAME = "navigate.conf"
 
         /**
-         * Der Import-Pfad wird höchstens alle 5 Sekunden angesehen — die Zahl
-         * steht bei [ConfigFile.IMPORT_CHECK_INTERVAL_MS], wo die Drossel sitzt.
+         * The import path is looked at at most every 5 seconds — the number
+         * lives at [ConfigFile.IMPORT_CHECK_INTERVAL_MS], where the throttle
+         * sits.
          */
         internal const val IMPORT_CHECK_INTERVAL_MS = ConfigFile.IMPORT_CHECK_INTERVAL_MS
 
@@ -98,9 +99,9 @@ class OrderStore internal constructor(
             }
 
         /**
-         * Der Produktivpfad: interner Speicher plus Import-Pfad plus die Uhr des
-         * Systems. Getrennt von [get], damit der Konstruktor für Tests frei
-         * bleibt (OrderStoreTest) — ohne Context, ohne Gerät.
+         * The production path: internal storage plus import path plus the
+         * system clock. Kept separate from [get] so the constructor stays free
+         * for tests (OrderStoreTest) — no Context, no device.
          */
         private fun create(context: Context): OrderStore {
             val appContext = context.applicationContext

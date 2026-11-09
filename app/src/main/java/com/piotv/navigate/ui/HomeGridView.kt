@@ -7,11 +7,11 @@ import android.widget.AdapterView
 import android.widget.GridView
 
 /**
- * GridView mit einer Korrektur für die Fernbedienung.
+ * GridView with one fix for the remote control.
  *
- * GridView (Framework) statt RecyclerView: D-Pad-Navigation, Scrollen und
- * View-Recycling sind eingebaut, und es kostet null zusätzliche Abhängigkeit.
- * Genau das ist hier die Anforderung.
+ * GridView (framework) instead of RecyclerView: d-pad navigation, scrolling
+ * and view recycling are built in, and it costs zero extra dependencies.
+ * That is exactly the requirement here.
  */
 class HomeGridView @JvmOverloads constructor(
     context: Context,
@@ -23,15 +23,14 @@ class HomeGridView @JvmOverloads constructor(
         super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
 
         if (gainFocus && selectedItemPosition == AdapterView.INVALID_POSITION && count > 0) {
-            // Ohne Auswahl gäbe es nach dem Fokuswechsel keine sichtbare
-            // Markierung und der erste D-Pad-Druck wäre ein Blindflug.
+            // Without a selection there would be no visible highlight after the
+            // focus change, and the first d-pad press would be flying blind.
             setSelection(0)
         }
 
-        // GridView markiert die gewählte Zelle über state_selected, blendet die
-        // Markierung beim Fokusverlust aber nicht aus. Ohne diese Zeile bliebe
-        // eine Zelle blau umrahmt, während der Fokus schon auf dem „…“-Knopf
-        // darunter steht.
+        // GridView marks the selected cell via state_selected but does not hide
+        // the highlight when focus is lost. Without this line a cell would stay
+        // outlined in blue while the focus is already on the "…" button below.
         selectedView?.isSelected = gainFocus
     }
 }

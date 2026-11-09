@@ -1,181 +1,246 @@
-# Geräte-Messwerte — Chromecast HD
+# Device metrics — Chromecast HD
 
-Alle Werte mit dem Release-APK (`assembleRelease`, R8 + Resource-Shrinking)
-auf dem Zielgerät gemessen, nicht geschätzt.
+All values measured with the release APK (`assembleRelease`, R8 + resource
+shrinking) on the target device, not estimated.
 
-## Gerät
+## Device
 
 | | |
 |---|---|
-| Modell | Chromecast HD (Google TV) |
+| Model | Chromecast HD (Google TV) |
 | Android | 14 (API 34) |
 | CPU/ABI | Amlogic, `armeabi-v7a` (32-bit) |
-| Anzeige | 1920 × 1080 bei Dichte 320 → **960 × 540 dp** |
-| RAM | 1.439.332 kB total, ~200 MB verfügbar im Betrieb |
-| Heap-Limit | 256 MB |
+| Display | 1920 × 1080 at density 320 → **960 × 540 dp** |
+| RAM | 1,439,332 kB total, ~200 MB available in operation |
+| Heap limit | 256 MB |
 
-## 0.15.1 (Now-Playing-Block: Fenster statt wachsender Block)
+## 0.17.0 (Focus banner · clock at the very top)
+
+| | 0.16.0 | 0.17.0 |
+|---|---|---|
+| Release APK (signed) | 84,234 B | **85,836 B** |
+| Release APK (unsigned) | 75,808 B | **77,404 B** |
+| `classes.dex` | 85,612 B | **89,096 B** |
+| Files in the APK | 33 | **33** |
+| Unit tests | 161 | **164** |
+| Coverage (lines / branches) | 25.7 % / 35.7 % | **24.8 % / 34.6 %** |
+
+The background gets its third kind: **focus** — the TV banner
+(`android:banner`) of the app under the focus fills the space behind the
+grid, apps without a banner leave it dark. `ui/BannerLoader.kt` loads it like
+the icons (memory cache, background thread), `ui/BannerGeometry.kt` caps the
+target size at 1280 px width (3 new tests); the wiring (focus and selection
+listeners on the grid, a flag against late decodes) lives in
+`LauncherActivity`. Since 0.17 the clock sits at the very top of the row
+instead of centered next to the "Last seen" content (`layout_gravity="top"`
+— one layout line).
+
+The Dex grows by ~3.5 KB: the banner loader, the geometry rule and the focus
+wiring. The APK grows by ~1.6 KB — R8 strips out part of the new classes
+again, the resources (the string, the layout attribute) stay. Coverage drops
+by 0.9 and 1.1 points respectively, because the denominator grows by the
+Android classes that can't be tested without a device (`BannerLoader`, the
+wiring) — the numerator grows only by `BannerGeometry`. The gate value sits
+at 18 % / 25 % and is still met.
+
+**Not re-measured** (carried over unchanged, see below): start time and
+memory. The focus banner loads afterwards — it doesn't touch the HOME path;
+the memory cache is capped at 12 MB.
+
+## 0.16.0 (History: one row, archive in the context menu)
+
+| | 0.15.1 | 0.16.0 |
+|---|---|---|
+| Release APK (signed) | 84,196 B | **84,234 B** |
+| Release APK (unsigned) | 75,764 B | **75,808 B** |
+| `classes.dex` | 85,920 B | **85,612 B** |
+| Files in the APK | 33 | **33** |
+| Unit tests | 157 | **161** |
+| Coverage (lines / branches) | 25.7 % / 35.7 % | **25.7 % / 35.7 %** |
+
+The history is no longer a list under the live rows but **one** row — the
+newest entry that isn't currently running — plus an archive behind a long
+press of OK on that row (`ui/HistoryMenu.kt`, the same framework dialog as in
+the grid). The split rule lives as pure computation in `ui/LastSeen.kt`
+(5 new tests); together with `page()` and `PAGE_SIZE` the paged reload path
+drops out of the panel (`historyShown`, `loadMoreIfNeeded`, the focus
+listener on the last history row).
+
+The Dex shrinks by 308 B: R8 throws out the reload logic, and the two new
+classes together cost less than what goes away. The APK grows by
+38 B (signed) or 44 B (unsigned) — the dialog resources and the new string.
+Coverage stays put (25.7 % / 35.7 %): the tested `page()` lines drop out of
+numerator and denominator, the tested `LastSeen` lines come in — the ratio
+rounds to the same value.
+
+**Not re-measured** (carried over unchanged, see below): start time and
+memory. The HOME path now draws fewer rows than before — the change can only
+help there, and the history is kept in memory anyway and never turned into
+views all at once.
+
+## 0.15.1 (Now-playing block: a window instead of a growing block)
 
 | | 0.15.0 | 0.15.1 |
 |---|---|---|
-| Release-APK (signiert) | 82.329 B | **84.196 B** |
-| Release-APK (unsigniert) | 69.960 B | **75.764 B** |
-| `classes.dex` | 84.068 B | **85.920 B** |
-| Dateien im APK | 32 | **33** |
-| Unit-Tests | 148 | **157** |
-| Coverage (Zeilen / Zweige) | 26,0 % / 36,5 % | **25,7 % / 35,7 %** |
+| Release APK (signed) | 82,329 B | **84,196 B** |
+| Release APK (unsigned) | 69,960 B | **75,764 B** |
+| `classes.dex` | 84,068 B | **85,920 B** |
+| Files in the APK | 32 | **33** |
+| Unit tests | 148 | **157** |
+| Coverage (lines / branches) | 26.0 % / 36.5 % | **25.7 % / 35.7 %** |
 
-Zwei Fehler, die zusammen dafür sorgten, dass die Pfeiltasten ins Leere liefen,
-sobald der Verlauf wuchs (auf dem Zielgerät gemeldet):
+Two bugs that together made the arrow keys hit nothing once the history grew
+(reported on the target device):
 
-1. **`android:maxHeight` ist am `ScrollView` wirkungslos.** Die Plattform kennt
-   das Attribut nur für `ImageView`, `ExpandableListView` und das interne
-   `MaxHeightFrameLayout`; `<declare-styleable name="ScrollView">` enthält
-   ausschließlich `fillViewport`. aapt2 lässt es trotzdem durch — es *gibt* das
-   Attribut —, der ScrollView liest es nicht. Die Ansicht wuchs deshalb mit dem
-   Verlauf: bei 40 Einträgen à 52 dp war der Block 2080 dp hoch, der Bildschirm
-   hat 540 dp.
-2. **Das Raster bekam die Höhe des Inhalts gemeldet, nicht die des Fensters.**
-   `NowPlayingPanel` hing an `container` (alle Zeilen) statt an der ScrollView
-   (das, was zu sehen ist). `grid.setPadding(top = …)` schob damit die App-Zeile
-   unter den Bildschirmrand — die Steuerung war intakt, aber unsichtbar.
+1. **`android:maxHeight` has no effect on the `ScrollView`.** The platform
+   knows the attribute only for `ImageView`, `ExpandableListView` and the
+   internal `MaxHeightFrameLayout`; `<declare-styleable name="ScrollView">`
+   contains only `fillViewport`. aapt2 lets it through anyway — the attribute
+   *exists* — but the ScrollView doesn't read it. The view therefore grew
+   with the history: at 40 entries of 52 dp each the block was 2080 dp tall,
+   and the screen has 540 dp.
+2. **The grid was given the height of the content, not that of the window.**
+   `NowPlayingPanel` hung off `container` (all rows) instead of the ScrollView
+   (the part that is visible). `grid.setPadding(top = …)` thus pushed the app
+   row below the screen edge — the controls stayed intact, but invisible.
 
-Die Änderung: `ui/PanelScrollView.kt` (Höhengrenze über ein eigenes Attribut
-`app:maxHeight` in `res/values/attrs.xml`), dauerhaft sichtbare Scrollbar
-(`scrollbar_thumb`, `insideInset`), und die Pfeiltasten gehen **zeilenweise**
-durch den Block — `▲`/`▼` setzen den Fokus auf die nächste Zeile und scrollen sie
-vorher ins Fenster, abgeschnittene Zeilen sind keine Fokus-Kandidaten mehr
-(`addFocusables`). Die Rechnung steht als reine Regel in `ui/RowWindow.kt`.
+The change: `ui/PanelScrollView.kt` (height cap via its own attribute
+`app:maxHeight` in `res/values/attrs.xml`), an always-visible scrollbar
+(`scrollbar_thumb`, `insideInset`), and the arrow keys walk the block **row by
+row** — `▲`/`▼` move the focus to the next row and scroll it into the window
+first; cut-off rows are no longer focus candidates (`addFocusables`). The
+computation lives as a pure rule in `ui/RowWindow.kt`.
 
-Die APK wächst um ~1,9 KB, das Dex um ~1,8 KB: die neue Ansichtsklasse, das
-Attribut und die Scrollbar-Ressourcen. Die Coverage sinkt leicht und **nur**, weil
-der Nenner wächst: `PanelScrollView` steht mit 48 Zeilen darin, die ohne Gerät
-nicht laufen können (wie `NowPlayingPanel`, `HomeGridView`, `AppAdapter` — sie
-brauchen eine Oberfläche, nicht ein Coverage-Werkzeug). `RowWindow` ist mit 11
-Zeilen vollständig abgedeckt.
+The APK grows by ~1.9 KB, the Dex by ~1.8 KB: the new view class, the
+attribute and the scrollbar resources. Coverage drops slightly and **only**
+because the denominator grows: `PanelScrollView` sits in it with 48 lines
+that can't run without a device (like `NowPlayingPanel`, `HomeGridView`,
+`AppAdapter` — they need a UI, not a coverage tool). `RowWindow` is fully
+covered at 11 lines.
 
-**Nicht neu gemessen** (unverändert übernommen, siehe unten): Startzeit und
-Speicher. Die Änderung berührt den HOME-Pfad nicht — sie begrenzt eine Ansicht
-und beantwortet zwei Tastendrücke.
+**Not re-measured** (carried over unchanged, see below): start time and
+memory. The change doesn't touch the HOME path — it caps one view and
+answers two key presses.
 
-## 0.15.0 (Now-Playing-Verlauf)
+## 0.15.0 (Now-playing history)
 
 | | 0.14.1 | 0.15.0 |
 |---|---|---|
-| Release-APK (signiert) | 78.312 B | **82.329 B** |
-| `classes.dex` | 76.040 B | **84.068 B** |
-| Dateien im APK | 32 | **32** |
-| Unit-Tests | 120 | **148** |
-| Coverage (Zeilen / Zweige) | 22,9 % / 32,4 % | **26,0 % / 36,5 %** |
+| Release APK (signed) | 78,312 B | **82,329 B** |
+| `classes.dex` | 76,040 B | **84,068 B** |
+| Files in the APK | 32 | **32** |
+| Unit tests | 120 | **148** |
+| Coverage (lines / branches) | 22.9 % / 32.4 % | **26.0 % / 36.5 %** |
 
-Der Verlauf (`history.conf`, seitenweise nachgeladen, höchstens 500 Einträge)
-kostet ~3,8 KB APK und ~7,5 KB Dex: drei neue Dateien (`HistoryEntry`,
-`HistoryCodec`, `HistoryStore`), die Carryover-Regel im Board und das
-Verlauf-Rendering im Panel plus ScrollView im Layout. Die Coverage steigt,
-weil die neuen Regeln vollständig getestet sind (18 neue Tests) — der Nenner
-wächst um getestete Zeilen.
+The history (`history.conf`, paged on reload, at most 500 entries) costs
+~3.8 KB of APK and ~7.5 KB of Dex: three new files (`HistoryEntry`,
+`HistoryCodec`, `HistoryStore`), the carryover rule in the board and the
+history rendering in the panel plus the ScrollView in the layout. Coverage
+rises because the new rules are fully tested (18 new tests) — the
+denominator grows by tested lines.
 
-> Die ScrollView aus 0.15.0 war dabei **wirkungslos begrenzt**: ihr
-> `android:maxHeight` wurde ignoriert (siehe 0.15.1). Der Verlauf stand damit
-> schon in 0.15.0 über den ganzen Bildschirm, sobald genug Titel durchgelaufen
-> waren.
+> The ScrollView from 0.15.0 was **capped without effect**: its
+> `android:maxHeight` was ignored (see 0.15.1). As early as 0.15.0 the
+> history spanned the whole screen once enough titles had run through.
 
-**Nicht neu gemessen** (unverändert übernommen, siehe unten): Startzeit und
-Speicher. Der Verlauf wird im Hintergrund-Thread geschrieben und seitenweise
-gelesen — der HOME-Pfad fasst nur den Stand im Speicher an.
+**Not re-measured** (carried over unchanged, see below): start time and
+memory. The history is written on a background thread and read page by page
+— the HOME path only touches the in-memory state.
 
-## 0.14.1 (Video-Hintergrund entfernt · Hintergrundbild ausgetauscht)
+## 0.14.1 (video background removed · background image swapped)
 
 | | 0.14.0 | 0.14.1 |
 |---|---|---|
-| Release-APK (signiert) | 79.232 B | **78.312 B** |
-| Release-APK (unsigniert) | 70.876 B | **69.960 B** |
-| `classes.dex` | 77.848 B | **76.040 B** |
-| Dateien im APK | 32 | **32** |
-| Unit-Tests | 120 | **120** |
-| Coverage (Zeilen / Zweige) | 22,5 % / 32,2 % | **22,9 % / 32,4 %** |
+| Release APK (signed) | 79,232 B | **78,312 B** |
+| Release APK (unsigned) | 70,876 B | **69,960 B** |
+| `classes.dex` | 77,848 B | **76,040 B** |
+| Files in the APK | 32 | **32** |
+| Unit tests | 120 | **120** |
+| Coverage (lines / branches) | 22.5 % / 32.2 % | **22.9 % / 32.4 %** |
 
-Der **Video-Hintergrund** ist entfernt: der dritte Wert `background=video`, die
-`VideoView`-Ebene im Layout und die zwei Methoden dafür fallen weg. Die APK wird
-dadurch kleiner (R8 wirft den Video-Pfad mit heraus), die Coverage steigt leicht,
-weil weniger ungetestete Activity-Zweige im Nenner stehen. Das Hintergrundbild
-`background.jpg` wurde durch ein neues Bild ersetzt — gleicher Pfad, anderer
-Inhalt, also kein Messwert.
+The **video background** is gone: the third value `background=video`, the
+`VideoView` layer in the layout and the two methods for it drop out. This
+makes the APK smaller (R8 throws the video path out with it), and coverage
+rises slightly because fewer untested Activity branches sit in the
+denominator. The background image `background.jpg` was replaced with a new
+image — same path, different content, so no metric.
 
-## 0.14.0 (keine grüne Schrift · Uhr abschaltbar · drei Hintergründe)
+## 0.14.0 (no green text · clock switchable · three backgrounds)
 
 | | 0.13.3 | 0.14.0 |
 |---|---|---|
-| Release-APK | 76.481 B | **79.232 B** |
-| `classes.dex` | 73.652 B | **77.848 B** |
-| Dateien im APK | 32 | **32** |
-| Unit-Tests | 111 | **120** |
-| Coverage (Zeilen / Zweige) | 21,2 % / 29,3 % | **22,5 % / 32,2 %** |
+| Release APK | 76,481 B | **79,232 B** |
+| `classes.dex` | 73,652 B | **77,848 B** |
+| Files in the APK | 32 | **32** |
+| Unit tests | 111 | **120** |
+| Coverage (lines / branches) | 21.2 % / 29.3 % | **22.5 % / 32.2 %** |
 
-Drei Änderungen, die sich in den Zahlen wiederfinden:
+Three changes that show up in the numbers:
 
-1. **Keine grüne Schrift mehr.** `text_active` und `text_last` sind aus
-   `colors.xml` verschwunden, `AppAdapter` setzt gar keine Beschriftungsfarbe mehr
-   (die Farbe steht in `item_app.xml`), und der Takt, der die Färbung alle
-   5 Sekunden auffrischte, ist entfallen — samt `LastApp.recentlyUsed()`.
-   Die APK wächst trotzdem: die zwei neuen Funktionen unten sind mehr Code als
-   das, was wegfiel.
-2. **Die Uhr ist abschaltbar** (`show_clock`) — und „aus“ heißt auch: kein Takt.
-3. **Drei Hintergründe** (`background=dark|image|video`): ein Bild wird
-   verkleinert dekodiert, ein Video läuft stumm in Schleife. Beides kostet Code
-   (`BackgroundPlan`, `decodeScaled`, die zwei Ebenen im Layout) — deshalb der
-   Zuwachs von ~2,7 KB APK und ~4,2 KB Dex.
+1. **No more green text.** `text_active` and `text_last` are gone from
+   `colors.xml`, `AppAdapter` no longer sets any label color at all
+   (the color lives in `item_app.xml`), and the tick that refreshed the
+   coloring every 5 seconds is gone — along with `LastApp.recentlyUsed()`.
+   The APK still grows: the two new features below are more code than
+   what fell away.
+2. **The clock can be switched off** (`show_clock`) — and "off" also means:
+   no tick.
+3. **Three backgrounds** (`background=dark|image|video`): an image is decoded
+   scaled down, a video runs muted in a loop. Both cost code
+   (`BackgroundPlan`, `decodeScaled`, the two layers in the layout) — hence
+   the growth of ~2.7 KB APK and ~4.2 KB Dex.
 
-**Nicht neu gemessen** (unverändert übernommen, siehe unten): Startzeit und
-Speicher. Die Änderungen berühren den HOME-Pfad nicht — der Hintergrund wird
-einmal gesetzt, das Bild einmal dekodiert.
+**Not re-measured** (carried over unchanged, see below): start time and
+memory. The changes don't touch the HOME path — the background is set once,
+the image decoded once.
 
-Was die neuen Hintergründe **kosten**, ehrlich gemessen werden müsste: ein Video
-belegt auf diesem Gerät einen Hardware-Decoder, solange die Home-Seite sichtbar
-ist. Der Standard ist deshalb `dark`, und beim Verlassen der Home-Seite wird
-pausiert (`onPause`).
+What the new backgrounds **cost** would have to be measured honestly: a video
+occupies a hardware decoder on this device for as long as the home screen is
+visible. The default is therefore `dark`, and leaving the home screen pauses
+it (`onPause`).
 
-## 0.13.3 (der Eintrag bleibt stehen)
+## 0.13.3 (the entry stays put)
 
 | | 0.13.0 | 0.13.3 |
 |---|---|---|
-| Release-APK | 76.187 B | **76.481 B** |
-| `classes.dex` | 73.112 B | **73.652 B** |
-| Dateien im APK | 32 | **32** |
-| Unit-Tests | 108 | **111** |
-| Coverage (Zeilen / Zweige) | 20,8 % / 28,9 % | **21,2 % / 29,3 %** |
+| Release APK | 76,187 B | **76,481 B** |
+| `classes.dex` | 73,112 B | **73,652 B** |
+| Files in the APK | 32 | **32** |
+| Unit tests | 108 | **111** |
+| Coverage (lines / branches) | 20.8 % / 28.9 % | **21.2 % / 29.3 %** |
 
-Behoben: **der Now-Playing-Eintrag verschwand nach wenigen Sekunden**, obwohl die
-App weiterlief (auf dem Zielgerät gesehen und gemeldet: „der eintrag von zb jetzt
-hbo ist nach wenigen sec verschwunden"). Ursache war eine Regel, die **drei
-verschiedene Dinge gleich** behandelte: „Titel da", „Session da, aber ohne Titel"
-(Ladescreen, Werbung) und „keine Session" (App im Hintergrund, Titelwechsel) wurden
-alle als „nichts zu zeigen" gelesen und löschten die Zeile.
+Fixed: **the Now Playing entry vanished after a few seconds** although the
+app kept running (seen and reported on the target device: "the entry of e.g.
+right now hbo is gone after a few sec"). The cause was a rule that treated
+**three different things alike**: "title present", "session present but
+without a title" (loading screen, ads) and "no session" (app in background,
+title change) were all read as "nothing to show" and deleted the row.
 
-Gemessen auf dem Zielgerät (2026-10-17), als Beleg für den dritten Fall:
+Measured on the target device (2026-10-17), as proof of the third case:
 
 ```
 --- t=1 ---  package=com.wbd.stream  state=PLAYING(3)  metadata: Return to Silent Hill
---- t=6 ---  (kein Eintrag für com.wbd.stream mehr)
+--- t=6 ---  (no more entry for com.wbd.stream)
 ```
 
-Die Session von WOW war nach dem Film **ganz weg** — ohne je `STOPPED` zu melden.
-Wer das als „die App ist weg" liest, löscht eine Zeile, die der Nutzer gerade liest.
+The WOW session was **completely gone** after the film — without ever
+reporting `STOPPED`. Whoever reads that as "the app is gone" deletes a row
+the user is just reading.
 
-Seit 0.13.3 gilt ([NowPlayingBoard](../app/src/main/java/com/piotv/navigate/data/NowPlayingBoard.kt)):
+Since 0.13.3 this holds ([NowPlayingBoard](../app/src/main/java/com/piotv/navigate/data/NowPlayingBoard.kt)):
 
-| Was die Abfrage sagt | Was passiert |
+| What the query says | What happens |
 |---|---|
-| Ein Titel (spielt oder pausiert) | Zeile anlegen bzw. nur bei **geändertem Text** neu schreiben |
-| Session da, aber **ohne Titel** | Zeile bleibt stehen, wie sie ist |
-| **Keine** Session | Zeile bleibt stehen |
-| Session meldet **beendet** (`STOPPED`/`ERROR`) | Zeile verschwindet nach zwei Abfragen (10 s) |
-| Abfrage **fehlgeschlagen** (`null`) | nichts ändert sich |
+| A title (playing or paused) | Create the row, or rewrite it only on **changed text** |
+| Session present, but **without a title** | The row stays as it is |
+| **No** session | The row stays |
+| Session reports **ended** (`STOPPED`/`ERROR`) | The row disappears after two queries (10 s) |
+| Query **failed** (`null`) | nothing changes |
 
-Der Preis, offen: eine App, die ihre Session ohne `STOPPED` verliert, behält ihre
-Zeile bis zum Neustart des Launcher-Prozesses (auf 1,4 GB der Normalfall nach ein
-paar Stunden). Das ist die bewusste Entscheidung — eine Zeile, die man liest, darf
-nicht unter dem Lesen verschwinden.
+The price, openly stated: an app that loses its session without `STOPPED`
+keeps its row until the launcher process restarts (on 1.4 GB, the normal
+case after a few hours). This is the deliberate choice — a row you are
+reading must not vanish while you read it.
 
 ## 0.13 (eine Now-Playing-Zeile je App, ausgelagerte Bausteine)
 
@@ -544,15 +609,15 @@ byte-gleich (`release_dex_bytes`), weil die Signatur nur Einträge in `META-INF`
 hinzufügt.
 
 ```
-release_apk_bytes=84196
+release_apk_bytes=85836
 apk_files=33
-release_apk_unsigned_bytes=75764
+release_apk_unsigned_bytes=77404
 apk_unsigned_files=30
-release_dex_bytes=85920
+release_dex_bytes=89096
 release_dex_files=1
-unit_tests=157
-coverage_lines_percent=25,7
-coverage_branches_percent=35,7
+unit_tests=164
+coverage_lines_percent=24,8
+coverage_branches_percent=34,6
 ```
 
 Warum die APK-Größe reproduzierbar ist: die VCS-Info-Datei

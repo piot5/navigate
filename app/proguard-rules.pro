@@ -1,25 +1,25 @@
-# Navigate — R8-Regeln (Release)
+# Navigate — R8 rules (release)
 #
-# Es gibt keine Reflection im Code. Zu schützen sind nur zwei Dinge:
-# Custom-Views aus XML-Layouts (den Layout-Inflater sieht R8 nicht) und der
-# LauncherApps-Callback (wird vom Framework aufgerufen).
-# Activities aus dem Manifest behält AGP selbst.
+# There is no reflection in the code. Only two things need protecting:
+# custom views from XML layouts (R8 does not see the layout inflater) and the
+# LauncherApps callback (called by the framework).
+# AGP keeps the activities from the manifest by itself.
 
-# AppGridView wird in activity_launcher.xml per FQCN instanziiert.
+# AppGridView is instantiated in activity_launcher.xml by FQCN.
 -keep class com.piotv.navigate.ui.AppGridView {
     public <init>(android.content.Context);
     public <init>(android.content.Context, android.util.AttributeSet);
     public <init>(android.content.Context, android.util.AttributeSet, int);
 }
 
-# LauncherApps.Callback kommt per Binder aus dem Systemprozess.
+# LauncherApps.Callback arrives via Binder from the system process.
 -keepclassmembers class * extends android.content.pm.LauncherApps$Callback {
     public void *(...);
 }
 
-# Log-Aufrufe in Release entfernen: jeder Aufruf ist ein JNI-Übergang, und die
-# Ausgaben landen im Feld ohnehin nicht in logcat. Auf einem 1,4-GB-Gerät mit
-# 32-bit-ABI ist das messbar.
+# Remove Log calls in release: every call is a JNI transition, and the
+# output does not reach logcat on the field anyway. On a 1.4 GB device with
+# a 32-bit ABI that is measurable.
 -assumenosideeffects class android.util.Log {
     public static boolean isLoggable(java.lang.String, int);
     public static int v(...);

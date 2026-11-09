@@ -3,7 +3,8 @@
 Einstellbar sind in Navigate **vier Sachen**: die **Reihenfolge der Apps**
 (`navigate.conf`), ob das **„Now Playing“-Feld** und die **Uhr** erscheinen und
 was **hinter dem Raster** liegt (`settings.conf`). Dazu kommt der **Verlauf**
-(`history.conf`) — was lief, neueste oben, dynamisch nachgeladen. Jede der
+(`history.conf`) — was lief, neueste oben; zu sehen ist der neueste Eintrag,
+alles Ältere liegt hinter langem OK auf der Last-seen-Zeile. Jede der
 Dateien liegt an **zwei** Orten — der Unterschied ist wichtig:
 
 | Datei | Inhalt | Quelle der Wahrheit (hier liest Navigate) | Import (`adb push`) |
@@ -51,8 +52,8 @@ background_file=
 |---|---|---|
 | `now_playing` | `on` / `off` (auch `true`/`false`, `1`/`0`, `an`/`aus`, `ja`/`nein`, Groß-/Kleinschreibung egal) | zeigt das „Now Playing“-Feld oben links — seit 0.13 **eine Zeile je App** mit aktiver Media-Session, nur im zugeklappten Zustand |
 | `show_clock` | wie `now_playing` | zeigt die **Uhr** oben rechts (seit 0.14 abschaltbar; „aus“ heißt auch: kein Takt mehr) |
-| `background` | `dark` / `image` (auch `dunkel`, `bild`, `aus`) | was **hinter dem Raster** liegt: einfarbig (Standard) oder ein **Bild** (seit 0.14) |
-| `background_file` | Pfad oder blosser Name; **leer** = Standardname | die Mediendatei für `background=image` (seit 0.14) |
+| `background` | `dark` / `image` / `focus` (auch `dunkel`, `bild`, `aus`, `fokus`) | was **hinter dem Raster** liegt: einfarbig (Standard), ein **Bild** (seit 0.14) oder das **TV-Banner** der App unter dem Fokus (seit 0.17) |
+| `background_file` | Pfad oder blosser Name; **leer** = Standardname | die Mediendatei für `background=image` (seit 0.14; im Fokus-Modus ungenutzt) |
 
 Genau wie bei der Reihenfolge ist **Toleranz Absicht**: `#`-Zeilen, Leerzeilen,
 umgebende Leerzeichen, `now-playing` statt `now_playing` und unbekannte
@@ -70,19 +71,27 @@ adb shell 'printf "now_playing=on\n" > /sdcard/Android/data/com.piotv.navigate/f
 > **Ohne Benachrichtigungszugriff bleibt das Feld leer** — auch bei
 > `now_playing=on`. Warum, steht in [INSTALL.md](INSTALL.md), Schritt 5b.
 
-## Hintergrund — zwei Möglichkeiten (seit 0.14)
+## Hintergrund — drei Möglichkeiten (seit 0.14 / 0.17)
 
-Hinter dem Raster liegt entweder der einfarbige, sehr dunkle Hintergrund
-(Standard) oder ein **Bild**:
+Hinter dem Raster liegt der einfarbige, sehr dunkle Hintergrund (Standard), ein
+**Bild** oder das **Fokus-Banner**:
 
 | `background` | Was zu sehen ist | Datei |
 |---|---|---|
 | `dark` (Standard) | `@color/bg_home` — derselbe Ton wie das Startfenster | keine |
 | `image` | ein Bild, formatfüllend, auf Bildschirmgröße verkleinert | `background.jpg` |
+| `focus` (seit 0.17) | das **TV-Banner** der App unter dem Fokus, formatfüllend, abgedunkelt; Apps ohne Banner: dunkel | keine — es kommt aus dem App-Manifest |
 
-Ein **Video**-Hintergrund gab es in 0.14 als dritten Wert; er ist in 0.14.1
+Ein **Video**-Hintergrund gab es in 0.14 als vierten Wert; er ist in 0.14.1
 entfernt. Ein `background=video` in einer alten Datei wird jetzt wie ein
 unbekannter Wert gelesen — der bisherige Stand bleibt stehen.
+
+Der **Fokus-Banner** (0.17) kommt nicht aus einer Datei: `background=focus`
+legt das **TV-Banner** (`android:banner` aus dem App-Manifest) der App hinter
+das Raster, auf der der Fokus steht — dasselbe Artwork, das auch der
+System-Launcher hinter der fokussierten App zeigt. Kein Sonderrecht nötig;
+Apps ohne Banner lassen es dunkel, `background_file` bleibt im Fokus-Modus
+ungenutzt.
 
 Die Datei liegt im **externen App-Ordner** — derselbe Ordner, in den auch die
 Konfigurationsdateien gepusht werden:
@@ -104,9 +113,14 @@ des Google-TV-Launchers, die Empfehlungs-/Kanalbilder aus `TvContract` verlangen
 eine TV-Input-Berechtigung, und `WallpaperManager` liefert auf dem Chromecast HD
 kein Bild. Ein normaler Launcher kommt an keines davon heran (Begründung und
 Belege: [LAST_SEEN_TITEL.md](LAST_SEEN_TITEL.md), Abschnitt „Hintergrund“).
+Die eine Ausnahme ist der **Banner**: er steht im Manifest der App selbst und
+ist mit `PackageManager` ohne Sonderrecht lesbar — genau deshalb kann
+`focus` ihn nutzen.
 
 **Kosten, ehrlich:** Ein Bild ist billig (einmal dekodieren, dann eine Fläche).
-Deshalb ist `dark` der Standard und nicht `image`.
+Deshalb ist `dark` der Standard und nicht `image`. Ein Banner wird erst
+geladen, wenn der Fokus auf der App steht — ein Dekodier-Vorgang pro App und
+Prozess, danach trifft der Speicher-Cache (12 MB, gekappt auf 1280 px Breite).
 
 ## navigate.conf — die Reihenfolge
 
@@ -190,12 +204,14 @@ Was lief: ein Eintrag pro Zeile, `zeit|paket|zeile`, neueste zuletzt.
   eine App nur, wenn ihre Session **Metadaten** veröffentlicht: Netflix liefert
   je nach Zustand gar keinen Titel, dann bleibt sie ohne Zeile (das ist eine
   Grenze der App, nicht von Navigate).
-- Gezeigt wird neueste oben: Live-Zeilen zuerst, darunter der Verlauf. Ältere
-  Einträge werden beim Runterscrollen seitenweise (8) dynamisch nachgeladen —
-  die Datei wird nie am Stück in Views verwandelt. Der Block ist höchstens
-  260 dp hoch (rund fünf Zeilen auf 1080p), danach scrollt er in sich; die
-  Fernbedienung lädt die nächste Seite, wenn der Fokus auf der letzten
-  sichtbaren Verlaufszeile steht.
+- Gezeigt wird neueste oben: Live-Zeilen zuerst, darunter **eine** Verlaufszeile
+  — der neueste Eintrag, der nicht gerade läuft („Last seen“). Alles Ältere
+  zeigt das **Kontextmenü**: langes OK auf dieser Zeile klappt die älteren
+  Einträge auf (neueste zuerst, ohne die Einträge, die gerade laufen), OK auf
+  einem Eintrag holt die App zurück. Der Block wächst nicht mit dem Archiv; er
+  bleibt höchstens 260 dp hoch (rund fünf Zeilen auf 1080p), danach scrollt er
+  in sich — mehrere Live-Zeilen können das Fenster füllen, der Verlauf nicht
+  mehr.
 - **Die Scrollbar steht dauerhaft, und `▲`/`▼` gehen zeilenweise** (0.15.1):
   jede Taste holt die nächste Zeile ins Bild, statt sie geometrisch zu erraten.
   Am unteren Ende des Verlaufs führt `▼` zurück ins Raster. In 0.15.0 war die

@@ -1,24 +1,23 @@
 package com.piotv.navigate.data
 
 /**
- * Die Reihenfolge als Textdatei: eine Paketnamen-Zeile pro Eintrag.
+ * The order as a text file: one package-name line per entry.
  *
  * ```
- * # Navigate — Reihenfolge der Apps
+ * # Navigate — app order
  * com.netflix.ninja
  * de.swr.avp.ard.tv
  * ```
  *
- * Reines Kotlin ohne Android-Typen. Sie ist die **Reihenfolge** der Oberfläche;
- * die Einstellungen stehen daneben in `settings.conf` ([SettingsCodec]). Ein
- * Parser ist genau die Stelle, an der eine handgeschriebene Datei still
- * kaputtgeht (Leerzeichen, Kommas, doppelte Einträge) — deshalb getrennt testbar
- * (OrderCodecTest).
+ * Pure Kotlin without Android types. It is the **order** of the UI; the
+ * settings live alongside in `settings.conf` ([SettingsCodec]). A parser is
+ * exactly the place where a hand-written file silently breaks (spaces,
+ * commas, duplicate entries) — hence separately testable (OrderCodecTest).
  *
- * Toleranz ist Absicht: Leerzeilen, `#`-Kommentare, umgebende Leerzeichen,
- * Komma-Listen und Zeilen der Form `order=…` (frühere Fassungen hatten
- * `schlüssel=wert`) werden verstanden. Doppelte Einträge fallen weg — ein
- * doppelter Name würde eine App zweimal in die erste Zeile setzen.
+ * Tolerance is intentional: blank lines, `#` comments, surrounding
+ * whitespace, comma lists and lines of the form `order=...` (earlier versions
+ * had `key=value`) are understood. Duplicates are dropped — a duplicate name
+ * would put an app into the first row twice.
  */
 object OrderCodec {
 
@@ -28,7 +27,7 @@ object OrderCodec {
         for (rawLine in text.lineSequence()) {
             val line = rawLine.substringBefore('#').trim()
             if (line.isEmpty()) continue
-            // "order=a,b" (alte Form) genauso lesen wie "a,b" oder "a".
+            // Read "order=a,b" (the old form) just like "a,b" or "a".
             val value = line.substringAfter('=', line)
             for (part in value.split(',')) {
                 val name = part.trim()
@@ -41,12 +40,12 @@ object OrderCodec {
     }
 
     fun serialize(order: List<String>): String = buildString {
-        appendLine("# Navigate — Reihenfolge der Apps")
+        appendLine("# Navigate — app order")
         appendLine("#")
-        appendLine("# Eine Paketnamen-Zeile pro Eintrag, in Anzeige-Reihenfolge.")
-        appendLine("# Die Einstellungen stehen daneben in settings.conf — diese Datei")
-        appendLine("# ist nur die Reihenfolge. Zeilen mit '#' sind Kommentare,")
-        appendLine("# unbekannte Zeilen werden ignoriert.")
+        appendLine("# One package-name line per entry, in display order.")
+        appendLine("# Settings live next door in settings.conf — this file")
+        appendLine("# is only the order. Lines starting with '#' are comments;")
+        appendLine("# unknown lines are ignored.")
         appendLine()
         for (packageName in order) appendLine(packageName)
     }

@@ -1,32 +1,32 @@
 package com.piotv.navigate.ui
 
 /**
- * Das sichtbare Fenster über den Now-Playing-Zeilen — reine Rechnung ohne
- * Android-Typen, deshalb ohne Gerät prüfbar (RowWindowTest).
+ * The visible window over the Now Playing rows — pure calculation without
+ * Android types, therefore testable without a device (RowWindowTest).
  *
- * Die Rechnung ist dieselbe, die `ScrollView` intern in
- * `computeScrollDeltaToGetChildRectOnScreen` anstellt: das Fenster ist
- * `[scrollY, scrollY + viewportHeight]`, ohne Ränder und ohne Polster. Sie steht
- * hier getrennt, weil [PanelScrollView] sie **vor** dem Fokuswechsel braucht —
- * erst scrollen, dann den Fokus geben. Andersherum springt der Fokus-Sucher des
- * Frameworks eine Zeile an, die noch außerhalb des Fensters liegt: genau der
- * Fehler aus 0.15.0, in dem der Verlauf den Bildschirm gefüllt hat.
+ * The calculation is the same one `ScrollView` performs internally in
+ * `computeScrollDeltaToGetChildRectOnScreen`: the window is
+ * `[scrollY, scrollY + viewportHeight]`, no margins and no padding. It lives
+ * here separately because [PanelScrollView] needs it **before** the focus
+ * change — scroll first, then hand over the focus. The other way around the
+ * framework's focus finder jumps to a row still outside the window: exactly
+ * the bug of 0.15.0, where the history filled the screen.
  */
 object RowWindow {
 
     /**
-     * Eine Zeile, wie sie im Block liegt: Oberkante und Höhe im **Inhaltsmaß**
-     * (nicht in Bildschirmkoordinaten). Die Oberkante bleibt beim Scrollen
-     * stehen — sie beschreibt den Inhalt, nicht das, was man sieht.
+     * A row as it sits in the block: top edge and height in **content
+     * coordinates** (not screen coordinates). The top edge stays put while
+     * scrolling — it describes the content, not what is on screen.
      */
     data class Row(val top: Int, val height: Int)
 
     /**
-     * Liegt die Zeile **ganz** im Fenster?
+     * Does the row lie **entirely** within the window?
      *
-     * „Ganz“ ist die Bedingung, auf die es ankommt: eine halb abgeschnittene
-     * Zeile ist für den Fokus-Sucher ein Kandidat, den der Nutzer nicht sieht
-     * (PanelScrollView.addFocusables fragt hier).
+     * "Entirely" is the condition that matters: a half-clipped row is a
+     * candidate for the focus finder that the user cannot see
+     * (PanelScrollView.addFocusables asks here).
      */
     fun isVisible(row: Row, viewportHeight: Int, scrollY: Int): Boolean {
         if (viewportHeight <= 0) return false
@@ -34,20 +34,20 @@ object RowWindow {
     }
 
     /**
-     * Wohin muss gescrollt werden, damit [row] ganz im Fenster liegt?
+     * Where must one scroll so that [row] lies entirely within the window?
      *
-     * Drei Fälle, in dieser Reihenfolge:
+     * Three cases, in this order:
      *
-     *  - **Oberhalb des Fensters** (▲): die Oberkante der Zeile wird die
-     *    Oberkante des Fensters.
-     *  - **Unterhalb des Fensters** (▼): die Unterkante der Zeile wird die
-     *    Unterkante des Fensters.
-     *  - **Schon zu sehen**: der Stand bleibt — eine Zeile, die man sieht, darf
-     *    beim Fokuswechsel nicht das ganze Fenster verschieben.
+     *  - **Above the window** (▲): the row's top edge becomes the top edge
+     *    of the window.
+     *  - **Below the window** (▼): the row's bottom edge becomes the bottom
+     *    edge of the window.
+     *  - **Already visible**: the position stays — a row on screen must not
+     *    shift the whole window on a focus change.
      *
-     * Der Wert liegt immer zwischen `0` und `contentHeight - viewportHeight`:
-     * ein ScrollView kann nicht über seinen Inhalt hinaus scrollen, und ein
-     * negativer Wert wäre ein Sprung in eine leere Fläche.
+     * The value always lies between `0` and `contentHeight - viewportHeight`:
+     * a ScrollView cannot scroll past its content, and a negative value would
+     * be a jump into empty space.
      */
     fun scrollFor(row: Row, viewportHeight: Int, contentHeight: Int, scrollY: Int): Int {
         if (viewportHeight <= 0) return 0
