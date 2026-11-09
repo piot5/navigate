@@ -18,9 +18,9 @@ shrinking) on the target device, not estimated.
 
 | | 0.16.0 | 0.17.0 |
 |---|---|---|
-| Release APK (signed) | 84,234 B | **85,836 B** |
-| Release APK (unsigned) | 75,808 B | **77,404 B** |
-| `classes.dex` | 85,612 B | **89,096 B** |
+| Release APK (signed) | 84,234 B | **85,654 B** |
+| Release APK (unsigned) | 75,808 B | **77,224 B** |
+| `classes.dex` | 85,612 B | **89,044 B** |
 | Files in the APK | 33 | **33** |
 | Unit tests | 161 | **164** |
 | Coverage (lines / branches) | 25.7 % / 35.7 % | **24.8 % / 34.6 %** |
@@ -35,8 +35,8 @@ listeners on the grid, a flag against late decodes) lives in
 instead of centered next to the "Last seen" content (`layout_gravity="top"`
 — one layout line).
 
-The Dex grows by ~3.5 KB: the banner loader, the geometry rule and the focus
-wiring. The APK grows by ~1.6 KB — R8 strips out part of the new classes
+The Dex grows by ~3.4 KB: the banner loader, the geometry rule and the focus
+wiring. The APK grows by ~1.4 KB — R8 strips out part of the new classes
 again, the resources (the string, the layout attribute) stay. Coverage drops
 by 0.9 and 1.1 points respectively, because the denominator grows by the
 Android classes that can't be tested without a device (`BannerLoader`, the
@@ -609,15 +609,15 @@ byte-gleich (`release_dex_bytes`), weil die Signatur nur Einträge in `META-INF`
 hinzufügt.
 
 ```
-release_apk_bytes=85836
+release_apk_bytes=85654
 apk_files=33
-release_apk_unsigned_bytes=77404
+release_apk_unsigned_bytes=77224
 apk_unsigned_files=30
-release_dex_bytes=89096
+release_dex_bytes=89044
 release_dex_files=1
 unit_tests=164
-coverage_lines_percent=24,8
-coverage_branches_percent=34,6
+coverage_lines_percent=24.8
+coverage_branches_percent=34.6
 ```
 
 Warum die APK-Größe reproduzierbar ist: die VCS-Info-Datei

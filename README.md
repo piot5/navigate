@@ -18,7 +18,7 @@ appear**, and **what sits behind the grid** (solid color or image).
 
 | | |
 |---|---|
-| **Release APK** | 84 KB / 85,836 B signed · of that 87 KB / 89,096 B `classes.dex` — a single dex file |
+| **Release APK** | 84 KB / 85,654 B signed · of that 87 KB / 89,044 B `classes.dex` — a single dex file |
 | **Unit tests** | 164 unit tests, runnable without a device · coverage gate 18 % lines / 25 % branches (measured 24.8 % / 34.6 %) |
 | **Runtime dependencies** | none — only the Android framework + Kotlin stdlib |
 | **Permissions** | `QUERY_ALL_PACKAGES` (without it, leanback-only apps would be invisible); `PACKAGE_USAGE_STATS` optional, only for "back to the last app"; plus optional **notification access** for "Now Playing" (not a manifest permission but a grant via adb — see below) |
