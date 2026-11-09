@@ -1,224 +1,223 @@
-# Konfiguration
+# Configuration
 
-Einstellbar sind in Navigate **vier Sachen**: die **Reihenfolge der Apps**
-(`navigate.conf`), ob das **„Now Playing“-Feld** und die **Uhr** erscheinen und
-was **hinter dem Raster** liegt (`settings.conf`). Dazu kommt der **Verlauf**
-(`history.conf`) — was lief, neueste oben; zu sehen ist der neueste Eintrag,
-alles Ältere liegt hinter langem OK auf der Last-seen-Zeile. Jede der
-Dateien liegt an **zwei** Orten — der Unterschied ist wichtig:
+Four things are configurable in Navigate: the **order of the apps**
+(`navigate.conf`), whether the **"Now Playing" field** and the **clock**
+appear and what sits **behind the grid** (`settings.conf`). Then the
+**history** (`history.conf`) — what played, newest on top; the newest entry
+is the one on display, everything older sits behind a long press of OK on
+the Last-seen row. Each of the files lives in **two** places — the
+difference matters:
 
-| Datei | Inhalt | Quelle der Wahrheit (hier liest Navigate) | Import (`adb push`) |
+| File | Content | Source of truth (Navigate reads here) | Import (`adb push`) |
 |---|---|---|---|
-| `navigate.conf` | Reihenfolge — eine Paketnamen-Zeile je Eintrag | `/data/data/com.piotv.navigate/files/navigate.conf` | `/storage/emulated/0/Android/data/com.piotv.navigate/files/navigate.conf` |
-| `settings.conf` | Einstellungen — `schlüssel=wert` | `/data/data/com.piotv.navigate/files/settings.conf` | `/storage/emulated/0/Android/data/com.piotv.navigate/files/settings.conf` |
-| `history.conf` | Verlauf — `zeit|paket|zeile`, neueste zuletzt | `/data/data/com.piotv.navigate/files/history.conf` | `/storage/emulated/0/Android/data/com.piotv.navigate/files/history.conf` (nur lesbar — ein `push` wird nur übernommen, wenn die Datei neuer ist) |
+| `navigate.conf` | Order — one package-name line per entry | `/data/data/com.piotv.navigate/files/navigate.conf` | `/storage/emulated/0/Android/data/com.piotv.navigate/files/navigate.conf` |
+| `settings.conf` | Settings — `key=value` | `/data/data/com.piotv.navigate/files/settings.conf` | `/storage/emulated/0/Android/data/com.piotv.navigate/files/settings.conf` |
+| `history.conf` | History — `time|package|line`, newest last | `/data/data/com.piotv.navigate/files/history.conf` | `/storage/emulated/0/Android/data/com.piotv.navigate/files/history.conf` (read-only — a `push` is only adopted when the file is newer) |
 
-Übernommen wird eine Import-Datei nur, wenn sie **neuer** ist als beim letzten
-Import. Beide Dateien benutzen dieselbe Mechanik (im Code
-`data/ConfigFile.kt`): geschrieben wird intern, importiert wird von außen.
+An import file is adopted only when it is **newer** than at the last
+import. Both files use the same mechanics (in code
+`data/ConfigFile.kt`): writing happens internally, importing from outside.
 
-**Warum nicht direkt der externe Pfad?** `/sdcard` läuft seit Android 11 über
-den MediaProvider-FUSE-Daemon: `stat` und `open` gehen dort **immer** durch
-einen Userspace-Daemon, und FUSE-Passthrough hilft nur für read/write *nach* dem
-Öffnen (source.android.com/docs/core/storage/fuse-passthrough). Der Launcher
-prüft die Datei bei jedem `onResume` — auf einem 1,4-GB-Gerät ist ein
-FUSE-Roundtrip auf dem HOME-Pfad messbare Zeit.
+**Why not the external path directly?** Since Android 11, `/sdcard` runs
+through the MediaProvider FUSE daemon: `stat` and `open` there **always** go
+through a userspace daemon, and FUSE passthrough only helps read/write
+*after* the open (source.android.com/docs/core/storage/fuse-passthrough).
+The launcher checks the file on every `onResume` — on a 1.4 GB device a
+FUSE round trip on the HOME path is measurable time.
 
-**Wie kommt eine gepushte Datei an?** Der Import-Pfad wird höchstens alle
-5 Sekunden angesehen, und übernommen wird nur eine Datei mit **neuerem**
-Zeitstempel als beim letzten Import. Danach liegt der Stand intern; eine alte,
-einmal gepushte Datei überschreibt also keine Änderung, die auf dem Fernseher
-gemacht wurde (langes Drücken).
+**How does a pushed file arrive?** The import path is looked at at most
+every 5 seconds, and only a file with a **newer** timestamp than at the
+last import is adopted. After that the state lives internally; an old file
+pushed once thus does not overwrite a change made on the TV (long press).
 
-> Bis 0.3 hat dieser Weg **nie** funktioniert: der Merker der Drossel stand auf
-> `Long.MIN_VALUE`, `now - Long.MIN_VALUE` läuft über und wird negativ, die
-> Drossel griff damit immer. Gefunden hat das in 0.4 der Test
-> `OrderStoreTest.eine neuere Import-Datei wird uebernommen` (siehe
+> Until 0.3 this route **never** worked: the throttle's marker sat at
+> `Long.MIN_VALUE`, `now - Long.MIN_VALUE` overflows and turns negative, so
+> the throttle always engaged. Found in 0.4 by the test
+> `OrderStoreTest.a newer import file is adopted` (see
 > [CHANGELOG](../CHANGELOG.md)).
 
-## settings.conf — die Einstellungen
+## settings.conf — the settings
 
-Eine Zeile pro Eintrag, Form `schlüssel=wert`:
+One line per entry, in the form `key=value`:
 
 ```ini
-# Navigate — Einstellungen
+# Navigate — settings
 now_playing=on
 show_clock=on
 background=dark
 background_file=
 ```
 
-| Schlüssel | Werte | Wirkung |
+| Key | Values | Effect |
 |---|---|---|
-| `now_playing` | `on` / `off` (auch `true`/`false`, `1`/`0`, `an`/`aus`, `ja`/`nein`, Groß-/Kleinschreibung egal) | zeigt das „Now Playing“-Feld oben links — seit 0.13 **eine Zeile je App** mit aktiver Media-Session, nur im zugeklappten Zustand |
-| `show_clock` | wie `now_playing` | zeigt die **Uhr** oben rechts (seit 0.14 abschaltbar; „aus“ heißt auch: kein Takt mehr) |
-| `background` | `dark` / `image` / `focus` (auch `dunkel`, `bild`, `aus`, `fokus`) | was **hinter dem Raster** liegt: einfarbig (Standard), ein **Bild** (seit 0.14) oder das **TV-Banner** der App unter dem Fokus (seit 0.17) |
-| `background_file` | Pfad oder blosser Name; **leer** = Standardname | die Mediendatei für `background=image` (seit 0.14; im Fokus-Modus ungenutzt) |
+| `now_playing` | `on` / `off` (also `true`/`false`, `1`/`0`, `an`/`aus`, `ja`/`nein`, case-insensitive) | shows the "Now Playing" field in the top-left — since 0.13 **one line per app** with an active media session, only while collapsed |
+| `show_clock` | like `now_playing` | shows the **clock** in the top-right (switchable off since 0.14; "off" also means: no more ticking) |
+| `background` | `dark` / `image` / `focus` (also `dunkel`, `bild`, `aus`, `fokus`) | what sits **behind the grid**: a solid color (default), an **image** (since 0.14) or the **TV banner** of the app under the focus (since 0.17) |
+| `background_file` | path or bare name; **empty** = default name | the media file for `background=image` (since 0.14; unused in focus mode) |
 
-Genau wie bei der Reihenfolge ist **Toleranz Absicht**: `#`-Zeilen, Leerzeilen,
-umgebende Leerzeichen, `now-playing` statt `now_playing` und unbekannte
-Schlüssel werden verstanden bzw. **ignoriert** — eine handgeschriebene Datei darf
-Navigate nie am Starten hindern. Ein unbekannter **Wert** lässt den bisherigen
-Stand stehen (geraten wird nicht).
+Exactly as with the order, **tolerance is intentional**: `#` lines, empty
+lines, surrounding whitespace, `now-playing` instead of `now_playing` and
+unknown keys are understood or **ignored** — a hand-written file must never
+keep Navigate from starting. An unknown **value** leaves the previous state
+standing (no guessing).
 
-Auf dem Fernseher schreibt die Einstellungsseite diese Datei (**langes OK auf
-„…“**); per `adb` geht es genauso:
+On the TV the settings screen writes this file (**long OK on "…"**); via
+`adb` it works just the same:
 
 ```bash
 adb shell 'printf "now_playing=on\n" > /sdcard/Android/data/com.piotv.navigate/files/settings.conf'
 ```
 
-> **Ohne Benachrichtigungszugriff bleibt das Feld leer** — auch bei
-> `now_playing=on`. Warum, steht in [INSTALL.md](INSTALL.md), Schritt 5b.
+> **Without notification access the field stays empty** — even with
+> `now_playing=on`. Why is in [INSTALL.md](INSTALL.md), step 5b.
 
-## Hintergrund — drei Möglichkeiten (seit 0.14 / 0.17)
+## Background — three options (since 0.14 / 0.17)
 
-Hinter dem Raster liegt der einfarbige, sehr dunkle Hintergrund (Standard), ein
-**Bild** oder das **Fokus-Banner**:
+Behind the grid sits the solid, very dark background (default), an
+**image** or the **focus banner**:
 
-| `background` | Was zu sehen ist | Datei |
+| `background` | What is on screen | File |
 |---|---|---|
-| `dark` (Standard) | `@color/bg_home` — derselbe Ton wie das Startfenster | keine |
-| `image` | ein Bild, formatfüllend, auf Bildschirmgröße verkleinert | `background.jpg` |
-| `focus` (seit 0.17) | das **TV-Banner** der App unter dem Fokus, formatfüllend, abgedunkelt; Apps ohne Banner: dunkel | keine — es kommt aus dem App-Manifest |
+| `dark` (default) | `@color/bg_home` — the same tone as the launch window | none |
+| `image` | an image, filling the area, scaled down to screen size | `background.jpg` |
+| `focus` (since 0.17) | the **TV banner** of the app under the focus, filling the area, dimmed; apps without a banner: dark | none — it comes from the app manifest |
 
-Ein **Video**-Hintergrund gab es in 0.14 als vierten Wert; er ist in 0.14.1
-entfernt. Ein `background=video` in einer alten Datei wird jetzt wie ein
-unbekannter Wert gelesen — der bisherige Stand bleibt stehen.
+A **video** background existed in 0.14 as a fourth value; it was removed in
+0.14.1. A `background=video` in an old file is now read as an unknown
+value — the previous state stays standing.
 
-Der **Fokus-Banner** (0.17) kommt nicht aus einer Datei: `background=focus`
-legt das **TV-Banner** (`android:banner` aus dem App-Manifest) der App hinter
-das Raster, auf der der Fokus steht — dasselbe Artwork, das auch der
-System-Launcher hinter der fokussierten App zeigt. Kein Sonderrecht nötig;
-Apps ohne Banner lassen es dunkel, `background_file` bleibt im Fokus-Modus
-ungenutzt.
+The **focus banner** (0.17) does not come from a file: `background=focus`
+puts the **TV banner** (`android:banner` from the app manifest) of the app
+the focus sits on behind the grid — the same artwork the system launcher
+shows behind the focused app. No special permission needed; apps without a
+banner leave it dark, `background_file` stays unused in focus mode.
 
-Die Datei liegt im **externen App-Ordner** — derselbe Ordner, in den auch die
-Konfigurationsdateien gepusht werden:
+The file lives in the **external app folder** — the same folder the
+configuration files are pushed into:
 
 ```bash
-# Bild
-adb push urlaub.jpg /sdcard/Android/data/com.piotv.navigate/files/background.jpg
+# Image
+adb push vacation.jpg /sdcard/Android/data/com.piotv.navigate/files/background.jpg
 adb shell 'printf "background=image\n" > /sdcard/Android/data/com.piotv.navigate/files/settings.conf'
 ```
 
-Ein **eigener** Pfad geht auch (`background_file=/sdcard/Pictures/wand.jpg`);
-`background_file=` **leer** nimmt den Standardnamen wieder. Fehlt die Datei oder
-ist sie kein lesbares Bild, bleibt es dunkel — die Einstellungsseite nennt
-den Pfad, auf dem Bildschirm gibt es keine Fehlermeldung.
+A **custom** path works too (`background_file=/sdcard/Pictures/wall.jpg`);
+`background_file=` **empty** takes the default name again. If the file is
+missing or not a readable image, it stays dark — the settings screen names
+the path, on the screen there is no error message.
 
-**Was es bewusst nicht gibt:** die Hintergründe, die Android TV „eingebaut“ hat.
-Die Bilder des Google-TV-Ambient-Modus („Backdrop“) liegen im privaten Speicher
-des Google-TV-Launchers, die Empfehlungs-/Kanalbilder aus `TvContract` verlangen
-eine TV-Input-Berechtigung, und `WallpaperManager` liefert auf dem Chromecast HD
-kein Bild. Ein normaler Launcher kommt an keines davon heran (Begründung und
-Belege: [LAST_SEEN_TITEL.md](LAST_SEEN_TITEL.md), Abschnitt „Hintergrund“).
-Die eine Ausnahme ist der **Banner**: er steht im Manifest der App selbst und
-ist mit `PackageManager` ohne Sonderrecht lesbar — genau deshalb kann
-`focus` ihn nutzen.
+**What deliberately does not exist:** the backgrounds Android TV has
+"built in". The images of the Google TV ambient mode ("Backdrop") sit in
+the private storage of the Google TV launcher, the recommendation/channel
+images from `TvContract` demand a TV input permission, and
+`WallpaperManager` delivers no image on the Chromecast HD. A normal
+launcher can reach none of them (reasoning and evidence:
+[LAST_SEEN_TITLE.md](LAST_SEEN_TITLE.md), section "Background").
+The one exception is the **banner**: it sits in the manifest of the app
+itself and is readable with `PackageManager` without a special permission —
+exactly why `focus` can use it.
 
-**Kosten, ehrlich:** Ein Bild ist billig (einmal dekodieren, dann eine Fläche).
-Deshalb ist `dark` der Standard und nicht `image`. Ein Banner wird erst
-geladen, wenn der Fokus auf der App steht — ein Dekodier-Vorgang pro App und
-Prozess, danach trifft der Speicher-Cache (12 MB, gekappt auf 1280 px Breite).
+**Costs, honestly:** an image is cheap (decode once, then it is a surface).
+That is why `dark` is the default and not `image`. A banner is loaded only
+once the focus is on the app — one decode per app and process, after that
+the memory cache hits (12 MB, capped at 1280 px width).
 
-## navigate.conf — die Reihenfolge
+## navigate.conf — the order
 
-Eine **Paketnamen-Zeile pro Eintrag**, in Anzeige-Reihenfolge. `#` beginnt einen
-Kommentar, Leerzeilen sind erlaubt, unbekannte Zeilen werden **ignoriert** statt
-als Fehler behandelt: eine handgeschriebene Datei darf Navigate nie daran
-hindern zu starten. Toleriert werden zusätzlich umgebende Leerzeichen,
-Komma-Listen und Zeilen der alten Form `schlüssel=wert`; doppelte Einträge fallen
-weg.
+**One package-name line per entry**, in display order. `#` starts a
+comment, empty lines are allowed, unknown lines are **ignored** instead of
+treated as an error: a hand-written file must never keep Navigate from
+starting. Also tolerated: surrounding whitespace, comma lists and lines of
+the old form `key=value`; duplicate entries drop out.
 
 ```ini
-# Navigate — Reihenfolge der Apps
+# Navigate — order of the apps
 com.netflix.ninja
 de.swr.avp.ard.tv
 com.google.android.youtube.tv
 ```
 
-- Nicht (mehr) installierte Einträge werden stillschweigend übersprungen — die
-  Datei räumt sich also selbst auf, wenn eine App deinstalliert wird.
-- Alle Apps, die nicht in der Datei stehen, folgen danach in ihrer
-  sprachsortierten Reihenfolge (dieselbe, die der Hersteller-Launcher benutzt).
+- Entries that are (no longer) installed are silently skipped — the file
+  cleans up after itself when an app is uninstalled.
+- All apps not in the file follow afterwards in their language-sorted order
+  (the same one the vendor launcher uses).
 
-Die Paketnamen findet man mit:
+You find the package names with:
 
 ```bash
 adb shell pm list packages -3
 ```
 
-## Die Reihenfolge auf dem Fernseher ändern
+## Changing the order on the TV
 
-**Langes OK** auf einer App schiebt sie **eine Position nach vorne** und
-schreibt die Datei sofort. Steht die App schon ganz vorne, passiert nichts
-(Toast). Aus dem „Rest“ (also aus dem nicht konfigurierten Teil) bedeutet das
-Anhängen genau eine Position nach vorne.
+**Long OK** on an app moves it **one position forward** and writes the file
+immediately. If the app is already at the very front, nothing happens
+(toast). From the "rest" (i.e. from the not-configured part) that means
+appending is exactly one position forward.
 
-Für einen großen Umbau ist die Datei der bequemere Weg — sie kennt die
-vollständige Reihenfolge, langes Drücken nur den nächsten Schritt.
+For a large reshuffle the file is the more convenient route — it knows the
+complete order, a long press only the next step.
 
-## Sichern und Zurücksetzen
+## Backing up and resetting
 
 ```bash
-# sichern (der Import-Pfad; die interne Datei ist ohne Root nicht lesbar)
+# back up (the import path; the internal file is unreadable without root)
 adb pull /sdcard/Android/data/com.piotv.navigate/files/navigate.conf ./navigate.conf
 
-# zurückspielen — wird beim nächsten Zugriff übernommen (max. 5 s)
+# restore — adopted on the next access (at most 5 s)
 adb push ./navigate.conf /sdcard/Android/data/com.piotv.navigate/files/navigate.conf
 
-# auf Werkszustand (keine Reihenfolge = sprachsortiert)
+# back to the factory state (no order = language-sorted)
 adb push /dev/null /sdcard/Android/data/com.piotv.navigate/files/navigate.conf
 ```
 
-Der letzte Befehl schiebt eine **leere** Datei an den Import-Pfad; sie ist neuer
-als alles Vorherige und wird übernommen — eine leere Datei ergibt genau die
-Grundordnung.
+The last command pushes an **empty** file to the import path; it is newer
+than everything before it and is adopted — an empty file yields exactly the
+base order.
 
-## history.conf — der Verlauf
+## history.conf — the history
 
-Was lief: ein Eintrag pro Zeile, `zeit|paket|zeile`, neueste zuletzt.
+What played: one entry per line, `time|package|line`, newest last.
 
 ```ini
-# Navigate — Verlauf (Now Playing)
-1730000000000|com.zdf|ZDF · Tagesschau
-1730000005000|com.spotify|Spotify · Der Weg
+# Navigate — history (Now Playing)
+1730000000000|com.zdf|ZDF · Daily News
+1730000005000|com.spotify|Spotify · The Way
 ```
 
-- Geschrieben wird die Datei von Navigate selbst: ersetzt ein neuer Titel die
-  Zeile einer App, wandert der alte hierher — statt zu verschwinden.
-- **Gelesen wird sie als „zuletzt gesehen“:** der **oberste** Eintrag ist der
-  *last seen*, alles darunter das *seen before* — dieselbe Reihenfolge, in der
-  ein Mensch zurückschaut. Die Live-Zeilen (Apps mit laufender Media-Session)
-  stehen über dem Verlauf; die neueste Zeile ist damit immer die, die gerade
-  läuft bzw. zuletzt lief.
-- **Gespeichert wird der Inhalt, nicht der Zustand.** Die Zeile im Verlauf trägt
-  **kein** „· pausiert“: sonst stünde derselbe Titel zweimal in der Liste — einmal
-  mit, einmal ohne Zusatz (genau so war es auf dem Zielgerät zu sehen). Die
-  Anzeige **über** dem Verlauf trägt den Zusatz weiter, weil eine pausierte
-  Session sonst aussähe wie eine laufende.
-- **Eine Regel für jede App.** Welche App die Session hält, steht im Feld
-  `paket`; die Zeilen-Regel (`NowPlayingText.content`) kennt keinen Paketnamen —
-  Netflix, Disney+, ZDF, WOW und Prime werden gleich behandelt. Sichtbar wird
-  eine App nur, wenn ihre Session **Metadaten** veröffentlicht: Netflix liefert
-  je nach Zustand gar keinen Titel, dann bleibt sie ohne Zeile (das ist eine
-  Grenze der App, nicht von Navigate).
-- Gezeigt wird neueste oben: Live-Zeilen zuerst, darunter **eine** Verlaufszeile
-  — der neueste Eintrag, der nicht gerade läuft („Last seen“). Alles Ältere
-  zeigt das **Kontextmenü**: langes OK auf dieser Zeile klappt die älteren
-  Einträge auf (neueste zuerst, ohne die Einträge, die gerade laufen), OK auf
-  einem Eintrag holt die App zurück. Der Block wächst nicht mit dem Archiv; er
-  bleibt höchstens 260 dp hoch (rund fünf Zeilen auf 1080p), danach scrollt er
-  in sich — mehrere Live-Zeilen können das Fenster füllen, der Verlauf nicht
-  mehr.
-- **Die Scrollbar steht dauerhaft, und `▲`/`▼` gehen zeilenweise** (0.15.1):
-  jede Taste holt die nächste Zeile ins Bild, statt sie geometrisch zu erraten.
-  Am unteren Ende des Verlaufs führt `▼` zurück ins Raster. In 0.15.0 war die
-  Höhengrenze wirkungslos (`android:maxHeight` gibt es am `ScrollView` nicht) —
-  der Block wuchs mit dem Verlauf, bis die App-Zeile aus dem Bild war.
-- Höchstens 500 Einträge: ältere fallen beim Schreiben weg. Wer mehr will,
-  zieht per `adb pull` — die Datei ist lesbar:
+- Navigate writes the file itself: when a new title replaces an app's line,
+  the old one moves here — instead of disappearing.
+- **It is read as "last seen":** the **topmost** entry is the *last seen*,
+  everything below it the *seen before* — the same order a person looks
+  back in. The live rows (apps with a playing media session) sit above the
+  history; the newest line is thus always the one playing now or last.
+- **The content is stored, not the state.** The line in the history carries
+  **no** "· paused": otherwise the same title would sit twice in the list —
+  once with, once without the suffix (that is exactly how it looked on the
+  target device). The display **above** the history keeps carrying the
+  suffix, because a paused session would otherwise look like a playing one.
+- **One rule for every app.** Which app holds the session stands in the
+  `package` field; the line rule (`NowPlayingText.content`) knows no package
+  name — Netflix, Disney+, ZDF, WOW and Prime are treated alike. An app
+  becomes visible only when its session publishes **metadata**: Netflix
+  sometimes delivers no title at all, and then it stays without a line
+  (that is a limit of the app, not of Navigate).
+- Shown is the newest on top: live rows first, below them **one** history
+  line — the newest entry not playing right now ("Last seen"). Everything
+  older is shown by the **context menu**: a long press of OK on that line
+  unfolds the older entries (newest first, without the entries currently
+  playing), OK on an entry brings the app back. The block does not grow
+  with the archive; it stays at most 260 dp tall (about five rows at
+  1080p), after that it scrolls within itself — several live rows can fill
+  the window, the history no longer can.
+- **The scrollbar stands permanently, and `▲`/`▼` move row by row** (0.15.1):
+  every key press brings the next row into view instead of guessing it
+  geometrically. At the lower end of the history `▼` leads back into the
+  grid. In 0.15.0 the height limit was ineffective (`android:maxHeight`
+  doesn't exist on a `ScrollView`) — the block grew with the history until
+  the app row left the screen.
+- At most 500 entries: older ones drop out when writing. Whoever wants more
+  pulls via `adb pull` — the file is readable:
 
 ```bash
 adb pull /sdcard/Android/data/com.piotv.navigate/files/history.conf ./history.conf

@@ -20,7 +20,7 @@ import java.io.File
  * Google TV launcher, the recommendation/channel images from `TvContract`
  * require a TV input permission, and `WallpaperManager` returns no image on
  * the Chromecast HD (no wallpaper service). A normal launcher cannot reach any
- * of them — see docs/LAST_SEEN_TITEL.md, section "Background". The **banner**
+ * of them — see docs/LAST_SEEN_TITLE.md, section "Background". The **banner**
  * is the one exception: it is in the manifest of every Leanback app and
  * readable without special rights (`PackageManager`) — exactly the artwork the
  * system launcher also shows behind the focused app.

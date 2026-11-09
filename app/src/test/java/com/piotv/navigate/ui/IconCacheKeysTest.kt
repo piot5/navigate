@@ -7,14 +7,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Die Umwandlung Paketname → Dateiname. Klein, aber die einzige Stelle, an der
- * aus fremden Daten ein Dateiname wird — und damit die einzige, an der ein
- * Pfadanteil hereinrutschen könnte.
+ * The conversion package name → file name. Small, but the only place where
+ * a file name is made from foreign data — and thus the only place where a
+ * path component could sneak in.
  */
 class IconCacheKeysTest {
 
     @Test
-    fun `Dateiname enthaelt Version Grosse und Paketnamen`() {
+    fun `file name contains version size and package name`() {
         assertEquals(
             "v1-128px-com.netflix.ninja.webp",
             IconCacheKeys.fileName("com.netflix.ninja", 128),
@@ -22,9 +22,9 @@ class IconCacheKeysTest {
     }
 
     @Test
-    fun `verschiedene Groessen ergeben verschiedene Dateien`() {
-        // Eine geänderte Rastergröße (andere Dichte) soll eine eigene Datei
-        // bekommen — sonst würde eine der beiden hochskaliert.
+    fun `different sizes yield different files`() {
+        // A changed grid size (different density) gets its own file —
+        // otherwise one of the two would be scaled up.
         assertNotEquals(
             IconCacheKeys.fileName("com.netflix.ninja", 104),
             IconCacheKeys.fileName("com.netflix.ninja", 128),
@@ -32,10 +32,10 @@ class IconCacheKeysTest {
     }
 
     @Test
-    fun `Pfadanteile werden ersetzt`() {
-        // Aus "../../etc/passwd" darf kein Pfad werden: der Trenner fällt weg.
-        // Ein einzelnes ".." ist danach harmlos — der Name beginnt immer mit
-        // "v<version>-<groesse>px-", kann also nie selbst ".." sein.
+    fun `path components are replaced`() {
+        // "../../etc/passwd" must not become a path: the separator falls
+        // away. A single ".." is harmless afterwards — the name always starts
+        // with "v<version>-<size>px-", so it can never be ".." itself.
         val name = IconCacheKeys.fileName("../../etc/passwd", 128)
         assertFalse(name.contains('/'))
         assertFalse(name.contains('\\'))
@@ -44,15 +44,15 @@ class IconCacheKeysTest {
     }
 
     @Test
-    fun `unerwartete Zeichen werden ersetzt`() {
+    fun `unexpected characters are replaced`() {
         assertEquals("a_b_c", IconCacheKeys.sanitize("a b\tc"))
         assertEquals("a_b", IconCacheKeys.sanitize("a:b"))
-        // Leerzeichen, Doppelpunkt, Backslash — alles nicht im sicheren Satz.
+        // Space, colon, backslash — none of it in the safe set.
         assertEquals("___", IconCacheKeys.sanitize(" :\\"))
     }
 
     @Test
-    fun `uebliche Paketnamen bleiben unveraendert`() {
+    fun `common package names stay unchanged`() {
         val name = "de.swr.avp.ard.tv"
         assertEquals(name, IconCacheKeys.sanitize(name))
         assertTrue(IconCacheKeys.fileName(name, 104).endsWith(".webp"))

@@ -199,175 +199,136 @@ occupies a hardware decoder on this device for as long as the home screen is
 visible. The default is therefore `dark`, and leaving the home screen pauses
 it (`onPause`).
 
-## 0.13.3 (the entry stays put)
-
-| | 0.13.0 | 0.13.3 |
-|---|---|---|
-| Release APK | 76,187 B | **76,481 B** |
-| `classes.dex` | 73,112 B | **73,652 B** |
-| Files in the APK | 32 | **32** |
-| Unit tests | 108 | **111** |
-| Coverage (lines / branches) | 20.8 % / 28.9 % | **21.2 % / 29.3 %** |
-
-Fixed: **the Now Playing entry vanished after a few seconds** although the
-app kept running (seen and reported on the target device: "the entry of e.g.
-right now hbo is gone after a few sec"). The cause was a rule that treated
-**three different things alike**: "title present", "session present but
-without a title" (loading screen, ads) and "no session" (app in background,
-title change) were all read as "nothing to show" and deleted the row.
-
-Measured on the target device (2026-10-17), as proof of the third case:
-
-```
---- t=1 ---  package=com.wbd.stream  state=PLAYING(3)  metadata: Return to Silent Hill
---- t=6 ---  (no more entry for com.wbd.stream)
-```
-
-The WOW session was **completely gone** after the film — without ever
-reporting `STOPPED`. Whoever reads that as "the app is gone" deletes a row
-the user is just reading.
-
-Since 0.13.3 this holds ([NowPlayingBoard](../app/src/main/java/com/piotv/navigate/data/NowPlayingBoard.kt)):
-
-| What the query says | What happens |
-|---|---|
-| A title (playing or paused) | Create the row, or rewrite it only on **changed text** |
-| Session present, but **without a title** | The row stays as it is |
-| **No** session | The row stays |
-| Session reports **ended** (`STOPPED`/`ERROR`) | The row disappears after two queries (10 s) |
-| Query **failed** (`null`) | nothing changes |
-
-The price, openly stated: an app that loses its session without `STOPPED`
-keeps its row until the launcher process restarts (on 1.4 GB, the normal
-case after a few hours). This is the deliberate choice — a row you are
-reading must not vanish while you read it.
-
-## 0.13 (eine Now-Playing-Zeile je App, ausgelagerte Bausteine)
+## 0.13 (one Now Playing line per app, extracted components)
 
 | | 0.12 | 0.13 |
 |---|---|---|
-| Release-APK | 73.146 B | **76.187 B** |
-| `classes.dex` | 68.608 B | **73.112 B** |
-| Dateien im APK | 31 | **32** |
-| Unit-Tests | 94 | **108** |
-| Coverage (Zeilen / Zweige) | 20,1 % / 27,3 % | **20,8 % / 28,9 %** |
+| Release APK | 73,146 B | **76,187 B** |
+| `classes.dex` | 68,608 B | **73,112 B** |
+| Files in the APK | 31 | **32** |
+| Unit tests | 94 | **108** |
+| Coverage (lines / branches) | 20.1 % / 27.3 % | **20.8 % / 28.9 %** |
 
-Neu: **eine „Now Playing“-Zeile je App** mit aktiver Media-Session (statt genau
-einer Zeile für „die“ Session), mit **Persistenz** — eine Zeile ändert sich nur,
-wenn sich für diese App etwas ändert — und mit Schonfrist, damit eine Session, die
-beim Titelwechsel kurz verschwindet, die Zeile nicht flackern lässt. Dazu sind drei
-Bausteine aus `LauncherActivity` ausgezogen (`Ticker`, `NowPlayingPanel`,
-`AppMenu`); die Datei ist von **769 auf 596 Zeilen** gefallen.
+New: **one "Now Playing" line per app** with an active media session
+(instead of exactly one line for "the" session), with **persistence** — a
+line changes only when something changes for that app — and with a grace
+period, so that a session briefly disappearing on a track change does not
+make the line flicker. On top, three components were extracted from
+`LauncherActivity` (`Ticker`, `NowPlayingPanel`, `AppMenu`); the file fell
+from **769 to 596 lines**.
 
-Was die Zahlen erklären und was nicht:
+What the numbers explain and what they don't:
 
-- Die **eine zusätzliche Datei** im APK ist `res/layout/item_now_playing.xml` — die
-  Zeile wird je App aufgeblasen, sie kann nicht mehr fest im Layout stehen.
-- `classes.dex` wächst um **4.504 B**. Das ist der Preis für 14 neue Tests, den
-  Board-Zustand, das Panel, das Menü und den `Ticker` — nicht für neue
-  Abhängigkeiten (es gibt weiterhin **keine** zur Laufzeit).
-- Die **Coverage steigt**, obwohl im Nenner rund 100 Zeilen mehr Android-Code
-  stehen (Panel, Menü, Ticker, das Höhenmanagement der Activity): die 14 neuen
-  Tests decken die reine Regel (`NowPlayingBoard`) vollständig ab.
+- The **one additional file** in the APK is `res/layout/item_now_playing.xml` —
+  the row is inflated per app, it can no longer sit fixed in the layout.
+- `classes.dex` grows by **4,504 B**. That is the price of 14 new tests, the
+  board state, the panel, the menu and the `Ticker` — not of new
+  dependencies (there are still **none** at runtime).
+- **Coverage rises**, although the denominator holds about 100 more lines
+  of Android code (panel, menu, ticker, the activity's height management):
+  the 14 new tests cover the pure rule (`NowPlayingBoard`) completely.
 
-### Was daran **nicht** auf dem Gerät geprüft ist
+### What was **not** verified on the device
 
-Ehrlich, weil die Zahlen es nicht zeigen: 0.13 ist **gebaut und getestet, aber
-nicht auf dem Fernseher gesehen**. Ungeprüft sind damit drei Dinge, die man nur
-dort sieht:
+Honest, because the numbers don't show it: 0.13 was **built and tested,
+but not seen on the TV**. Three things therefore remain unverified that
+only show there:
 
-1. **Das Aussehen mehrerer Zeilen.** Zwei Zeilen untereinander mit Fokus-Markierung
-   je Zeile — geprüft ist nur, dass die Views entstehen und sich richtig binden.
-2. **Die Höhenrückmeldung ans Raster.** Der Block meldet seine Höhe, das Raster
-   bekommt sie als oberen Rand (`onHeightChanged`). Auf einem Gerät muss man sehen,
-   ob der Abstand passt, wenn zwei Zeilen stehen.
-3. **Die Uhr bei mehreren Zeilen.** Die obere Zeile richtet ihren Inhalt weiterhin
-   mittig aus (`gravity="center_vertical"`): bei einer Zeile ist das wie bisher,
-   bei drei Zeilen stünde die Uhr neben der Mitte des Blocks.
+1. **The look of several rows.** Two rows stacked with a focus marker per
+   row — verified is only that the views are created and bind correctly.
+2. **The height feedback to the grid.** The block reports its height, the
+   grid receives it as the top inset (`onHeightChanged`). On a device one
+   has to see whether the spacing fits when two rows stand.
+3. **The clock with several rows.** The top row still centers its content
+   vertically (`gravity="center_vertical"`): with one row that is as
+   before, with three rows the clock would sit next to the middle of the
+   block.
 
-Messbefehle für den Fall, dass es auf dem Gerät nachgezogen wird: siehe
-„Startzeit, Speicher, Jank" unten — dieselbe Vorgehensweise (`dumpsys`,
-`screencap`, `logcat`).
+Measurement commands in case it is caught up on the device: see "Start
+time, memory, jank" below — the same procedure (`dumpsys`, `screencap`,
+`logcat`).
 
-## 0.12 (Now Playing oben links, Einstellungen)
+## 0.12 (Now Playing in the top-left, settings)
 
 | | 0.11 | 0.12 |
 |---|---|---|
-| Release-APK | 59.060 B | **73.146 B** |
-| `classes.dex` | 47.800 B | **68.608 B** |
-| Dateien im APK | 27 | **31** |
-| Unit-Tests | 63 | **94** |
-| Coverage (Zeilen / Zweige) | 18,3 % / 25,6 % | **20,1 % / 27,3 %** |
+| Release APK | 59,060 B | **73,146 B** |
+| `classes.dex` | 47,800 B | **68,608 B** |
+| Files in the APK | 27 | **31** |
+| Unit tests | 63 | **94** |
+| Coverage (lines / branches) | 18.3 % / 25.6 % | **20.1 % / 27.3 %** |
 
-Neu: das „Now Playing“-Feld oben links (App, Interpret, Titel, Cover — aus der
-laufenden Media-Session, anklickbar: OK holt die spielende App zurück), eine
-Einstellungsseite (langes OK auf „…“) und die gemeinsame Datei-Mechanik
-(`ConfigFile`) für Reihenfolge und Einstellungen.
+New: the "Now Playing" field in the top-left (app, artist, title, cover —
+from the playing media session, clickable: OK brings the playing app
+back), a settings screen (long OK on "…") and the shared file mechanics
+(`ConfigFile`) for order and settings.
 
-Was die Zahlen erklären und was nicht: die **vier zusätzlichen Dateien** im APK
-sind die neuen Ressourcen — zwei Layouts und zwei Fokus-Drawables (Layouts und
-Drawables liegen im APK als einzelne `res/*.xml`-Einträge, nicht in
-`resources.arsc`). Die **Coverage steigt** gegenüber 0.11, obwohl die neuen
-Android-Klassen (Einstellungsseite, Media-Session-Abfrage) im Nenner stehen: die
-neuen Regeln (Einstellungsdatei, Now-Playing-Zeile) sind vollständig getestet.
+What the numbers explain and what they don't: the **four additional
+files** in the APK are the new resources — two layouts and two focus
+drawables (layouts and drawables sit in the APK as individual
+`res/*.xml` entries, not in `resources.arsc`). **Coverage rises** against
+0.11 although the new Android classes (settings screen, media session
+query) sit in the denominator: the new rules (settings file, Now Playing
+row) are fully tested.
 
-Der Dex-Zuwachs ist der größte Posten, und er ist nachgemessen statt geschätzt:
-die **neuen** Klassen (`NowPlayingListener`, `data/ConfigFile*`,
+The dex growth is the biggest item, and it was measured instead of
+estimated: the **new** classes (`NowPlayingListener`, `data/ConfigFile*`,
 `data/NavigateSettings`, `data/NowPlaying*`, `data/Settings*`,
-`ui/SettingsActivity*`) belegen im unminifizierten Debug-Dex **56.292 B**
-(Summe der Einzel-Dex-Dateien aus `dexBuilderDebug`, ohne `LauncherActivity`).
-Nach R8 bleiben davon die 20.808 B, um die `classes.dex` gewachsen ist — ein Teil
-davon trägt Kotlin selbst bei (Sequenzen, `BaseAdapter`, die Kleinschreibung ohne
-Locale). Was diese Aufteilung **nicht** zeigt: wie viel R8 an anderer Stelle
-zusätzlich entfernt hat; dafür müssten beide Fassungen gebaut und die Dex-Ausgabe
-verglichen werden.
+`ui/SettingsActivity*`) take up **56,292 B** in the unminified debug dex
+(sum of the individual dex files from `dexBuilderDebug`, without
+`LauncherActivity`). After R8, 20,808 B of that remain — the amount
+`classes.dex` grew by — and part of that is contributed by Kotlin itself
+(sequences, `BaseAdapter`, lowercasing without a locale). What this split
+does **not** show: how much R8 additionally removed elsewhere; for that
+both versions would have to be built and the dex output compared.
 
-Ehrlich dazu: die zwei Einstiegspunkte sind der Preis für das Feld. Wer die
-59-KB-Fassung behalten will, braucht den Zugang nicht zu erteilen — ohne
-Freigabe bleibt das Feld leer, die Klassen sind trotzdem im APK.
+Honest about it: the two entry points are the price of the field. Whoever
+wants to keep the 59 KB version doesn't need to grant the access —
+without the grant the field stays empty, the classes are in the APK
+anyway.
 
-### Auf dem Zielgerät nachgesehen (2026-10-16)
+### Checked on the target device (2026-10-16)
 
-Nicht nur gebaut, sondern auf dem Chromecast HD gesehen — mit einer pausierten
-ZDF-Session als Beispiel:
+Not only built but seen on the Chromecast HD — with a paused ZDF session
+as the example:
 
-| Prüfung | Ergebnis |
+| Check | Result |
 |---|---|
-| Feld mit Cover, App-Name, Titel, Zustand | `[Cover] ZDF · Jagd auf Osama bin Laden · pausiert` (Screenshot) |
-| Erreichbar mit der Fernbedienung | ▲ ▲ vom Raster → der Block hat den Fokus (blauer Rahmen) |
-| **OK auf dem Block** | `topResumedActivity=com.zdf.android.mediathek/.feature.player.ui.tv.PlayerActivity` — der **Player**-Bildschirm, also `sessionActivity` der Session (nicht das Hauptmenü der App) |
-| Danach HOME | `topResumedActivity=com.piotv.navigate/.LauncherActivity`, Feld wieder da |
-| Freigabe | `settings get secure enabled_notification_listeners` enthält `com.piotv.navigate/com.piotv.navigate.NowPlayingListener`; logcat: „Allowing notification listener …“ |
+| Field with cover, app name, title, state | `[Cover] ZDF · Hunting Osama bin Laden · paused` (screenshot) |
+| Reachable with the remote | ▲ ▲ from the grid → the block has the focus (blue border) |
+| **OK on the block** | `topResumedActivity=com.zdf.android.mediathek/.feature.player.ui.tv.PlayerActivity` — the **player** screen, i.e. the session's `sessionActivity` (not the app's main menu) |
+| Then HOME | `topResumedActivity=com.piotv.navigate/.LauncherActivity`, field back |
+| Grant | `settings get secure enabled_notification_listeners` contains `com.piotv.navigate/com.piotv.navigate.NowPlayingListener`; logcat: "Allowing notification listener …" |
 
-Was das **nicht** zeigt: ein laufender (nicht pausierter) Titel wurde auf dem
-Gerät nicht geprüft, und die Auswahl „erste wirklich spielende Session“ wurde nur
-mit einer Session getestet — bei mehreren gleichzeitigen Sessions ist sie eine
-Regel, keine Messung.
+What this does **not** show: a playing (not paused) title was not checked
+on the device, and the choice of "the first session actually playing" was
+tested with one session only — with several simultaneous sessions it is a
+rule, not a measurement.
 
-## 0.11 (Kontextmenü, laufende Aktualisierung, drei Grüntöne)
+## 0.11 (context menu, live refresh, three shades of green)
 
 | | 0.10 | 0.11 |
 |---|---|---|
-| Release-APK | 58.302 B | **59.060 B** |
-| `classes.dex` | 45.560 B | **47.800 B** |
-| Dateien im APK | 29 | **27** |
-| Unit-Tests | 60 | **63** |
-| Coverage (Zeilen / Zweige) | 19,9 % / 26,4 % | **18,3 % / 25,6 %** |
+| Release APK | 58,302 B | **59,060 B** |
+| `classes.dex` | 45,560 B | **47,800 B** |
+| Files in the APK | 29 | **27** |
+| Unit tests | 60 | **63** |
+| Coverage (lines / branches) | 19.9 % / 26.4 % | **18.3 % / 25.6 %** |
 
-Neu: Kontextmenü auf langes OK (Position, Deinstallieren, Schließen), laufende
-Aktualisierung der grünen Schrift (5-Sekunden-Takt, nur solange sichtbar) und ein
-eigener Grünton für die zuletzt geöffnete App. Die Dateizahl im APK **sinkt**,
-weil zwei Farb-Selektoren entfallen sind — die Beschriftungsfarbe setzt jetzt der
-Adapter direkt.
+New: a context menu on long OK (position, uninstall, close), live refresh
+of the green text (5-second beat, only while visible) and its own green
+shade for the most recently opened app. The file count in the APK
+**drops** because two color selectors go away — the label color is set by
+the adapter directly now.
 
-## 0.10 (grün = „in den letzten 24 Stunden im Vordergrund“)
+## 0.10 (green = "in the foreground within the last 24 hours")
 
-0.9 wollte „die App läuft noch“ über die Ereignis-Faltung bestimmen („letztes
-Ereignis nicht `STOPPED`“). Auf dem Zielgerät ist das **falsch herum**: weil unser
-Fenster opak ist, bekommt die App darunter beim HOME-Druck ein
-`ACTIVITY_STOPPED` — die Regel hätte also **nie** etwas grün gemacht.
+0.9 wanted to determine "the app is still running" via event folding ("the
+last event is not `STOPPED`"). On the target device that is **backwards**:
+because our window is opaque, the app below receives an `ACTIVITY_STOPPED`
+on the HOME press — the rule would thus have made **nothing** green ever.
 
-Nachgemessen direkt nach dem HOME-Druck (`dumpsys activity processes`):
+Measured directly after the HOME press (`dumpsys activity processes`):
 
 ```
 *APP* UID 10101 ProcessRecord{… 28159:com.netflix.ninja/u0a101}
@@ -376,237 +337,242 @@ Nachgemessen direkt nach dem HOME-Druck (`dumpsys activity processes`):
 *APP* UID 10064 ProcessRecord{… 16905:com.android.vending/u0a64}
 ```
 
-Die **Prozesse** leben also weiter, nur ihre Activity ist gestoppt. Genau das
-trifft „zuletzt im Vordergrund“ — und die Nutzungsstatistik liefert es billig als
-Zeitstempel je Paket (`UsageStats.getLastTimeUsed`), ohne Durchlauf über alle
-Ereignisse:
+The **processes** live on, only their activity is stopped. That is exactly
+"last in the foreground" — and the usage statistics deliver it cheaply as
+a timestamp per package (`UsageStats.getLastTimeUsed`), without walking
+all events:
 
-- grün = in den letzten **24 Stunden** im Vordergrund (nie vor dem letzten
-  Systemstart),
-- die Abfrage läuft im Hintergrund-Thread und höchstens alle 30 Sekunden,
-- ohne Nutzungszugriff bleibt der letzte bekannte Stand stehen.
+- green = in the foreground within the last **24 hours** (never before the
+  last system boot),
+- the query runs on a background thread and at most every 30 seconds,
+- without usage access the last known state stays standing.
 
-Ehrlich dazu: „Prozess lebt“ ist damit **angenähert**, nicht bewiesen — eine App,
-die vor 23 Stunden benutzt und inzwischen vom System beendet wurde, ist grün.
+Honestly: "the process lives" is thereby **approximated**, not proven —
+an app used 23 hours ago and since killed by the system is green.
 
 | | 0.9 | 0.10 |
 |---|---|---|
-| Release-APK | 58.149 B | **58.302 B** |
-| `classes.dex` | 44.964 B | **45.560 B** |
-| Dateien im APK | 29 | 29 |
-| Unit-Tests | 65 | **60** |
-| Coverage (Zeilen / Zweige) | 20,9 % / 29,6 % | **19,9 % / 26,4 %** |
+| Release APK | 58,149 B | **58,302 B** |
+| `classes.dex` | 44,964 B | **45,560 B** |
+| Files in the APK | 29 | 29 |
+| Unit tests | 65 | **60** |
+| Coverage (lines / branches) | 20.9 % / 29.6 % | **19.9 % / 26.4 %** |
 
-Die Testzahl sinkt, weil die Faltung `ForegroundLog.alive` samt ihren sechs Tests
-entfallen ist: die Frage beantwortet jetzt ein Zeitstempel, keine Ereignisliste.
+The test count drops because the folding `ForegroundLog.alive` went away
+together with its six tests: a timestamp answers the question now, not an
+event list.
 
-## 0.9 (grüne Schrift für laufende Apps)
+## 0.9 (green text for running apps)
 
-Die App-Beschriftungen im Raster sind **grün, solange die App noch läuft**, und
-die Beschriftung steht jetzt zentriert unter dem Symbol.
+The app labels in the grid are **green as long as the app is still
+running**, and the label now sits centered below the icon.
 
-> **Korrigiert in 0.10:** Die Regel dieser Fassung („letztes Ereignis nicht
-> `STOPPED`“) war auf dem Gerät wirkungslos — siehe den Abschnitt 0.10 oben. Der
-> Rest dieses Abschnitts beschreibt, was 0.9 gebaut hat.
+> **Corrected in 0.10:** the rule of this version ("the last event is not
+> `STOPPED`") was ineffective on the device — see section 0.10 above. The
+> rest of this section describes what 0.9 built.
 
 | | 0.8 | 0.9 |
 |---|---|---|
-| Release-APK | 56.616 B | **58.149 B** |
-| `classes.dex` | 42.788 B | **44.964 B** |
-| Dateien im APK | 28 | **29** |
-| Unit-Tests | 59 | **65** |
-| Coverage (Zeilen / Zweige) | 20,9 % / 27,8 % | **20,9 % / 29,6 %** |
+| Release APK | 56,616 B | **58,149 B** |
+| `classes.dex` | 42,788 B | **44,964 B** |
+| Files in the APK | 28 | **29** |
+| Unit tests | 59 | **65** |
+| Coverage (lines / branches) | 20.9 % / 27.8 % | **20.9 % / 29.6 %** |
 
-## 0.8 (zurück in die letzte App) — historisch
+## 0.8 (back into the last app) — historical
 
-Ein HOME-Druck auf der **schon sichtbaren** Home-Seite holt die zuletzt
-benutzte App zurück — und BACK ebenso (erst klappt es das aufgeklappte Raster
-zu, dann geht es in die App). Damit ist HOME ein Umschalter statt einer
-Sackgasse.
+A HOME press on the **already visible** home page brings back the last
+used app — and BACK does the same (first it folds the unfolded grid, then
+it goes into the app). HOME is thus a switcher instead of a dead end.
 
-Die Antwort auf „welche App war zuletzt vorne?" kommt aus zwei Quellen, in
-dieser Reihenfolge:
+The answer to "which app was in the foreground last?" comes from two
+sources, in this order:
 
-1. **Nutzungsstatistik** (`UsageStatsManager.queryEvents`): exakt. Braucht den
-   App-Op `GET_USAGE_STATS` (`adb shell appops set com.piotv.navigate
-   GET_USAGE_STATS allow`) — ein Launcher kann ihn nicht selbst erfragen. Das
-   kurze Fenster (5 Minuten) entscheidet im Normalfall, das lange (6 Stunden) ist
-   die Absicherung: nicht die Abfrage kostet, sondern die Ereignismenge.
-2. **Merker**: die letzte App, die über Navigate gestartet wurde
-   (`SharedPreferences`, nach einem Systemstart verworfen). Ohne Zugriff ist das
-   die ehrliche Näherung — richtig, wenn man die App von hier gestartet hat.
+1. **Usage statistics** (`UsageStatsManager.queryEvents`): exact. Needs
+   the app op `GET_USAGE_STATS` (`adb shell appops set com.piotv.navigate
+   GET_USAGE_STATS allow`) — a launcher cannot query it itself. The short
+   window (5 minutes) decides in the normal case, the long one (6 hours)
+   is the safeguard: it is not the query that costs, but the event set.
+2. **Marker**: the last app started via Navigate (`SharedPreferences`,
+   discarded after a system boot). Without access that is the honest
+   approximation — right when you started the app from here.
 
-Warum nicht `ActivityManager.getRunningTasks`: seit Android 5 liefert das
-normalen Apps nur noch die eigenen Tasks — für einen Launcher wertlos.
+Why not `ActivityManager.getRunningTasks`: since Android 5 that delivers
+only the caller's own tasks to normal apps — useless for a launcher.
 
 | | 0.7 | 0.8 |
 |---|---|---|
-| Release-APK | 55.537 B | **56.616 B** |
-| `classes.dex` | 40.868 B | **42.788 B** |
-| Dateien im APK | 28 | 28 |
-| Unit-Tests | 54 | **59** |
-| Coverage (Zeilen / Zweige) | 22,1 % / 27,4 % | **20,9 % / 27,8 %** |
+| Release APK | 55,537 B | **56,616 B** |
+| `classes.dex` | 40,868 B | **42,788 B** |
+| Files in the APK | 28 | 28 |
+| Unit tests | 54 | **59** |
+| Coverage (lines / branches) | 22.1 % / 27.4 % | **20.9 % / 27.8 %** |
 
-Die Coverage sinkt leicht, weil `LastApp` (Nutzungsstatistik, SharedPreferences)
-reine Android-Verdrahtung ist und ohne Gerät nicht läuft; die prüfbare Faltung
-(`ForegroundLog`) liegt bei 100 %. Details: [ARCHITECTURE.md](ARCHITECTURE.md).
+Coverage drops slightly because `LastApp` (usage statistics,
+SharedPreferences) is pure Android wiring and does not run without a
+device; the testable folding (`ForegroundLog`) sits at 100 %. Details:
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
-## 0.7 (von Grund auf neu gebaut) — historisch
+## 0.7 (rebuilt from the ground up) — historical
 
-Die Fassungen bis 0.6 waren auf dem Zielgerät **bedienbar, aber unsichtbar**:
-`dumpsys window` meldete das Fenster als gezeichnet und sichtbar
-(`mDrawState=HAS_DRAWN`, `mHasSurface=true`, `Surface: shown=true alpha=1.0`),
-der Input-Dispatcher gab ihm den Fokus („Focus entering … LauncherActivity“), die
-App ließ sich blind bedienen — zu sehen war nur ein kurzes Aufblitzen bei einem
-Klick. Alle SurfaceFlinger-Ebenen meldeten `alpha=1.000000`.
+The versions up to 0.6 were **operable but invisible** on the target
+device: `dumpsys window` reported the window as drawn and visible
+(`mDrawState=HAS_DRAWN`, `mHasSurface=true`, `Surface: shown=true
+alpha=1.0`), the input dispatcher gave it the focus ("Focus entering …
+LauncherActivity"), the app could be operated blindly — all that was seen
+was a brief flash on a click. Every SurfaceFlinger layer reported
+`alpha=1.000000`.
 
-Gemeinsam war allen unsichtbaren Fassungen ein **translucentes Fenster**
-(`windowIsTranslucent=true`, alle Fenster-Animationen auf `@null`); jede auf
-diesem Fernseher sichtbare App hat ein opakes Fenster, bei dem die App darunter
-gestoppt wird. 0.7 nimmt deshalb das gewöhnlichste Theme, das es gibt, und baut
-die Oberfläche neu: unten eine Zeile Apps, darunter der „…“-Knopf.
+All invisible versions had in common a **translucent window**
+(`windowIsTranslucent=true`, all window animations set to `@null`); every
+app visible on this TV has an opaque window, where the app below is
+stopped. 0.7 therefore takes the most ordinary theme there is and rebuilds
+the surface: at the bottom a row of apps, below it the "…" button.
 
 | | 0.6 | 0.7 |
 |---|---|---|
-| Release-APK | 54.463 B | **55.537 B** |
-| `classes.dex` | 40.916 B | **40.868 B** |
-| Dateien im APK | 27 | **28** |
-| Unit-Tests | 51 | **54** |
-| Coverage (Zeilen / Zweige) | 22,8 % / 26,7 % | **22,1 % / 27,4 %** |
+| Release APK | 54,463 B | **55,537 B** |
+| `classes.dex` | 40,916 B | **40,868 B** |
+| Files in the APK | 27 | **28** |
+| Unit tests | 51 | **54** |
+| Coverage (lines / branches) | 22.8 % / 26.7 % | **22.1 % / 27.4 %** |
 
-Die Baugrößen sind nachgebaut und vom Doku-Gate geprüft. **Nicht** neu gemessen
-sind Startzeit, Speicher und Frame-Zeit (siehe unten) — und ob das opake Fenster
-tatsächlich die Ursache war, ist aus einer Korrelation geschlossen, nicht
-bewiesen (Details in [ARCHITECTURE.md](ARCHITECTURE.md)).
+The build sizes are reconstructed and checked by the docs gate. **Not**
+re-measured are start time, memory and frame time (see below) — and
+whether the opaque window really was the cause is concluded from a
+correlation, not proven (details in
+[ARCHITECTURE.md](ARCHITECTURE.md)).
 
-## 0.6 (die Zeile ist entfernt) — historisch
+## 0.6 (the row is removed) — historical
 
-Die untere Zeile gibt es nicht mehr: ein HOME-Druck zeigt nur noch das Raster
-(siehe [CHANGELOG](../CHANGELOG.md)). Für den Launcher heißt das: keine
-Nutzungsstatistik-Abfrage, kein Zeilen-Aufbau, kein Fenster-Relayout pro Druck —
-und deutlich weniger Code.
+The bottom row no longer exists: a HOME press shows only the grid (see
+[CHANGELOG](../CHANGELOG.md)). For the launcher that means: no usage
+statistics query, no row build, no window relayout per press — and
+considerably less code.
 
 | | 0.4 | 0.6 |
 |---|---|---|
-| Release-APK | 76.410 B | **54.463 B** |
-| `classes.dex` | 69.260 B | **40.916 B** |
-| Dateien im APK | 37 | **27** |
-| Unit-Tests | 93 | **51** |
-| Coverage (Zeilen / Zweige) | 18,3 % / 25,4 % | **22,8 % / 26,7 %** |
+| Release APK | 76,410 B | **54,463 B** |
+| `classes.dex` | 69,260 B | **40,916 B** |
+| Files in the APK | 37 | **27** |
+| Unit tests | 93 | **51** |
+| Coverage (lines / branches) | 18.3 % / 25.4 % | **22.8 % / 26.7 %** |
 
-Die Baugrößen sind nachgebaut und vom Doku-Gate geprüft. **Nicht** neu gemessen
-sind Startzeit, Speicher und Frame-Zeit: die weiter unten dokumentierten Werte
-(128 ms, ~56 MB, 23 ms) stammen aus Fassungen **mit** der Zeile. Die Erwartung
-für 0.6 ist kleiner — kein Nutzungsstatistik-Aufruf, kein Zeilen-Aufbau, ein
-Fenster weniger —, aber das ist eine Erwartung, keine Messung. Messbefehle:
-„Nachmessen" am Ende dieser Datei.
+The build sizes are reconstructed and checked by the docs gate. **Not**
+re-measured are start time, memory and frame time: the values documented
+further below (128 ms, ~56 MB, 23 ms) come from versions **with** the
+row. The expectation for 0.6 is smaller — no usage statistics query, no
+row build, one window less — but that is an expectation, not a
+measurement. Measurement commands: "Re-measuring" at the end of this
+file.
 
-## 0.4 auf dem Gerät (gemessen 2026-10-14) — historisch
+## 0.4 on the device (measured 2026-10-14) — historical
 
-> Diese Messreihe gehört zur Fassung **mit** der unteren Zeile. Sie steht hier,
-> weil sie die beiden Fehler belegt, die den Umbau ausgelöst haben: das Fenster
-> war korrekt angemeldet, die Zeile war trotzdem nicht zu sehen — und das
-> Zwei-Zustands-Design kostete bei jedem HOME-Druck Arbeit für einen Inhalt, den
-> das Raster auch liefert.
+> This measurement series belongs to the version **with** the bottom row.
+> It stands here because it proves the two mistakes that triggered the
+> rebuild: the window was registered correctly, the row was still not to
+> be seen — and the two-state design cost work on every HOME press for
+> content the grid delivers anyway.
 
-Erste Messung seit 0.1 — 0.2, 0.3 und 0.4 liefen bis hierher nur auf dem
-Rechner. Installiert mit `adb install -r` (gleiche Signatur, App-Daten erhalten),
-Gerät wie oben, die drei Einrichtungsschritte aus [INSTALL.md](INSTALL.md) waren
-bereits aktiv.
+First measurement since 0.1 — 0.2, 0.3 and 0.4 had only run on the
+computer until here. Installed with `adb install -r` (same signature, app
+data kept), device as above, the three setup steps from
+[INSTALL.md](INSTALL.md) were already active.
 
-### Was funktioniert (funktional geprüft)
+### What works (verified functionally)
 
-| Prüfung | Ergebnis |
+| Check | Result |
 |---|---|
-| Home-Seite | **15 Apps** im Raster: ARD Mediathek, Dateimanager +, Disney+, Einstellungen, HBO Max, Netflix, Play Store, Prime Video, Projectivy Launcher, Shizuku, Stremio, Termux, Termux:Boot, YouTube, ZDF |
-| davon nur über LEANBACK gefunden | **Prime Video, HBO Max (`wbd.stream`), ARD Mediathek** — genau die drei, die eine reine `LAUNCHER`-Abfrage verschweigt |
-| Favoritenzeile | **9 Elemente**: Netflix · YouTube · HBO Max · Play Store · Disney+ · ZDF · Home · Navigate · Einstellungen |
-| HOME über laufender App | Fenster korrekt angemeldet (`fillxwrap`, `Requested 1920 × 272`, `frame=[0,808][1920,1080]`) — **die Zeile war auf dem Bildschirm nicht zu sehen** (Nutzer-Beobachtung, siehe Fenstergeometrie unten) |
-| HOME erneut | App wieder vorn und fokussiert (Play Store) |
-| Abstürze | keine (Crash-Puffer leer) |
+| Home page | **15 apps** in the grid: ARD Mediathek, File Manager +, Disney+, Settings, HBO Max, Netflix, Play Store, Prime Video, Projectivy Launcher, Shizuku, Stremio, Termux, Termux:Boot, YouTube, ZDF |
+| of which found only via LEANBACK | **Prime Video, HBO Max (`wbd.stream`), ARD Mediathek** — exactly the three a pure `LAUNCHER` query hides |
+| Favorites row | **9 items**: Netflix · YouTube · HBO Max · Play Store · Disney+ · ZDF · Home · Navigate · Settings |
+| HOME over a running app | window registered correctly (`fillxwrap`, `Requested 1920 × 272`, `frame=[0,808][1920,1080]`) — **the row was not visible on the screen** (user observation, see window geometry below) |
+| HOME again | app in front and focused again (Play Store) |
+| Crashes | none (crash buffer empty) |
 
-Die Favoritenzeile ist zugleich der Beweis für die Import-Reparatur aus 0.4: die
-sechs Favoriten standen nur in der per `adb push` abgelegten `navigate.conf` im
-externen Import-Pfad. Vor 0.4 hätte der Import nie stattgefunden (siehe
-[CHANGELOG](../CHANGELOG.md)), die Zeile wäre leer geblieben.
+The favorites row is at the same time the proof of the import repair from
+0.4: the six favorites stood only in the `navigate.conf` dropped via
+`adb push` into the external import path. Before 0.4 the import would
+never have happened (see [CHANGELOG](../CHANGELOG.md)), the row would
+have stayed empty.
 
-### Werte
+### Values
 
-| | 0.1 (auf dem Gerät) | 0.4 (auf dem Gerät) |
+| | 0.1 (on the device) | 0.4 (on the device) |
 |---|---|---|
-| TOTAL PSS (Raster warm) | ~56 MB | **53,4 MB** (53.384–53.424 kB, 3 Proben) |
-| TOTAL RSS | nicht gemessen | 110 MB |
+| TOTAL PSS (grid warm) | ~56 MB | **53.4 MB** (53,384–53,424 kB, 3 samples) |
+| TOTAL RSS | not measured | 110 MB |
 | Views | 76 | **85** |
-| Frame-Zeit beim HOME-Druck | nicht gemessen | **23 ms** (50./90./95. Perzentil über zwei Drucke) |
+| Frame time on the HOME press | not measured | **23 ms** (50th/90th/95th percentile over two presses) |
 
-`am start -W` ist für eine Home-App keine sinnvolle Messung: das System hält den
-Prozess warm, der Befehl meldet dann `TotalTime: 0`, weil nur das vorhandene
-Fenster nach vorn kommt (die 128 ms aus 0.1 waren der Kaltstart-Sonderfall).
-Belastbar ist die Frame-Zeit des Übergangs: **23 ms** für das Aufklappen der
-Zeile.
+`am start -W` is not a meaningful measurement for a home app: the system
+keeps the process warm, the command then reports `TotalTime: 0` because
+only the existing window comes forward (the 128 ms from 0.1 were the
+cold-start special case). Solid is the frame time of the transition:
+**23 ms** for unfolding the row.
 
-### Zwei dokumentierte Aussagen reproduzieren nicht
+### Two documented claims do not reproduce
 
-1. **„Die App hinter der Zeile wird gestoppt"** — sie wird **pausiert**.
-   Gemessen mit dem Play Store und mit WOW: `ACTIVITY_PAUSED`, Fenster bleibt
-   (`mHasSurface=true`, `isOnScreen=true`). Die App läuft also weiter. Das ist
-   das bessere Verhalten, aber es ist nicht das, was in 0.1 gemessen wurde.
-2. **„Mit `TRANSLUCENT` ist die Zeile nicht sichtbar"** — diese Aussage stützte
-   sich auf `screencap`, und `screencap` ist auf diesem Gerät für diese Frage
-   untauglich: die Zeile wird als **Hardware-Overlay** komponiert
-   (`composition type=DEVICE`, gültiger Puffer `1920 × 272`, `alpha=1.0`), und
-   genau solche Ebenen lässt die Aufnahme weg. Belegt: bei stehender Zeile sind
-   drei Aufnahmen in verschiedenen Zuständen **byte-identisch** (gleiche
-   MD5-Summe) und zeigen die App darunter, während die Fensterebene der App einen
-   gültigen Puffer hat.
+1. **"The app behind the row is stopped"** — it is **paused**. Measured
+   with the Play Store and with WOW: `ACTIVITY_PAUSED`, the window stays
+   (`mHasSurface=true`, `isOnScreen=true`). The app thus keeps running.
+   That is the better behavior, but it is not what was measured in 0.1.
+2. **"With `TRANSLUCENT` the row is not visible"** — that claim leaned on
+   `screencap`, and `screencap` is unfit for this question on this device:
+   the row is composited as a **hardware overlay** (`composition
+   type=DEVICE`, valid buffer `1920 × 272`, `alpha=1.0`), and exactly such
+   layers the capture leaves out. Evidence: with the row standing, three
+   captures in different states are **byte-identical** (same MD5 sum) and
+   show the app below, while the app's window layer has a valid buffer.
 
-   Der ausgelieferte Weg (`TRANSPARENT`) bleibt damit richtig — nur die
-   Begründung war falsch: er liefert auf diesem Gerät **beides**, sichtbare Zeile
-   und weiterlaufende App. Wer das nachmessen will, braucht die Fenster- und
-   SurfaceFlinger-Daten, nicht `screencap`:
+   The shipped route (`TRANSPARENT`) therefore stays right — only the
+   reasoning was wrong: on this device it delivers **both**, a visible row
+   and an app that keeps running. Whoever wants to re-measure this needs
+   the window and SurfaceFlinger data, not `screencap`:
 
    ```bash
    adb shell dumpsys window windows | grep -A12 'navigate'
    adb shell dumpsys SurfaceFlinger | grep -A6 'LauncherActivity#'
-   #   gültig: geomBufferSize=[0 0 1920 272]  composition type=DEVICE  alpha=1.000000
+   #   valid: geomBufferSize=[0 0 1920 272]  composition type=DEVICE  alpha=1.000000
    ```
 
-   Merkregel neben der DRM-Regel weiter unten: **ein leeres oder unverändertes
-   `screencap`-Bild heißt nicht „nicht sichtbar"** — auf diesem Gerät fehlen
-   Overlay-Ebenen im Bild.
+   Rule of thumb next to the DRM rule below: **an empty or unchanged
+   `screencap` image does not mean "not visible"** — on this device
+   overlay layers are missing from the image.
 
-## Größe
+## Size
 
 | | |
 |---|---|
-| Release-APK | **75 KB** (76.430 B, 37 Dateien) |
-| davon `classes.dex` | **69.284 B** (68 KB) — die einzige Dex-Datei |
-| Debug-APK (ohne R8) | 890.792 B (870 KB) |
-| Abhängigkeiten | keine außer `kotlin-stdlib` (von R8 beschnitten) |
+| Release APK | **75 KB** (76,430 B, 37 files) |
+| of which `classes.dex` | **69,284 B** (68 KB) — the only dex file |
+| Debug APK (without R8) | 890,792 B (870 KB) |
+| Dependencies | none except `kotlin-stdlib` (trimmed by R8) |
 
-Der Vergleich Debug → Release ist der ganze Performance-Plan in einer Zeile:
-R8 entfernt die ungenutzte Kotlin-Stdlib, `shrinkResources` die ungenutzten
-Ressourcen. Weniger Dex heißt kürzere Kaltstartzeit.
+The comparison debug → release is the whole performance plan in one line:
+R8 removes the unused Kotlin stdlib, `shrinkResources` the unused
+resources. Less dex means a shorter cold start.
 
-## Messwerte, maschinenlesbar
+## Metrics, machine-readable
 
-Dieser Block ist die Quelle der Wahrheit für
-[`tools/check_docs_drift.sh`](../tools/check_docs_drift.sh): das Skript liest die
-Werte hier, vergleicht sie mit dem gebauten Release-APK und bricht bei einer
-Abweichung ab. Die Prosa in dieser Datei und in README.md muss dieselben Zahlen
-nennen — sonst driften die Dokumente auseinander und der Leser glaubt der
-falschen. (Genau das war in 0.3 der Fall: 73.686 B dokumentiert, 73.679 B
-gebaut.)
+This block is the source of truth for
+[`tools/check_docs_drift.sh`](../tools/check_docs_drift.sh): the script
+reads the values here, compares them against the built release APK and
+aborts on a deviation. The prose in this file and in README.md must name
+the same numbers — otherwise the documents drift apart and the reader
+believes the wrong one. (That is exactly what happened in 0.3: 73,686 B
+documented, 73,679 B built.)
 
-**Zwei APK, zwei Zahlen — und beide werden geprüft.** Mit Credentials signiert AGP
-zu `app-release.apk`, ohne sie zu `app-release-unsigned.apk`; die Signatur liegt
-als `META-INF/CERT.*` im Archiv, deshalb ist die unsignierte Fassung kleiner (und
-hat drei Dateien weniger). Das Gate nimmt **das gebaute** APK und vergleicht es mit
-dem passenden Wert: lokal mit `keystore/keystore.properties` sind das
-`release_apk_bytes`/`apk_files`, in der CI ohne Keystore-Secret
-`release_apk_unsigned_bytes`/`apk_unsigned_files`. Das Dex ist in beiden Fällen
-byte-gleich (`release_dex_bytes`), weil die Signatur nur Einträge in `META-INF`
-hinzufügt.
+**Two APKs, two numbers — and both are checked.** With credentials AGP
+signs to `app-release.apk`, without them to `app-release-unsigned.apk`;
+the signature sits in the archive as `META-INF/CERT.*`, which is why the
+unsigned version is smaller (and has three files fewer). The gate takes
+**the built** APK and compares it against the matching value: locally,
+with `keystore/keystore.properties`, that is
+`release_apk_bytes`/`apk_files`, in CI without a keystore secret
+`release_apk_unsigned_bytes`/`apk_unsigned_files`. The dex is byte-equal
+in both cases (`release_dex_bytes`), because the signature only adds
+entries in `META-INF`.
 
 ```
 release_apk_bytes=85654
@@ -620,45 +586,45 @@ coverage_lines_percent=24.8
 coverage_branches_percent=34.6
 ```
 
-Warum die APK-Größe reproduzierbar ist: die VCS-Info-Datei
-(`META-INF/version-control-info.textproto`) wird seit 0.4 nicht mehr mitgepackt
-(`vcsInfo.include = false`). Sie enthielt den Git-Zustand des Builds und
-variierte zwischen 42 B („NO_VALID_GIT_FOUND") und 120 B (Commit-Hash) — eine
-dokumentierte Byte-Zahl wäre damit nicht nachprüfbar gewesen.
+Why the APK size is reproducible: the VCS info file
+(`META-INF/version-control-info.textproto`) is no longer packed in since
+0.4 (`vcsInfo.include = false`). It carried the build's git state and
+varied between 42 B ("NO_VALID_GIT_FOUND") and 120 B (commit hash) — a
+documented byte count would not have been verifiable that way.
 
-## Startzeit
+## Start time
 
 ```bash
 adb shell am force-stop com.piotv.navigate
 adb shell am start -W -n com.piotv.navigate/.LauncherActivity
 ```
 
-| Fall | `TotalTime` |
+| Case | `TotalTime` |
 |---|---|
-| Prozess läuft bereits (Normalfall, HOME-Druck) | **128 ms** |
-| HOME-Druck über laufender App | nur Fensteränderung (`fillxwrap`), kein Activity-Neustart → nicht messbar, nicht sichtbar |
+| Process already running (normal case, HOME press) | **128 ms** |
+| HOME press over a running app | only a window change (`fillxwrap`), no activity restart → not measurable, not visible |
 
-Der Launcher-Prozess wird vom System warmgehalten (Home-App). Der HOME-Druck
-ändert in der Regel nur Fenstergröße und Sichtbarkeit — deshalb ist die
-gefühlt relevante Zeit der erste Frame nach dem Aufklappen des Docks, nicht
-ein Prozessstart.
+The system keeps the launcher process warm (home app). The HOME press
+usually changes only window size and visibility — which is why the time
+that feels relevant is the first frame after the dock unfolds, not a
+process start.
 
-`force-stop` auf die Home-App ist ein Sonderfall: das System startet sie sofort
-wieder (`LaunchState: HOT`), die Messung ist also realistisch.
+`force-stop` on the home app is a special case: the system restarts it
+immediately (`LaunchState: HOT`), so the measurement is realistic.
 
-## Fenstergeometrie (der Beweis für die zwei Modi)
+## Window geometry (the proof of the two modes)
 
 ```bash
 adb shell dumpsys window windows | grep -A12 'com.piotv.navigate/com.piotv.navigate'
 ```
 
-| Modus | `mAttrs` | `Requested w/h` | Bedeutung |
+| Mode | `mAttrs` | `Requested w/h` | Meaning |
 |---|---|---|---|
-| (einziger) | `(0,0)(fillxfill) gr=TOP START CENTER` | 1920 × 1080 | Home-Seite über den ganzen Bildschirm |
+| (the only one) | `(0,0)(fillxfill) gr=TOP START CENTER` | 1920 × 1080 | home page over the whole screen |
 
-Seit 0.6 gibt es nur noch einen Zustand, und das Fenster ist immer der ganze
-Bildschirm. Bis 0.5 war das DOCK-Fenster auf die Zeile verkleinert — gemessen
-mit 0.4:
+Since 0.6 there is only one state, and the window is always the whole
+screen. Until 0.5 the DOCK window was shrunk to the row — measured with
+0.4:
 
 ```
 mAttrs={(0,0)(fillxwrap) gr=BOTTOM CENTER … ty=BASE_APPLICATION fmt=TRANSPARENT
@@ -666,34 +632,35 @@ Requested w=1920 h=272
 Frames: frame=[0,808][1920,1080]
 ```
 
-Das Fenster war also korrekt angemeldet, und das System lieferte den HOME-Intent
-normal aus (`wm_on_resume_called`, `input_focus: Focus entering … reason=Window
-became focusable`). Auf dem Bildschirm war die Zeile trotzdem nicht zu sehen —
-gemeldet vom Nutzer, und genau das war die einzige strukturelle Differenz zum
-Raster-Zustand, der sichtbar funktioniert. 0.5 hat die Größe angeglichen, 0.6
-den zweiten Zustand entfernt: ein Fenster, ein Inhalt.
+So the window was registered correctly, and the system delivered the
+HOME intent normally (`wm_on_resume_called`, `input_focus: Focus entering
+… reason=Window became focusable`). On the screen the row was still not
+to be seen — reported by the user, and exactly that was the only
+structural difference to the grid state, which visibly works. 0.5 aligned
+the size, 0.6 removed the second state: one window, one content.
 
-## Fensterformat: der gemessene Kompromiss
+## Window format: the measured compromise
 
 ```bash
 adb shell dumpsys usagestats | grep -E 'ACTIVITY_(RESUMED|PAUSED|STOPPED)'
 adb shell dumpsys window windows | grep -A12 'Window.*termux'
 ```
 
-| Fensterformat | App darunter | Zeile sichtbar? |
+| Window format | App below | Row visible? |
 |---|---|---|
-| `TRANSPARENT` (Theme-Wert, so ausgeliefert), 0.1 | `ACTIVITY_STOPPED`, Fenster weg (`mHasSurface=false`) | **ja** |
-| `TRANSLUCENT` (`window.setFormat`), 0.1 | `ACTIVITY_PAUSED`, Fenster bleibt (`mViewVisibility=0x0`) | „nein" — per `screencap` gemessen, siehe Vorbehalt unten |
-| `TRANSPARENT`, **0.4 nachgemessen** | `ACTIVITY_PAUSED`, Fenster bleibt (`mHasSurface=true`) | **ja** (Overlay mit gültigem Puffer) |
+| `TRANSPARENT` (theme value, as shipped), 0.1 | `ACTIVITY_STOPPED`, window gone (`mHasSurface=false`) | **yes** |
+| `TRANSLUCENT` (`window.setFormat`), 0.1 | `ACTIVITY_PAUSED`, window stays (`mViewVisibility=0x0`) | "no" — measured via `screencap`, see the caveat below |
+| `TRANSPARENT`, **re-measured in 0.4** | `ACTIVITY_PAUSED`, window stays (`mHasSurface=true`) | **yes** (overlay with a valid buffer) |
 
-Messung zum zweiten Fall (eigenes Wurzel-Layout probeweise knallrot gefüllt):
+Measurement of the second case (own root layout filled signal red as a
+test):
 
 ```bash
 adb shell screencap -p /data/local/tmp/shot.png
-# Pixel im Fensterbereich: (4,3,3) und (2,2,2) — die App darunter, kein Rot
+# Pixels in the window area: (4,3,3) and (2,2,2) — the app below, no red
 ```
 
-Gleichzeitig meldete das System das Fenster als gesund:
+At the same time the system reported the window as healthy:
 
 ```
 mDrawState=HAS_DRAWN   mLastHidden=false
@@ -701,48 +668,48 @@ Surface: shown=true layer=0 alpha=1.0
 SurfaceFlinger: VisibleRegion [0,808,1920,1080]
 ```
 
-Der Compositor hielt die Fläche also für sichtbar, die Pixel sagten etwas
-anderes. Ausgeliefert wird deshalb `TRANSPARENT`: eine Zeile, die man nicht
-sieht, ist keine Zeile. Der Preis (die App wird gestoppt) steht in
+So the compositor held the surface for visible, the pixels said something
+else. What ships is therefore `TRANSPARENT`: a row you cannot see is not
+a row. The price (the app is stopped) is in
 [ARCHITECTURE.md](ARCHITECTURE.md).
 
-> **Vorbehalt, nachgemessen am 2026-10-14 mit 0.4:** Beide Zeilen dieser Tabelle
-> sind so nicht mehr reproduzierbar. Die App darunter wird auch mit
-> `TRANSPARENT` nur pausiert, und die „nicht sichtbar"-Feststellung für
-> `TRANSLUCENT` beruhte auf `screencap`, das auf diesem Gerät
-> Hardware-Overlay-Ebenen (und damit genau die Zeile) aus dem Bild lässt. Details
-> und Belege im Abschnitt [„0.4 auf dem Gerät"](#04-auf-dem-gerät-gemessen-2026-10-14).
-> Die Entscheidung für `TRANSPARENT` bleibt richtig — sie ist nur besser als
-> angenommen: sichtbare Zeile **und** weiterlaufende App.
+> **Caveat, re-measured on 2026-10-14 with 0.4:** neither row of this
+> table reproduces that way. The app below is only paused even with
+> `TRANSPARENT`, and the "not visible" finding for `TRANSLUCENT` leaned
+> on `screencap`, which on this device leaves hardware overlay layers
+> (and thus exactly the row) out of the image. Details and evidence in
+> the section ["0.4 on the device"](#04-on-the-device-measured-2026-10-14).
+> The decision for `TRANSPARENT` stays right — it is only better than
+> assumed: a visible row **and** an app that keeps running.
 
-## Warum `screencap` lange „kaputt" war
+## Why `screencap` was "broken" for so long
 
-`adb shell screencap` lieferte 0 Bytes, solange Netflix im Vordergrund war:
+`adb shell screencap` delivered 0 bytes as long as Netflix was in the
+foreground:
 
 ```bash
 $ adb shell screencap -p /data/local/tmp/s.png ; echo $?
 1
 $ adb shell ls -la /data/local/tmp/s.png
--rw-rw-r-- 1 shell shell 0 ...        # leere Datei
+-rw-rw-r-- 1 shell shell 0 ...        # empty file
 ```
 
-Ursache ist **nicht** das Gerät und **nicht** die App: Netflix setzt für seine
-Wiedergabe `FLAG_SECURE` (DRM), und eine gesicherte Fläche lässt sich nicht
-aufnehmen — die Aufnahme schlägt dann komplett fehl. Nach `am force-stop
-com.netflix.ninja` (bzw. mit jeder anderen App im Vordergrund) funktioniert
-`screencap` sofort:
+The cause is **not** the device and **not** the app: Netflix sets
+`FLAG_SECURE` (DRM) for its playback, and a secured surface cannot be
+captured — the capture then fails entirely. After `am force-stop
+com.netflix.ninja` (or with any other app in the foreground) `screencap`
+works immediately:
 
 ```bash
 $ adb shell screencap -p /data/local/tmp/shot.png ; ls -la ...
 -rw-rw-r-- 1 shell shell 103982 ...   # 103 KB, 1920x1080 RGBA
 ```
 
-Merkregel für die Fehlersuche auf diesem Gerät: erst `screencap` prüfen, dann
-urteilen. Eine leere Datei heißt „hier läuft gerade DRM", nicht „Screenshot geht
-nicht".
+Rule of thumb for troubleshooting on this device: check `screencap`
+first, then judge. An empty file means "DRM is running here", not "the
+screenshot does not work".
 
-
-## Speicher
+## Memory
 
 ```bash
 adb shell dumpsys meminfo com.piotv.navigate
@@ -750,26 +717,26 @@ adb shell dumpsys meminfo com.piotv.navigate
 
 | | 0.1 | 0.4 (2026-10-14) |
 |---|---|---|
-| TOTAL PSS | ~56 MB | **53,4 MB** |
-| TOTAL RSS | nicht gemessen | 110 MB |
-| Private Dirty | ~17,6 MB | nicht einzeln erfasst |
-| Private Clean | ~25,7 MB (gemappte App-Ressourcen für die Symbole, vom Kernel verdrängbar) | nicht einzeln erfasst |
-| Native Heap | ~10,8 MB | ~7,0 MB |
-| Dalvik Heap | ~1,3 MB | ~6,5 MB |
+| TOTAL PSS | ~56 MB | **53.4 MB** |
+| TOTAL RSS | not measured | 110 MB |
+| Private Dirty | ~17.6 MB | not recorded separately |
+| Private Clean | ~25.7 MB (mapped app resources for the icons, evictable by the kernel) | not recorded separately |
+| Native Heap | ~10.8 MB | ~7.0 MB |
+| Dalvik Heap | ~1.3 MB | ~6.5 MB |
 | Views | 76 | **85** |
 | Activities | 1 | 1 |
 
-Gemessen direkt nach dem Aufbau des Rasters mit 15 App-Symbolen (LRU-Cache max.
-8 MB). Der „Private Clean"-Anteil entsteht, weil zum Dekodieren eines Symbols
-die Ressourcen der jeweiligen App gemappt werden müssen — file-backed, also
-unter Speicherdruck verdrängbar.
+Measured right after the grid was built with 15 app icons (LRU cache max.
+8 MB). The "Private Clean" share arises because decoding an icon requires
+mapping the respective app's resources — file-backed, thus evictable
+under memory pressure.
 
-Beide Spalten gehören zur Fassung **mit** der unteren Zeile (85 Views = Raster +
-9 Zeilen-Elemente). Für 0.6 ist der Speicher **nicht** neu gemessen; die
-Erwartung ist niedriger, weil die Zeile und ihre neun Symbol-Views entfallen —
-aber das ist eine Erwartung.
+Both columns belong to the version **with** the bottom row (85 views =
+grid + 9 row items). For 0.6 the memory was **not** re-measured; the
+expectation is lower, because the row and its nine icon views go away —
+but that is an expectation.
 
-## App-Erkennung (die Messung, die die Architektur bestimmt hat)
+## App detection (the measurement that determined the architecture)
 
 ```bash
 adb shell cmd package query-activities -a android.intent.action.MAIN \
@@ -778,185 +745,189 @@ adb shell cmd package query-activities -a android.intent.action.MAIN \
   -c android.intent.category.LEANBACK_LAUNCHER | grep packageName
 ```
 
-| Kategorie | Pakete (Gerät) |
+| Category | Packages (device) |
 |---|---|
 | `LAUNCHER` | filemanager, vending, disney+, youtube, netflix, projengmenu, stremio, termux, termux.boot, zdf, shizuku |
-| `LEANBACK_LAUNCHER` | dieselben **+ amazonvideo, wbd.stream, ard.tv, tv.settings** |
+| `LEANBACK_LAUNCHER` | the same **+ amazonvideo, wbd.stream, ard.tv, tv.settings** |
 
-→ 15 Apps im Raster, davon 3, die eine reine `LAUNCHER`-Abfrage (und damit
-`LauncherApps.getActivityList`) nie gefunden hätte.
+→ 15 apps in the grid, 3 of which a pure `LAUNCHER` query (and thus
+`LauncherApps.getActivityList`) would never have found.
 
-## HOME-Auflösung (die Messung, die die Priorität bestimmt hat)
+## HOME resolution (the measurement that determined the priority)
 
 ```bash
 adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN \
   -c android.intent.category.HOME
 ```
 
-Vorher:
+Before:
 
 ```
 priority=1 preferredOrder=0 match=0x108000 specificIndex=-1 isDefault=true
 com.google.android.tungsten.setupwraith/.RecoveryActivity
 ```
 
-Obwohl Navigate die HOME-Rolle hielt. Nach `pm disable-user` von `setupwraith`
-und `priority=10` im eigenen HOME-Filter:
+Although Navigate held the HOME role. After `pm disable-user` of
+`setupwraith` and `priority=10` in the own HOME filter:
 
 ```
 START u0 {act=android.intent.action.MAIN cat=[android.intent.category.HOME]
           cmp=com.piotv.navigate/.LauncherActivity} from uid 0
 ```
 
-## HOME-Druck: die zwei Zustellwege
+## The HOME press: the two delivery routes
 
 ```bash
 adb shell logcat -d | grep 'START u0.*HOME'
 ```
 
-| Zustellweg | `result code` | Bedeutung | Reaktion |
+| Delivery route | `result code` | Meaning | Reaction |
 |---|---|---|---|
-| Launcher im Hintergrund | 2 | `START_TASK_TO_FRONT` | Raster zeigen (`onCreate`/`onResume`) |
-| Launcher steht schon vorn | 3 | `START_DELIVERED_TO_TOP` | `onNewIntent` → Raster zeigen |
+| Launcher in the background | 2 | `START_TASK_TO_FRONT` | show the grid (`onCreate`/`onResume`) |
+| Launcher already in front | 3 | `START_DELIVERED_TO_TOP` | `onNewIntent` → show the grid |
 
-Beide Wege enden in derselben idempotenten Arbeit (`onHomePressed()`), und das
-ist Absicht: bei **jedem** HOME-Druck läuft vor `onNewIntent` ein `onPause` der
-Activity (gemessen). Ein Zustandsmerker „Intent schon gesehen?" wäre dort
-wertlos — genau daran ist die erste Fassung des zweiten HOME-Drucks gescheitert.
+Both routes end in the same idempotent work (`onHomePressed()`), and that
+is intentional: on **every** HOME press an `onPause` of the activity runs
+before `onNewIntent` (measured). A state marker "intent already seen?"
+would be worthless there — that is exactly where the first version of the
+second HOME press failed.
 
-## Nachmessen (0.6 ist gebaut — die Gerätemessung dieser Fassung steht noch aus)
+## Re-measuring (0.6 is built — the device measurement of this version is still missing)
 
-Stand 0.6, hier im Projekt gebaut und geprüft; die Zahlen sind vom Doku-Gate
-geprüft. Die Gerätemessungen weiter oben (Startzeit, Speicher, Frame-Zeit)
-stammen aus Fassungen **mit** der unteren Zeile. Die folgende Tabelle führt die
-Baugrößen über die Fassungen:
+State of 0.6, built and tested here in the project; the numbers are
+checked by the docs gate. The device measurements further above (start
+time, memory, frame time) come from versions **with** the bottom row. The
+following table carries the build sizes across the versions:
 
-| | 0.1 (gemessen auf dem Gerät) | 0.2 (lokal gebaut) | 0.3 (lokal gebaut) | 0.4 (lokal gebaut) | 0.6 (lokal gebaut) |
+| | 0.1 (measured on the device) | 0.2 (built locally) | 0.3 (built locally) | 0.4 (built locally) | 0.6 (built locally) |
 |---|---|---|---|---|---|
-| Release-APK | 71.321 B | 73.721 B | 73.686 B | 76.430 B | **54.463 B** |
-| `classes.dex` | 61 KB | 65.664 B (65 KB) | 65.608 B (64 KB) | 69.284 B (68 KB) | **40.916 B** (40 KB) |
-| Dateien im APK | 36 | 36 | 36 | 37 | **27** |
-| Unit-Tests | 23 `@Test` (README behauptete 25) | 40 | 47 | 93 | **51** |
-| Lint-Warnungen | nicht geprüft | nicht geprüft | 15 | 0 | **0** |
-| Coverage (Zeilen / Zweige) | nicht gemessen | nicht gemessen | nicht gemessen | 18,3 % / 25,4 % | **22,8 % / 26,7 %** |
+| Release APK | 71,321 B | 73,721 B | 73,686 B | 76,430 B | **54,463 B** |
+| `classes.dex` | 61 KB | 65,664 B (65 KB) | 65,608 B (64 KB) | 69,284 B (68 KB) | **40,916 B** (40 KB) |
+| Files in the APK | 36 | 36 | 36 | 37 | **27** |
+| Unit tests | 23 `@Test` (README claimed 25) | 40 | 47 | 93 | **51** |
+| Lint warnings | not checked | not checked | 15 | 0 | **0** |
+| Coverage (lines / branches) | not measured | not measured | not measured | 18.3 % / 25.4 % | **22.8 % / 26.7 %** |
 
-0.3 ist **35 B kleiner** als 0.2, weil toter Code entfernt wurde
-(`ForegroundProbe.hasUsageAccess()` und ein ungenutzter String) — kein
-Laufzeitverhalten geändert, aber R8 hat weniger zu behalten.
+0.3 is **35 B smaller** than 0.2, because dead code was removed
+(`ForegroundProbe.hasUsageAccess()` and an unused string) — no runtime
+behavior changed, but R8 has less to keep.
 
-0.4 ist **2.744 B größer** als 0.3, und die Dex-Datei wächst um **3.676 B**: vier
-neue Klassen samt Tests und zwei neue Ressourcen-Dateien. Gegenläufig wirkt der
-weggefallene VCS-Eintrag (120 B) — genau der Grund, warum die Zahl jetzt
-nachprüfbar ist.
+0.4 is **2,744 B larger** than 0.3, and the dex file grows by **3,676 B**:
+four new classes with their tests and two new resource files. Working
+against it is the dropped VCS entry (120 B) — exactly the reason the
+number is verifiable now.
 
-0.6 ist **21.947 B kleiner** als 0.4 und die Dex-Datei **28.344 B kleiner**: mit
-der Zeile sind `DockController`, `DockSignature`, `SettingsActivity`,
-`SettingsAdapter`, `FavoritesCodec`, `ForegroundProbe`, `UsageEventFolder`,
-`ModeDecider`, `HomeKeyPolicy` und `Prefs` entfallen — dazu die Hälfte der
-Ressourcen (27 statt 37 Dateien im APK). Das ist kein Sparentscheid am Detail,
-sondern die Folge davon, dass der Launcher einen Zustand hat statt zwei.
+0.6 is **21,947 B smaller** than 0.4 and the dex file **28,344 B
+smaller**: with the row, `DockController`, `DockSignature`,
+`SettingsActivity`, `SettingsAdapter`, `FavoritesCodec`, `ForegroundProbe`,
+`UsageEventFolder`, `ModeDecider`, `HomeKeyPolicy` and `Prefs` went away —
+plus half the resources (27 instead of 37 files in the APK). That is not
+a saving decided at the detail level, but the consequence of the launcher
+having one state instead of two.
 
-### Lint und Coverage (die zwei neuen Gates)
+### Lint and coverage (the two new gates)
 
 ```bash
-sh gradlew :app:lintDebug                    # 0 Warnungen, warningsAsErrors = true
-sh gradlew :app:unitTestCoverageReport       # HTML + XML unter build/reports/jacoco/
-sh gradlew :app:unitTestCoverageVerification # Gate: 16 % Zeilen / 22 % Zweige
-bash tools/check_docs_drift.sh               # der Block oben gegen das gebaute APK
+sh gradlew :app:lintDebug                    # 0 warnings, warningsAsErrors = true
+sh gradlew :app:unitTestCoverageReport       # HTML + XML under build/reports/jacoco/
+sh gradlew :app:unitTestCoverageVerification # gate: 16 % lines / 22 % branches
+bash tools/check_docs_drift.sh               # the block above against the built APK
 ```
 
-Die Coverage-Zahl braucht eine Einordnung, sonst ist sie irreführend: **22,8 %
-Zeilen** klingt nach wenig, ist aber das Verhältnis über *alle* Klassen — und die
-Klassen, die ein Gerät brauchen (Activity, Adapter, Loader, Repository, Executor,
-Toasts: rund 400 der 530 Zeilen), stehen darin und liegen bei 0 %. Jede Klasse,
-die ohne Gerät prüfbar ist, ist **vollständig** abgedeckt:
+The coverage number needs context, otherwise it is misleading: **22.8 %
+lines** sounds like little, but it is the ratio over *all* classes — and
+the classes that need a device (activity, adapter, loader, repository,
+executor, toasts: about 400 of the 530 lines) sit in it and are at 0 %.
+Every class testable without a device is **completely** covered:
 
-| Klasse | Zeilen | Coverage |
+| Class | Lines | Coverage |
 |---|---|---|
 | `ConfigCodec` (+ `Config`) | 40 | 100 % |
-| `NavigateConfig` | 54 | 94,4 % (ohne `get(context)`) |
+| `NavigateConfig` | 54 | 94.4 % (without `get(context)`) |
 | `AppCatalog` (+ `Candidate`) | 15 | 100 % |
 | `GridColumns` | 2 | 100 % |
 | `IconGeometry` (+ `Fit`) | 10 | 100 % |
 | `IconCacheKeys` | 4 | 100 % |
 
-Die Gesamtquote ist damit ein **Regressions**schutz, kein Qualitätsziel: neue
-Logik ohne Test senkt sie und lässt den Build scheitern. Wer die Zahl wirklich
-heben will, braucht Robolectric oder instrumentierte Tests — beides wäre eine
-neue Abhängigkeit, und das ist in diesem Projekt eine bewusste Entscheidung
-(siehe app/build.gradle.kts).
+The overall ratio is thus a **regression** guard, not a quality goal: new
+logic without a test lowers it and fails the build. Whoever really wants
+to raise the number needs Robolectric or instrumented tests — both would
+be a new dependency, and in this project that is a deliberate decision
+(see app/build.gradle.kts).
 
-Die Dex-Datei bleibt eine einzige und winzig — das ist die Voraussetzung dafür,
-dass ein Startup-Profile/DEX-Layout überhaupt etwas bringen könnte
+The dex file stays a single one and tiny — that is the prerequisite for a
+startup profile / DEX layout to be able to help at all
 (developer.android.com/topic/performance/baselineprofiles/dex-layout-optimizations:
-„startup code should fit into `classes.dex`"). Bei einem 41-KB-Dex ist dieser
-Hebel bereits ausgeschöpft; bei einem Flutter-APK mit 10 MB wäre er es nicht.
+"startup code should fit into `classes.dex`"). With a 41 KB dex this
+lever is already exhausted; with a 10 MB Flutter APK it would not be.
 
-### `am start -W` misst den HOME-Druck nicht
+### `am start -W` does not measure the HOME press
 
-Ein HOME-Druck über einer laufenden App ist meist nur eine Fensteränderung
-(`fillxwrap`), kein Activity-Start — `TotalTime` sagt dazu nichts. Die
-belastbare Messung sind die Frame-Zeiten:
+
+A HOME press over a running app is mostly only a window change
+(`fillxwrap`), not an activity start — `TotalTime` says nothing about it.
+The solid measurement is the frame times:
 
 ```bash
-# 1) Ist-Zustand des HOME-Drucks
+# 1) Current state of the HOME press
 adb -s <ip>:5555 shell dumpsys gfxinfo com.piotv.navigate reset
 adb -s <ip>:5555 shell input keyevent KEYCODE_HOME
 adb -s <ip>:5555 shell dumpsys gfxinfo com.piotv.navigate framestats | head -40
 adb -s <ip>:5555 shell dumpsys meminfo com.piotv.navigate | head -20
 
-# 2) Kaltstart (falls das System den Prozess getötet hat)
+# 2) Cold start (in case the system killed the process)
 adb -s <ip>:5555 shell am force-stop com.piotv.navigate
 adb -s <ip>:5555 shell am start -W -n com.piotv.navigate/.LauncherActivity
 ```
 
-### Die drei Posten einzeln belegen
+### Proving the three items one by one
 
-Jeder Posten aus „Das Zeitbudget eines HOME-Drucks" (ARCHITECTURE.md) lässt sich
-isolieren, indem man ihn kurz ausschaltet und dieselbe Messung wiederholt:
+Every item from "The time budget of a HOME press" (ARCHITECTURE.md) can
+be isolated by switching it off briefly and repeating the same
+measurement:
 
-| Frage | Eingriff | Erwartung |
+| Question | Intervention | Expectation |
 |---|---|---|
-| Was kostet die Konfigurationsdatei? | `reloadIfChanged()` im `onResume` überspringen | Differenz = FUSE-`stat` |
-| Was kostet das Dekodieren der Symbole? | `show_icons=false` in `navigate.conf` | Differenz in PSS und ersten Frames |
+| What does the configuration file cost? | skip `reloadIfChanged()` in `onResume` | difference = FUSE `stat` |
+| What does decoding the icons cost? | `show_icons=false` in `navigate.conf` | difference in PSS and first frames |
 
-### AOT-Kompilierung (kein Code, wirkt auf jeden Kaltstart)
+### AOT compilation (no code, works on every cold start)
 
 ```bash
 adb -s <ip>:5555 shell pm compile -m speed -f com.piotv.navigate
-# Rückweg:  pm compile --reset com.piotv.navigate
+# way back:  pm compile --reset com.piotv.navigate
 ```
 
-`pm compile -m` kennt auf modernen Geräten nur `speed`, `speed-profile` und
-`verify` (auf einem Android-16-Gerät per `pm help` geprüft). Google nennt für
-profilgeführte AOT-Kompilierung „about 30 %" schnellere Code-Ausführung ab dem
-ersten Start — genau der Hebel, den ein per ADB installiertes APK **nicht**
-automatisch bekommt (Baseline-Profile greifen bei Nicht-Play-Installationen erst
-beim nächtlichen Background-Dexopt).
+On modern devices `pm compile -m` only knows `speed`, `speed-profile` and
+`verify` (checked via `pm help` on an Android 16 device). Google names
+"about 30 %" faster code execution from the first start for
+profile-guided AOT compilation — exactly the lever an APK installed via
+ADB does **not** get automatically (baseline profiles only kick in for
+non-Play installs at the nightly background dexopt).
 
-### Erwartete Zielwerte für 0.6 (Schätzung, nicht Messung)
+### Expected target values for 0.6 (an estimate, not a measurement)
 
-| | 0.1 gemessen | Erwartung 0.6 |
+| | 0.1 measured | expectation 0.6 |
 |---|---|---|
-| HOME-Druck warm | 128 ms | **unter** den 128 ms — es entfallen Nutzungsstatistik-Abfrage, Zeilen-Aufbau und der zweite Fenster-Relayout |
-| PSS nach Rasteraufbau | ~56 MB | **unter** 56 MB — die Zeile und ihre neun Symbol-Views sind weg |
-| Kaltstart | nicht gemessen | unverändert (die App-Liste und die Symbole waren nie der Engpass) |
+| HOME press warm | 128 ms | **below** the 128 ms — the usage statistics query, the row build and the second window relayout go away |
+| PSS after the grid is built | ~56 MB | **below** 56 MB — the row and its nine icon views are gone |
+| Cold start | not measured | unchanged (the app list and the icons were never the bottleneck) |
 
-Diese Zeile ist bewusst als Schätzung markiert: sie steht hier, damit die
-nächste Messung eine Erwartung hat, an der sie scheitern darf.
+This line is deliberately marked as an estimate: it stands here so that
+the next measurement has an expectation it is allowed to fail against.
 
-## Reproduzieren
+## Reproducing
 
 ```bash
 bash build_navigate.sh release
 NAVIGATE_DEVICE=<ip>:5555 bash install_navigate.sh
-# HOME-Test: über einer laufenden App
+# HOME test: over a running app
 adb -s <ip>:5555 shell am start -n com.netflix.ninja/.MainActivity
 adb -s <ip>:5555 shell input keyevent KEYCODE_HOME
 adb -s <ip>:5555 shell dumpsys window windows | grep -A12 'com.piotv.navigate/com'
-adb -s <ip>:5555 exec-out screencap -p > home.png    # bei DRM-Apps 0 Bytes, siehe oben
+adb -s <ip>:5555 exec-out screencap -p > home.png    # 0 bytes with DRM apps, see above
 ```
 
-Erwartung: **ein** Fenster, `(0,0)(fillxfill) gr=TOP START CENTER`,
-`Requested w=1920 h=1080`, `mHasSurface=true`, `mDrawState=HAS_DRAWN` — und ein
-`home.png` mit dem Raster.
+Expectation: **one** window, `(0,0)(fillxfill) gr=TOP START CENTER`,
+`Requested w=1920 h=1080`, `mHasSurface=true`, `mDrawState=HAS_DRAWN` —
+and a `home.png` with the grid.

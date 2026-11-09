@@ -17,7 +17,7 @@ import com.piotv.navigate.util.Background
  * special permission, and is exactly the image the system launcher shows
  * behind the focused app. The backgrounds Android TV otherwise has "built in"
  * (Ambient, recommendation images, wallpaper) are not — see
- * docs/LAST_SEEN_TITEL.md, section "Background".
+ * docs/LAST_SEEN_TITLE.md, section "Background".
  *
  * Why no disk cache like [IconLoader]: the icons are needed **all** at every
  * start — otherwise every restart would map every foreign APK again (the

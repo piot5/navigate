@@ -19,12 +19,12 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 APK="app/build/outputs/apk/release/app-release.apk"
-# Zwei mögliche Namen, und das ist kein Zufall: mit Credentials signiert AGP zu
-# `app-release.apk`, ohne sie zu `app-release-unsigned.apk`. In der CI ohne
-# Keystore-Secret entsteht die unsignierte Fassung — und sie hat eine andere
-# Größe, weil die Signatur als META-INF/CERT.* im Archiv liegt (und die Dateizahl
-# dadurch zwei Einträge mehr hat). Deshalb gibt es für beide einen dokumentierten
-# Wert, statt die Prüfung zu überspringen.
+# Two possible names, and that is no accident: with credentials AGP signs to
+# `app-release.apk`, without them to `app-release-unsigned.apk`. In CI without
+# a keystore secret the unsigned version is built — and it has a different
+# size, because the signature sits in the archive as META-INF/CERT.* (and the
+# file count is two entries higher because of it). That is why both have a
+# documented value instead of skipping the check.
 UNSIGNED_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
 DOCS="docs/DEVICE_PERF.md"
 README="README.md"

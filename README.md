@@ -99,7 +99,7 @@ appear**, and **what sits behind the grid** (solid color or image).
   background thread.
   The backgrounds Android TV has "built in" (Ambient/"Backdrop",
   recommendation images, wallpaper) are **out of reach** for a launcher — the
-  investigation is in [docs/LAST_SEEN_TITEL.md](docs/LAST_SEEN_TITEL.md)
+  investigation is in [docs/LAST_SEEN_TITLE.md](docs/LAST_SEEN_TITLE.md)
   (section "Background"); the one exception is the **banner** — it sits in
   the app manifest itself and needs no special permission.
 - **No green text (0.14):** up to 0.13, app labels were green ("active in the

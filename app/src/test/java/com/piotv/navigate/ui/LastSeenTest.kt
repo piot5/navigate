@@ -6,76 +6,76 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * Die Aufteilung des Verlaufs: eine Zeile zu sehen, die älteren im Menü.
+ * The split of the history: one line to see, the older ones in the menu.
  *
- * Die Regel gegen Dopplung steht hier als Test: ein Eintrag, der gerade als
- * Live-Zeile zu sehen ist, steht weder noch einmal im Block noch im Menü —
- * derselbe Text nicht zweimal auf dem Schirm.
+ * The rule against duplication stands here as a test: an entry that is
+ * currently visible as a live row appears neither again in the block nor in
+ * the menu — the same text not twice on the screen.
  */
 class LastSeenTest {
 
-    /** A muss bei leeren Live-Zeilen sichtbar sein: die Funktionsgrundlage. */
+    /** A must be visible with empty live rows: the function's foundation. */
     @Test
-    fun `der neueste Eintrag, der nicht läuft, ist die eine Zeile`() {
+    fun `the newest entry not playing is the one line`() {
         val newest = LastSeen.visible(history, emptySet())
-        assertEquals(entry("com.zdf", "ZDF · heute journal", 3_000L), newest)
+        assertEquals(entry("com.zdf", "ZDF · Today Journal", 3_000L), newest)
         assertEquals(
             listOf(
-                entry("com.spotify", "Spotify · Der Weg", 2_000L),
-                entry("com.zdf", "ZDF · Tagesschau", 1_000L),
+                entry("com.spotify", "Spotify · The Way", 2_000L),
+                entry("com.zdf", "ZDF · Daily News", 1_000L),
             ),
             LastSeen.older(history, emptySet()),
         )
     }
 
-    /** Läuft der neueste Titel, rückt der nächste nach — er selbst steht nicht doppelt. */
+    /** When the newest title plays, the next moves up — the newest itself is not duplicated. */
     @Test
-    fun `läuft der neueste Titel, rückt der nächste nach`() {
-        val live = setOf("com.zdf" to "ZDF · heute journal")
+    fun `when the newest title plays, the next one moves up`() {
+        val live = setOf("com.zdf" to "ZDF · Today Journal")
         assertEquals(
-            entry("com.spotify", "Spotify · Der Weg", 2_000L),
+            entry("com.spotify", "Spotify · The Way", 2_000L),
             LastSeen.visible(history, live),
         )
         assertEquals(
-            listOf(entry("com.zdf", "ZDF · Tagesschau", 1_000L)),
+            listOf(entry("com.zdf", "ZDF · Daily News", 1_000L)),
             LastSeen.older(history, live),
         )
     }
 
-    /** Jeder Verlaufseintrag läuft gerade: keine Zeile, kein Menü. */
+    /** Every history entry is playing: no line, no menu. */
     @Test
-    fun `alles läuft — es gibt keine Zeile und kein Menü`() {
+    fun `everything plays — no line and no menu`() {
         val live = setOf(
-            "com.zdf" to "ZDF · heute journal",
-            "com.spotify" to "Spotify · Der Weg",
-            "com.zdf" to "ZDF · Tagesschau",
+            "com.zdf" to "ZDF · Today Journal",
+            "com.spotify" to "Spotify · The Way",
+            "com.zdf" to "ZDF · Daily News",
         )
         assertNull(LastSeen.visible(history, live))
         assertEquals(emptyList<HistoryEntry>(), LastSeen.older(history, live))
     }
 
     @Test
-    fun `leerer Verlauf — keine Zeile, kein Menü`() {
+    fun `empty history — no line, no menu`() {
         assertNull(LastSeen.visible(emptyList(), emptySet()))
         assertEquals(emptyList<HistoryEntry>(), LastSeen.older(emptyList(), emptySet()))
     }
 
-    /** Eine Zeile gibt es zu sehen, aber niemanden, den das Menü aufklappen könnte. */
+    /** There is one line to see, but nobody for the menu to unfold. */
     @Test
-    fun `nur eine Zeile im Verlauf — das Menü bleibt leer`() {
-        val single = listOf(entry("com.zdf", "ZDF · Tagesschau", 1_000L))
+    fun `only one line in the history — the menu stays empty`() {
+        val single = listOf(entry("com.zdf", "ZDF · Daily News", 1_000L))
         assertEquals(
-            entry("com.zdf", "ZDF · Tagesschau", 1_000L),
+            entry("com.zdf", "ZDF · Daily News", 1_000L),
             LastSeen.visible(single, emptySet()),
         )
         assertEquals(emptyList<HistoryEntry>(), LastSeen.older(single, emptySet()))
     }
 
-    /** Der Verlauf, wie `HistoryStore.latest()` ihn liefert: neueste zuerst. */
+    /** The history as `HistoryStore.latest()` delivers it: newest first. */
     private val history = listOf(
-        entry("com.zdf", "ZDF · heute journal", 3_000L),
-        entry("com.spotify", "Spotify · Der Weg", 2_000L),
-        entry("com.zdf", "ZDF · Tagesschau", 1_000L),
+        entry("com.zdf", "ZDF · Today Journal", 3_000L),
+        entry("com.spotify", "Spotify · The Way", 2_000L),
+        entry("com.zdf", "ZDF · Daily News", 1_000L),
     )
 
     private fun entry(packageName: String, line: String, time: Long) =

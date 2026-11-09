@@ -19,7 +19,7 @@ versioning follows [Semantic Versioning](https://semver.org/lang/de/).
   stays on top of it. Apps without a banner keep it dark. The banner is the
   one background source a normal launcher can reach **via an API**:
   ambient/backdrop images, recommendation images and wallpapers are not
-  ([docs/LAST_SEEN_TITEL.md](docs/LAST_SEEN_TITEL.md), section
+  ([docs/LAST_SEEN_TITLE.md](docs/LAST_SEEN_TITLE.md), section
   "Background"). Configurable like the other values: *Settings →
   Background* continues, with *Focus* as the value; via `adb push` the value
   is called `background=focus`.
@@ -40,11 +40,12 @@ versioning follows [Semantic Versioning](https://semver.org/lang/de/).
   field. It now sits at the top edge of the row, level with the first line of
   the block (`layout_gravity="top"`).
 
-- **The project's text is English now.** UI strings, README, CHANGELOG and
-  ARCHITECTURE included — CONFIG, DEVICE_PERF, INSTALL and LAST_SEEN_TITEL
-  follow. On screen this changes one word: the pause suffix now reads
-  "· paused" (was "· pausiert"). History files written by versions up to
-  0.14.0 with the German suffix stay readable — HistoryCodec strips both.
+- **The project's text is English now.** Every UI string, every doc
+  (README, CHANGELOG, ARCHITECTURE, CONFIG, DEVICE_PERF, INSTALL,
+  LAST_SEEN_TITLE), every code comment and every test name. On screen this
+  changes one word: the pause suffix now reads "· paused" (was
+  "· pausiert"). History files written by versions up to 0.14.0 with the
+  German suffix stay readable — HistoryCodec strips both.
 
 
 ## 0.16.0
@@ -217,10 +218,10 @@ versioning follows [Semantic Versioning](https://semver.org/lang/de/).
   "built in" (Google TV ambient/"Backdrop", `TvContract` recommendation
   images, wallpapers) — they sit behind system permissions or in someone
   else's private folders. The assessment is in
-  [docs/LAST_SEEN_TITEL.md](docs/LAST_SEEN_TITEL.md), section 6.
+  [docs/LAST_SEEN_TITLE.md](docs/LAST_SEEN_TITLE.md), section 6.
 
 - **A feasibility note on the "Last seen" title** in
-  [docs/LAST_SEEN_TITEL.md](docs/LAST_SEEN_TITEL.md): whether and how a
+  [docs/LAST_SEEN_TITLE.md](docs/LAST_SEEN_TITLE.md): whether and how a
   **title** could appear under the field top left when the app is a favorite.
   Answer: yes, with the data already available — but neither Android nor the
   media session knows a "series", and not every app publishes metadata at

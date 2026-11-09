@@ -4,31 +4,31 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Die Zielgröße eines Fokus-Banners.
+ * The target size of a focus banner.
  *
- * Die Obergrenze ist der ganze Sinn: ein Banner kommt in der Dichte seines
- * Ziel-APKs, und einzelne Ressourcen sind Bildschirm-größe. Die Ebene skaliert
- * formatfüllend — eine gekappte Bitmap sieht nach dem Skalieren genauso aus wie
- * die ungekappte, kostet aber einen Bruchteil an Speicher.
+ * The cap is the whole point: a banner arrives in the density of its target
+ * APK, and single resources are screen-sized. The layer scales to fill — a
+ * cropped bitmap looks the same as the uncropped one after scaling, but
+ * costs a fraction of the memory.
  */
 class BannerGeometryTest {
 
-    /** Der Normalfall: 320 × 180 dp in der Dichte des Geräts — bleibt, wie es ist. */
+    /** The normal case: 320 × 180 dp at the device's density — stays as it is. */
     @Test
-    fun `ein Banner in normaler Groesse bleibt, wie es ist`() {
+    fun `a banner of normal size stays as it is`() {
         assertEquals(BannerGeometry.Size(640, 360), BannerGeometry.size(640, 360, 1280))
     }
 
-    /** Eine 4K-Ressource wäre 33 MB — gekappt sind es 3,7 MB. */
+    /** A 4K resource would be 33 MB — capped it is 3.7 MB. */
     @Test
-    fun `ein zu breites Banner wird auf die Obergrenze gekappt`() {
+    fun `a too-wide banner is capped at the upper bound`() {
         assertEquals(BannerGeometry.Size(1280, 720), BannerGeometry.size(3840, 2160, 1280))
-        // Seitenverhältnis bleibt: 2000 × 500 → 1280 × 320.
+        // The aspect ratio stays: 2000 × 500 → 1280 × 320.
         assertEquals(BannerGeometry.Size(1280, 320), BannerGeometry.size(2000, 500, 1280))
     }
 
     @Test
-    fun `nicht messbare Angaben ergeben nichts`() {
+    fun `unmeasurable sizes yield nothing`() {
         assertEquals(BannerGeometry.Size(0, 0), BannerGeometry.size(0, 100, 1280))
         assertEquals(BannerGeometry.Size(0, 0), BannerGeometry.size(100, -1, 1280))
         assertEquals(BannerGeometry.Size(0, 0), BannerGeometry.size(100, 100, 0))

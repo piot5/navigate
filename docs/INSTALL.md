@@ -1,11 +1,11 @@
 # Installation (Chromecast / Google TV)
 
-Getestet auf einem **Chromecast HD** (Google TV, Android 14, 1920×1080,
-TV-Dichte, 1,4 GB RAM). Die Schritte gelten für alle Google-TV-Geräte; bei
-Fire TV/anderen Android-TV-Geräten heißt der Hersteller-Launcher anders, das
-Vorgehen bleibt dasselbe.
+Tested on a **Chromecast HD** (Google TV, Android 14, 1920×1080, TV
+density, 1.4 GB RAM). The steps apply to all Google TV devices; on Fire TV
+/ other Android TV devices the vendor launcher has a different name, the
+procedure stays the same.
 
-## 1. APK bauen und installieren
+## 1. Build the APK and install it
 
 ```bash
 cd projects/navigate
@@ -13,190 +13,191 @@ bash build_navigate.sh release
 bash install_navigate.sh app/build/outputs/apk/release/app-release.apk
 ```
 
-`install_navigate.sh` nimmt ohne Zutun das erste erreichbare **Fernsehgerät**
-(`ro.build.characteristics` enthält `tv`) — Emulatoren und Telefone werden
-übersprungen, damit ein gleichzeitig am adb hängendes Test-Telefon nicht die
-falsche Zielscheibe ist. Ein anderes Ziel erzwingt man mit
-`NAVIGATE_DEVICE=192.168.178.23:5555` (dann wird nicht geprüft).
-Voraussetzung ist ein eingeschaltetes ADB auf dem Gerät
-(Entwickleroptionen → USB-Debugging, bei Google TV zusätzlich
-„Netzwerk-Debugging“, dann `adb connect <ip>:5555`).
+`install_navigate.sh` picks the first reachable **TV device** on its own
+(`ro.build.characteristics` contains `tv`) — emulators and phones are
+skipped, so that a test phone hanging on adb at the same time is not the
+wrong target. A different target is forced with
+`NAVIGATE_DEVICE=192.168.178.23:5555` (then nothing is checked).
+The prerequisite is ADB switched on on the device
+(developer options → USB debugging, on Google TV additionally
+"network debugging", then `adb connect <ip>:5555`).
 
-Nach dem Installieren ist Navigate startbar, aber noch nicht die Home-App.
+After installing, Navigate is launchable but not yet the home app.
 
-## 2. Als Home-App eintragen
+## 2. Register it as the home app
 
-Auf Android 10+ entscheidet die **Rolle** `android.app.role.HOME`, nicht ein
-älterer „preferred activity"-Eintrag. `cmd package set-home-activity` setzt
-zwar den Eintrag, aber nicht zuverlässig die Rolle — die Rolle ist der
-verlässliche Weg:
+On Android 10+ the **role** `android.app.role.HOME` decides, not an older
+"preferred activity" entry. `cmd package set-home-activity` sets the entry
+but not reliably the role — the role is the dependable route:
 
 ```bash
 adb shell cmd role add-role-holder android.app.role.HOME com.piotv.navigate
-adb shell cmd role get-role-holders android.app.role.HOME   # Kontrolle
+adb shell cmd role get-role-holders android.app.role.HOME   # check
 ```
 
-> **Nur eine Navigate-Variante auf dem Gerät.** Die Debug-APK
-> (`com.piotv.navigate.debug`) und die Release-APK (`com.piotv.navigate`)
-> tragen **beide** einen HOME-Filter. Liegen beide auf dem Gerät, zeigt der
-> HOME-Druck einen **Auswahldialog** statt des Rasters (gemessen am
-> 2026-10-29 auf dem Zielgerät: `topResumedActivity=…ResolverActivity`).
-> Vor dem Eintragen der Rolle also die jeweils andere Variante entfernen:
+> **Only one Navigate variant on the device.** The debug APK
+> (`com.piotv.navigate.debug`) and the release APK (`com.piotv.navigate`)
+> **both** carry a HOME filter. When both sit on the device, the HOME press
+> shows a **chooser dialog** instead of the grid (measured on 2026-10-29 on
+> the target device: `topResumedActivity=…ResolverActivity`).
+> So before registering the role, remove the respective other variant:
 >
 > ```bash
-> adb uninstall com.piotv.navigate.debug   # oder com.piotv.navigate
+> adb uninstall com.piotv.navigate.debug   # or com.piotv.navigate
 > ```
 
-## 3. Googles Home-Watchdog abschalten
+## 3. Switch off Google's home watchdog
 
-Ohne diesen Schritt holt sich `com.google.android.tungsten.setupwraith` die
-HOME-Taste zurück — auf dem Testgerät nachweisbar: der HOME-Druck startete
-`setupwraith/.RecoveryActivity` (dessen HOME-Filter hat `priority=1`, ein
-Watchdog startet ihn immer wieder), obwohl Navigate die HOME-Rolle hielt.
-Navigate deklariert deshalb selbst `priority=10`; das reicht aber nicht gegen
-den Watchdog.
+Without this step `com.google.android.tungsten.setupwraith` takes the HOME
+key back — verifiable on the test device: the HOME press started
+`setupwraith/.RecoveryActivity` (its HOME filter has `priority=1`, a
+watchdog starts it again and again), although Navigate held the HOME role.
+Navigate therefore declares `priority=10` itself; that is still not enough
+against the watchdog.
 
 ```bash
 adb shell pm disable-user --user 0 com.google.android.tungsten.setupwraith
 ```
 
-Der Google-TV-Launcher (`com.google.android.apps.tv.launcherx`) muss dafür
-**nicht** deaktiviert werden — anders als bei manchen Anleitungen behauptet.
-Ist er bereits deaktiviert (z. B. weil vorher ein anderer Launcher lief),
-schadet das nicht.
+The Google TV launcher (`com.google.android.apps.tv.launcherx`) does
+**not** have to be deactivated for this — contrary to what some guides
+claim. If it is already deactivated (e.g. because another launcher ran
+before), that does no harm.
 
-## 4. Fertig
+## 4. Done
 
-HOME drücken: die Home-Seite erscheint — unten eine Zeile mit den ersten Apps,
-darunter der „…“-Knopf. „…“ klappt das ganze Raster auf und wieder zu.
+Press HOME: the home page appears — at the bottom a row with the first
+apps, below it the "…" button. "…" unfolds the whole grid and folds it
+back.
 
-## 5. Optional: Zugriffe (einzeln, unabhängig)
+## 5. Optional: accesses (one by one, independent)
 
-Beide Zugriffe sind freiwillig, jeder schaltet genau **eine** Funktion frei, und
-beide sind einzeln rücknehmbar (siehe „Rückweg“). Ohne sie startet Navigate
-unverändert — es fehlt nur das eine Feld bzw. die exakte Antwort auf „zurück in
-die letzte App“.
+Both accesses are voluntary, each unlocks exactly **one** feature, and
+both can be revoked individually (see "Way back"). Without them Navigate
+starts unchanged — only the one field or the exact answer to "back into
+the last app" is missing.
 
-### 5a. Nutzungszugriff — für „zurück in die letzte App“
+### 5a. Usage access — for "back into the last app"
 
-Auf der **schon sichtbaren** Home-Seite holen HOME und BACK die zuletzt benutzte
-App zurück. Woher Navigate das weiß, hängt an einem optionalen App-Op:
+On the **already visible** home page, HOME and BACK bring back the last
+used app. Where Navigate knows that from hangs on an optional app op:
 
 ```bash
 adb shell appops set com.piotv.navigate GET_USAGE_STATS allow
-adb shell appops get com.piotv.navigate GET_USAGE_STATS   # Kontrolle
+adb shell appops get com.piotv.navigate GET_USAGE_STATS   # check
 ```
 
-- **Mit** dem Zugriff liest Navigate die Nutzungsstatistik (kurzes Fenster, dann
-  ein langes) — exakt, auch für Apps, die nicht hier gestartet wurden.
-- **Ohne** ihn merkt sich Navigate die zuletzt **über Navigate gestartete** App.
-  Das ist im Normalfall richtig und stört sonst nicht: ohne bekannte App bleibt
-  die Home-Seite einfach stehen.
+- **With** the access Navigate reads the usage statistics (short window,
+  then a long one) — exact, also for apps not started from here.
+- **Without** it Navigate remembers the app last **started via Navigate**.
+  In the normal case that is right and otherwise bothers nobody: without a
+  known app the home page simply stays.
 
-Alternativ auf dem Gerät: **Einstellungen → Apps → Spezieller Zugriff →
-Nutzungszugriff → Navigate**.
+Alternatively on the device: **Settings → Apps → Special access →
+Usage access → Navigate**.
 
-### 5b. Benachrichtigungszugriff — für „Now Playing“
+### 5b. Notification access — for "Now Playing"
 
-Das Feld oben links zeigt App, Interpret, Titel und Cover der laufenden
-Media-Session — **ohne diesen Zugriff bleibt es leer**. Der Grund ist keine
-Bequemlichkeit, sondern eine Grenze von Android: `getActiveSessions` verlangt,
-dass der Aufrufer ein eingetragener Benachrichtigungs-Listener ist. (Die
-Alternative wäre `MEDIA_CONTENT_CONTROL` — eine Signatur-Berechtigung, die
-`pm grant` nicht vergeben kann.)
+The field in the top-left shows app, artist, title and cover of the playing
+media session — **without this access it stays empty**. The reason is not
+convenience but a limit of Android: `getActiveSessions` requires the caller
+to be a registered notification listener. (The alternative would be
+`MEDIA_CONTENT_CONTROL` — a signature permission that `pm grant` cannot
+hand out.)
 
 ```bash
 adb shell cmd notification allow_listener com.piotv.navigate/com.piotv.navigate.NowPlayingListener
-# Kontrolle — der Name muss in der Liste stehen:
+# Check — the name has to sit in the list:
 adb shell settings get secure enabled_notification_listeners
 ```
 
-Navigate liest dabei **keine** Benachrichtigungen: `NowPlayingListener` ist ein
-leerer Dienst, sein eingetragener Name ist der Ausweis für die Abfrage der
-Media-Sessions. Ohne die Freigabe bleibt das Feld leer — und die
-Einstellungsseite sagt das auch (langes OK auf „…“).
+Navigate reads **no** notifications doing this: `NowPlayingListener` is an
+empty service, its registered name is the credential for querying the
+media sessions. Without the grant the field stays empty — and the settings
+screen says so too (long OK on "…").
 
-Alternativ auf dem Gerät: **Einstellungen → Apps → Spezieller Zugriff →
-Benachrichtigungszugriff → Navigate — Now Playing**.
+Alternatively on the device: **Settings → Apps → Special access →
+Notification access → Navigate — Now Playing**.
 
-## Bedienung
+## Controls
 
-| Taste | Wirkung |
+| Key | Effect |
 |---|---|
-| HOME | von einer App: Home-Seite · auf der Home-Seite: zurück in die letzte App |
-| ◀ ▲ ▼ ▶ | Fokus im Raster |
-| OK | App starten · auf „…“ das Raster auf-/zuklappen · auf „Now Playing“ zurück in die spielende App |
-| BACK | aufgeklapptes Raster zuklappen · sonst zurück in die letzte App |
-| langes OK | auf einer App: Kontextmenü (Position nach vorne/hinten · deinstallieren · schließen · alle schließen) · auf „…“: Einstellungen |
+| HOME | from an app: the home page · on the home page: back into the last app |
+| ◀ ▲ ▼ ▶ | focus in the grid |
+| OK | launch an app · on "…": unfold/fold the grid · on "Now Playing": back into the playing app |
+| BACK | fold the unfolded grid · otherwise back into the last app |
+| long OK | on an app: the context menu (position forward/back · uninstall · close · close all) · on "…": settings |
 
 
-## Rückweg
+## Way back
 
-Alles ist umkehrbar. Reihenfolge egal:
+Everything is reversible. Order doesn't matter:
 
 ```bash
-# 1. Watchdog wieder an
+# 1. Watchdog back on
 adb shell pm enable com.google.android.tungsten.setupwraith
 
-# 2. Rolle an den vorherigen Launcher (Beispiel: Projectivy)
+# 2. Role to the previous launcher (example: Projectivy)
 adb shell cmd role add-role-holder android.app.role.HOME com.spocky.projengmenu
-# oder ganz ohne Home-Rolle:
+# or entirely without a home role:
 adb shell cmd role remove-role-holder android.app.role.HOME com.piotv.navigate
 
-# 3. Google-TV-Launcher wieder anschalten, falls er deaktiviert war
+# 3. Switch the Google TV launcher back on, if it was deactivated
 adb shell pm enable com.google.android.apps.tv.launcherx
 
-# 4. Zugriffe zurücknehmen (nur was gesetzt wurde)
+# 4. Revoke the accesses (only what was set)
 adb shell appops set com.piotv.navigate GET_USAGE_STATS default
 adb shell cmd notification disallow_listener com.piotv.navigate/com.piotv.navigate.NowPlayingListener
 
-# 5. Navigate deinstallieren (optional)
+# 5. Uninstall Navigate (optional)
 adb uninstall com.piotv.navigate
 ```
 
-Nach `pm enable` des Google-Launchers und dem HOME-Druck fragt das System, welche
-Home-App verwendet werden soll.
+After `pm enable` of the Google launcher and the HOME press the system
+asks which home app to use.
 
-## Fehlersuche
+## Troubleshooting
 
-**HOME zeigt weiter den alten Launcher.** Meist fehlt Schritt 3 oder es läuft
-noch ein alter Home-Task. Kontrolle:
+**HOME still shows the old launcher.** Usually step 3 is missing or an old
+home task is still running. Check:
 
 ```bash
 adb shell cmd role get-role-holders android.app.role.HOME
 adb shell dumpsys package com.google.android.tungsten.setupwraith | grep 'User 0'
-# enabled=3 heißt: deaktiviert (so soll es aussehen)
+# enabled=3 means: deactivated (that is how it should look)
 ```
 
-Einen alten Home-Task loswerden: `adb shell am force-stop <alter-launcher>`.
+Getting rid of an old home task: `adb shell am force-stop <old-launcher>`.
 
-**Die Zeile über der laufenden App fehlt.** Es gibt sie seit 0.6 nicht mehr —
-der HOME-Druck zeigt immer das Raster. Wenn stattdessen etwas anderes passiert,
-ist die Home-Rolle nicht gesetzt (Schritt 2) oder der Google-TV-Watchdog ist
-wieder aktiv (Schritt 3).
+**The row above the playing app is missing.** It has not existed since
+0.6 — the HOME press always shows the grid. If something else happens
+instead, the home role is not set (step 2) or the Google TV watchdog is
+active again (step 3).
 
-**Das „Now Playing“-Feld bleibt leer.** Drei mögliche Gründe, in dieser
-Reihenfolge prüfen:
+**The "Now Playing" field stays empty.** Three possible causes, check in
+this order:
 
 ```bash
-# 1. Ist die Einstellung an? (langes OK auf „…“ — oder per Datei)
+# 1. Is the setting on? (long OK on "…" — or via the file)
 adb shell cat /sdcard/Android/data/com.piotv.navigate/files/settings.conf
-# 2. Hat Navigate den Benachrichtigungszugriff? (Schritt 5b)
+# 2. Does Navigate have notification access? (step 5b)
 adb shell settings get secure enabled_notification_listeners
-# 3. Spielt überhaupt etwas? (leer = nichts zu zeigen, das Feld bleibt aus)
+# 3. Is anything playing at all? (empty = nothing to show, the field stays off)
 adb shell dumpsys media_session | grep -E 'package=|state='
 ```
 
-Leer ist kein Fehler: ohne Session wird der Block **ausgeblendet**, statt einen
-Platzhalter zu zeigen. Ein pausierter Titel wird dagegen angezeigt (mit
-`· pausiert`) — sonst sähe er aus wie „läuft“.
+Empty is not an error: without a session the block is **hidden** instead of
+showing a placeholder. A paused title is shown, by contrast (with
+`· paused`) — otherwise it would look like "playing".
 
-**Ein Symbol fehlt im Raster.** Prüfen, ob die App überhaupt startbar ist:
+**An icon is missing from the grid.** Check whether the app is launchable
+at all:
 
 ```bash
 adb shell cmd package query-activities -a android.intent.action.MAIN \
   -c android.intent.category.LAUNCHER | grep -i <name>
 ```
 
-Apps ohne Launcher-Eintrag (reine Bibliotheken, Systemdienste) gehören nicht ins
-Raster. TV-Apps mit nur `LEANBACK_LAUNCHER` werden erfasst.
+Apps without a launcher entry (pure libraries, system services) do not
+belong in the grid. TV apps with only `LEANBACK_LAUNCHER` are picked up.

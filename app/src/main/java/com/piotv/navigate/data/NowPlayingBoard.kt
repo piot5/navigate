@@ -1,89 +1,90 @@
 package com.piotv.navigate.data
 
 /**
- * Die „Now Playing“-Zeilen: **eine je App** — und sie bleiben stehen.
+ * The "Now Playing" lines: **one per app** — and they stay put.
  *
- * Bis 0.12 gab es genau eine Zeile: die Session, die „den Ton macht“. Läuft ein
- * Hörbuch pausiert und daneben ein Radiosender, verschwand damit eine der beiden
- * Angaben. Seit 0.13 bekommt **jede App mit einer aktiven Session** ihre eigene
- * Zeile.
+ * Until 0.12 there was exactly one line: the session "making the sound".
+ * With an audiobook paused next to a radio station, one of the two entries
+ * disappeared. Since 0.13, **every app with an active session** gets its
+ * own line.
  *
- * ## Wann sich eine Zeile ändert — und wann sie geht
+ * ## When a line changes — and when it goes
  *
- * Hier sitzt die Regel, und sie war in 0.13.2 **falsch**: der Eintrag einer App
- * verschwand nach wenigen Sekunden (auf dem Zielgerät gesehen). Ursache war, dass
- * drei verschiedene Dinge gleich behandelt wurden. Sie sind es nicht:
+ * The rule sits here, and in 0.13.2 it was **wrong**: an app's entry
+ * disappeared after a few seconds (seen on the target device). The cause
+ * was that three different things were treated alike. They are not:
  *
- * | Was die Abfrage sagt | Was passiert |
+ * | What the poll says | What happens |
  * |---|---|
- * | Ein Titel (spielt oder pausiert) | Zeile anlegen bzw. **nur bei geändertem Text** neu schreiben |
- * | Session da, aber **ohne Titel** (Ladescreen, Werbung, Menü) | Zeile bleibt stehen, wie sie ist |
- * | **Keine** Session für diese App | Zeile bleibt stehen (siehe unten) |
- * | Session meldet **beendet** (`STOPPED`/`ERROR`) | Zeile verschwindet nach [MISSING_POLLS_BEFORE_REMOVE] Abfragen |
- * | Abfrage **fehlgeschlagen** (`null`) | nichts ändert sich |
+ * | A title (playing or paused) | Create the line, or rewrite it **only when the text changed** |
+ * | Session there but **without a title** (loading screen, ads, menu) | The line stays as it is |
+ * | **No** session for this app | The line stays (see below) |
+ * | Session reports **ended** (`STOPPED`/`ERROR`) | The line disappears after [MISSING_POLLS_BEFORE_REMOVE] polls |
+ * | Poll **failed** (`null`) | nothing changes |
  *
- * Warum das so fein sein muss: eine TV-App zerstört und erzeugt ihre Session beim
- * Navigieren, beim Titelwechsel und während der Werbung — auf dem Zielgerät war
- * die Session von WOW nach dem Film **ganz weg**, ohne je `STOPPED` zu melden. Wer
- * das als „die App ist weg“ liest, löscht eine Zeile, die der Nutzer gerade liest,
- * und schreibt sie Sekunden später wieder hin. Genau das war der Fehler.
+ * Why it has to be this fine-grained: a TV app destroys and recreates its
+ * session while navigating, on track changes and during ads — on the target
+ * device the WOW session was **gone entirely** after the movie, without
+ * ever reporting `STOPPED`. Whoever reads that as "the app is gone" deletes
+ * a line the user is reading at that very moment and writes it back seconds
+ * later. That was exactly the bug.
  *
- * **Der Preis, offen gesagt:** eine App, die ihre Session verliert, ohne `STOPPED`
- * zu melden, behält ihre Zeile — bis der Launcher-Prozess neu startet (auf dem
- * Chromecast mit 1,4 GB der Normalfall nach ein paar Stunden). Das ist die
- * bewusste Entscheidung: eine Zeile, die man gerade liest, darf nicht unter dem
- * Lesen verschwinden.
+ * **The price, stated openly:** an app that loses its session without
+ * reporting `STOPPED` keeps its line — until the launcher process restarts
+ * (on the 1.4 GB Chromecast the normal case after a few hours). That is the
+ * deliberate decision: a line someone is reading must not vanish under
+ * their eyes.
  *
- * Die Zusage bleibt: **eine Zeile ändert sich nur, wenn sich für diese App etwas
- * ändert.** Der Vergleich ist der fertige Text; ist er gleich, wird nichts
- * geschrieben und kein neues Cover geholt.
+ * The promise stands: **a line changes only when something changes for
+ * that app.** The comparison is the finished text; when it is equal,
+ * nothing is written and no new cover is fetched.
  *
- * Kein Android-Typ in dieser Datei: die Regeln sind ohne Gerät prüfbar
- * (NowPlayingBoardTest), die Android-Eigenheiten stecken in [NowPlaying].
+ * No Android type in this file: the rules are testable without a device
+ * (NowPlayingBoardTest), the Android quirks live in [NowPlaying].
  */
 class NowPlayingBoard {
 
-    /** Was **eine** Abfrage über eine App sagt. */
+    /** What **one** poll says about an app. */
     data class Observed(
         val packageName: String,
         /**
-         * Die Angaben der Session — `null` heißt „die Session gibt gerade nichts
-         * her“ (Ladescreen, Werbung, kein Titel). Die Zeile bleibt dann stehen.
+         * The session's details — `null` means "the session is giving
+         * nothing right now" (loading screen, ads, no title). The line then
+         * stays put.
          */
         val info: NowPlayingInfo?,
-        /** Die App hat beendet: die Session meldet `STOPPED`/`ERROR`. */
+        /** The app has ended: the session reports `STOPPED`/`ERROR`. */
         val ended: Boolean = false,
     )
 
     /**
-     * Eine Zeile der Anzeige: die App, ihr Anzeigetext und ihr **Inhalt**.
+     * One line of the display: the app, its display text and its **content**.
      *
-     * [line] ist der Text, der in der Oberfläche steht (mit „· pausiert“).
-     * [content] ist derselbe Inhalt **ohne** den Pausenzusatz — er ist der
-     * Schlüssel für „hat sich für diese App etwas geändert?“ und das, was in den
-     * Verlauf wandert. Ohne diese Trennung wäre jeder Pause-Tipp ein neuer Titel
-     * und derselbe Film stünde zweimal in der Liste (einmal mit, einmal ohne
-     * „pausiert“).
+     * [line] is the text shown in the UI (with "· paused"). [content] is the
+     * same content **without** the pause suffix — it is the key for "has
+     * something changed for this app?" and what moves into the history.
+     * Without this split every pause press would be a new title and the same
+     * movie would sit twice in the list (once with, once without "paused").
      */
     data class Row(val packageName: String, val line: String, val content: String)
 
     private var rows: List<Row> = emptyList()
 
-    /** Wie oft eine App in Folge **beendet** gemeldet hat — die Schonfrist. */
+    /** How often in a row an app has reported **ended** — the grace period. */
     private val endedPolls = HashMap<String, Int>()
 
-    /** Die Zeilen in Anzeige-Reihenfolge. */
+    /** The lines in display order. */
     fun rows(): List<Row> = rows
 
     /**
-     * Übernimmt, was eine Abfrage gesehen hat.
+     * Takes in what a poll has seen.
      *
-     * @param observed `null` heißt „die Abfrage ist fehlgeschlagen“ (kein Zugriff,
-     *   Session-Dienst antwortet nicht) — dann bleibt alles, wie es ist.
-     * @param history wohin neue Titel zusätzlich geschrieben werden (`null` heißt
-     *   „kein Verlauf“ — dann gilt das bisherige Verhalten: Zeile ersetzen).
-     * @param nowMillis Systemzeit für den Verlauf; `0` heißt „kein Verlauf“.
-     * @return `true`, wenn sich die Anzeige ändern muss.
+     * @param observed `null` means "the poll failed" (no access, the session
+     *   service isn't responding) — then everything stays as it is.
+     * @param history where new titles are additionally written (`null` means
+     *   "no history" — then the previous behavior applies: replace the line).
+     * @param nowMillis system time for the history; `0` means "no history".
+     * @return `true` when the display has to change.
      */
     fun observe(
         observed: List<Observed>?,
@@ -92,29 +93,29 @@ class NowPlayingBoard {
     ): Boolean {
         if (observed == null) return false
 
-        // 1. Was diese Abfrage über welche App sagt — je App **einmal**. Die erste
-        //    Session einer App gewinnt: NowPlaying sortiert „spielt“ nach vorne.
+        // 1. What this poll says about which app — **once** per app. An app's
+        //    first session wins: NowPlaying sorts "playing" to the front.
         val fresh = LinkedHashMap<String, Observed>()
         for (item in observed) {
             if (item.packageName.isEmpty() || fresh.containsKey(item.packageName)) continue
             fresh[item.packageName] = item
         }
 
-        // 2. Zusammenführen: bestehende Zeilen behalten ihren Platz (nur ihr Text
-        //    wird neu), neue Apps kommen hinten dazu. So springt beim zweiten
-        //    laufenden Titel nicht die ganze Anzeige um.
+        // 2. Merge: existing lines keep their place (only their text is
+        //    rewritten), new apps join at the end. That way the whole display
+        //    doesn't jump around when a second title starts playing.
         val merged = ArrayList<Row>(rows.size + fresh.size)
         for (row in rows) {
             val seen = fresh.remove(row.packageName)
             if (seen == null) {
-                // Gar nicht gesehen: die Session ist weg (App im Hintergrund,
-                // Titelwechsel, App beendet). Die Zeile bleibt stehen.
+                // Not seen at all: the session is gone (app in the background,
+                // track change, app ended). The line stays.
                 merged.add(row)
                 continue
             }
             if (seen.ended) {
-                // Ausdrücklich beendet — aber erst nach zwei Abfragen: zwischen
-                // zwei Folgen steht die Session kurz auf STOPPED.
+                // Explicitly ended — but only after two polls: between two
+                // episodes the session briefly sits at STOPPED.
                 val missed = (endedPolls[row.packageName] ?: 0) + 1
                 endedPolls[row.packageName] = missed
                 if (missed < MISSING_POLLS_BEFORE_REMOVE) merged.add(row)
@@ -123,28 +124,28 @@ class NowPlayingBoard {
             endedPolls.remove(row.packageName)
             val content = NowPlayingText.content(seen.info)
             val line = NowPlayingText.line(seen.info)
-            // Nichts zu lesen (Ladescreen, Werbung): die Zeile bleibt, wie sie
-            // ist — die App ist ja da und bringt denselben Titel zurück.
+            // Nothing to read (loading screen, ads): the line stays as it is —
+            // the app is still there and will bring the same title back.
             if (content.isEmpty()) {
                 merged.add(row)
                 continue
             }
-            // Derselbe Inhalt: nur die **Anzeigezeile** kann sich geändert haben
-            // (der Pausenzustand — mit bzw. ohne „· pausiert“). Der Verlauf bleibt
-            // unangetastet, sonst stünde derselbe Titel zweimal darin.
+            // Same content: only the **display line** can have changed (the
+            // pause state — with or without "· paused"). The history stays
+            // untouched, otherwise the same title would sit in it twice.
             if (content == row.content) {
                 merged.add(if (line == row.line) row else row.copy(line = line))
                 continue
             }
-            // Neuer Inhalt für eine bekannte App: der alte wandert in den Verlauf
-            // (wenn einer geführt wird), die Zeile zeigt den neuen.
+            // New content for a known app: the old one moves into the history
+            // (when one is kept), the line shows the new one.
             if (history != null && nowMillis > 0L) {
                 history.append(row.packageName, row.content, nowMillis)
             }
             merged.add(Row(row.packageName, line, content))
         }
 
-        // 3. Apps, die es vorher nicht gab: nur mit Text ist das eine Zeile wert.
+        // 3. Apps that weren't there before: only with text is this worth a line.
         for (seen in fresh.values) {
             if (seen.ended) continue
             val content = NowPlayingText.content(seen.info)
@@ -152,7 +153,7 @@ class NowPlayingBoard {
             merged.add(Row(seen.packageName, NowPlayingText.line(seen.info), content))
         }
 
-        // Zähler für Apps aufräumen, die keine Zeile mehr haben.
+        // Clean up the counters of apps that no longer have a line.
         endedPolls.keys.removeAll { key -> merged.none { it.packageName == key } }
 
         val changed = merged != rows
@@ -162,9 +163,10 @@ class NowPlayingBoard {
 
     companion object {
         /**
-         * So oft darf eine App in Folge **beendet** melden, bevor ihre Zeile
-         * verschwindet. Zwei Durchläufe sind zehn Sekunden — lang genug für den
-         * Moment zwischen zwei Folgen, in dem die Session kurz auf `STOPPED` steht.
+         * How often in a row an app may report **ended** before its line
+         * disappears. Two passes are ten seconds — long enough for the
+         * moment between two episodes when the session briefly sits at
+         * `STOPPED`.
          */
         const val MISSING_POLLS_BEFORE_REMOVE = 2
     }

@@ -129,33 +129,33 @@ class NowPlaying(context: Context) {
                         playing = isPlaying(controller),
                     ),
                     packageName = packageName,
-                    // Der „Jetzt läuft“-Bildschirm der App, wenn sie einen
-                    // anbietet: der vorgesehene Weg, aus einer Session heraus zur
-                    // App zu kommen. Viele TV-Apps setzen ihn nicht — deshalb gibt
-                    // es den zweiten Weg in LauncherActivity.openRow.
+                    // The app's "now playing" screen, when it offers one: the
+                    // intended route out of a session and into the app. Many
+                    // TV apps don't set it — hence the second route in
+                    // LauncherActivity.openRow.
                     activity = sessionActivity(controller),
                     art = metadata?.let { art(it, artSizePx) },
-                    // „Diese App hat beendet“ ist etwas anderes als „diese App
-                    // sagt gerade nichts“ — siehe [isEnded].
+                    // "This app has ended" is something different from "this
+                    // app isn't saying anything right now" — see [isEnded].
                     ended = isEnded(controller),
                 )
             )
         }
 
-        // Was spielt, steht oben, was beendet ist unten. `sortedWith` ist stabil:
-        // innerhalb einer Gruppe bleibt die Reihenfolge des Systems.
+        // What plays sits at the top, what has ended at the bottom. `sortedWith`
+        // is stable: within a group the system's order stays.
         return tracks.sortedWith(
             compareByDescending<NowPlayingTrack> { !it.ended }.thenByDescending { it.info.playing }
         )
     }
 
     /**
-     * Hat die App **beendet**?
+     * Has the app **ended**?
      *
-     * `STATE_STOPPED` und `STATE_ERROR` sind ein ausdrückliches „hier läuft nichts
-     * mehr“ — das ist die Erlaubnis, eine Zeile zu entfernen. `STATE_NONE` zählt
-     * **nicht** dazu: das ist auch der Zustand einer frisch angelegten Session, und
-     * eine App, die gerade startet, soll ihre letzte Zeile nicht verlieren.
+     * `STATE_STOPPED` and `STATE_ERROR` are an explicit "nothing plays here
+     * anymore" — that is the permission to remove a line. `STATE_NONE` does
+     * **not** count: it is also the state of a freshly created session, and
+     * an app that is just starting should not lose its last line.
      */
     private fun isEnded(controller: MediaController): Boolean = try {
         val state = controller.playbackState?.state
@@ -164,7 +164,7 @@ class NowPlaying(context: Context) {
         false
     }
 
-    /** Der „Jetzt läuft“-Bildschirm der Session — oder `null`. */
+    /** The session's "now playing" screen — or `null`. */
     private fun sessionActivity(controller: MediaController): PendingIntent? = try {
         controller.sessionActivity
     } catch (e: Exception) {
@@ -172,19 +172,19 @@ class NowPlaying(context: Context) {
     }
 
     /**
-     * Das Cover in Symbolgröße — mit einem **kleinen** Cache.
+     * The cover at icon size — with a **small** cache.
      *
-     * Ohne den Cache würde alle fünf Sekunden dasselbe Bild neu aus der fremden
-     * App geholt und verkleinert; ein 1000×1000-Cover sind 4 MB, die auf einem
-     * 1,4-GB-Gerät niemand fünfmal pro Minute durch den Speicher schaufeln will.
-     * Bis 0.12 war der Cache **ein** Platz (es gab ja nur eine Zeile); seit es
-     * eine Zeile je App gibt, hält ein LRU mehrere Cover — begrenzt nach Bytes
-     * statt nach Anzahl, weil die Größe des Ergebnisses von der fremden App
-     * abhängt.
+     * Without the cache the same image would be fetched from the foreign app
+     * and scaled down every five seconds; a 1000×1000 cover is 4 MB, and on
+     * a 1.4 GB device nobody wants it shoved through memory five times a
+     * minute. Until 0.12 the cache had **one** slot (there was only one
+     * line, after all); since there is one line per app, an LRU holds
+     * several covers — limited by bytes instead of by count, because the
+     * size of the result depends on the foreign app.
      *
-     * Der Schlüssel ist das **Lied** ([artKey]) und nicht das Bitmap-Objekt:
-     * jede Abfrage liefert ein neues. Eine Session **ohne** Cover wird nicht
-     * gespeichert — dort ist die Abfrage billig, der Schlüssel fehlt einfach.
+     * The key is the **song** ([artKey]), not the Bitmap object: every poll
+     * delivers a new one. A session **without** a cover is not stored — the
+     * poll is cheap there, the key is simply missing.
      */
     private fun art(metadata: MediaMetadata, sizePx: Int): Bitmap? {
         if (sizePx <= 0) return null
@@ -196,7 +196,7 @@ class NowPlaying(context: Context) {
         return scaled
     }
 
-    /** Lied-Kennung plus Zielgröße — ändert sich das Lied, gilt der Cache nicht mehr. */
+    /** Song identity plus target size — when the song changes, the cache no longer applies. */
     private fun artKey(metadata: MediaMetadata, sizePx: Int): String {
         val uri = text(
             metadata,
@@ -209,7 +209,7 @@ class NowPlaying(context: Context) {
         return "$sizePx|$uri|$title|$artist"
     }
 
-    /** Album-Cover, dann Artwork, dann Anzeige-Symbol — mehr bietet die API nicht. */
+    /** Album cover, then artwork, then display icon — that is all the API offers. */
     private fun artwork(metadata: MediaMetadata): Bitmap? {
         for (key in ART_KEYS) {
             val value = try {
@@ -223,8 +223,8 @@ class NowPlaying(context: Context) {
     }
 
     /**
-     * Verkleinert das Cover auf höchstens `sizePx` (längste Kante). Kleine Bilder
-     * bleiben, wie sie sind — die fremde App hat sie schon passend gerechnet.
+     * Scales the cover down to at most `sizePx` (longest edge). Small images
+     * stay as they are — the foreign app already sized them to fit.
      */
     private fun small(source: Bitmap, sizePx: Int): Bitmap {
         val longest = max(source.width, source.height)
@@ -251,9 +251,9 @@ class NowPlaying(context: Context) {
     }
 
     /**
-     * Die erste gesetzte Zeichenkette — fremde Apps füllen nicht immer alle
-     * Schlüssel. `getString` wirft, wenn ein Schlüssel nicht als Text abgelegt
-     * wurde (kommt bei Drittanbieter-Sessions vor), deshalb einzeln abgesichert.
+     * The first string that is set — foreign apps don't always fill every
+     * key. `getString` throws when a key wasn't stored as text (happens with
+     * third-party sessions), hence the per-key guarding.
      */
     private fun text(metadata: MediaMetadata, vararg keys: String): String? {
         for (key in keys) {
@@ -270,32 +270,32 @@ class NowPlaying(context: Context) {
     private fun sessions(): List<MediaController>? = try {
         manager?.getActiveSessions(listener)
     } catch (e: SecurityException) {
-        // Kein Benachrichtigungszugriff: auf einem frisch eingerichteten Gerät
-        // der Normalfall, kein Fehler. Siehe docs/INSTALL.md, Schritt 5b.
+        // No notification access: on a freshly set-up device that is the
+        // normal case, not an error. See docs/INSTALL.md, step 5b.
         null
     } catch (e: Exception) {
-        // Der Session-Dienst antwortet gerade nicht (Gerät fährt herunter o. Ä.).
+        // The session service isn't responding right now (device shutting
+        // down or such).
         null
     }
 
     private companion object {
         /**
-         * Obergrenze des Cover-Caches. 4 MB sind ein paar Alben-Bilder in
-         * Symbolgröße und auf einem 1,4-GB-Gerät vertretbar — dieselbe
-         * Größenordnung wie der Symbol-Cache eines Rasters, nicht wie ein
-         * ganzer Symbol-Cache.
+         * Upper bound of the cover cache. 4 MB are a few album images at
+         * icon size and are defensible on a 1.4 GB device — the same order
+         * of magnitude as the icon cache of one grid, not a whole icon
+         * cache.
          */
         const val MAX_ART_BYTES = 4 * 1024 * 1024
 
         /**
-         * Reihenfolge der Bild-Schlüssel: das Album-Cover zuerst, dann das
-         * generische Artwork, dann das Anzeige-Symbol. Manche Apps füllen nur
-         * eines davon — bei Radio-Streams fehlt `METADATA_KEY_ALBUM_ART`
-         * regelmäßig.
+         * Order of the image keys: the album cover first, then the generic
+         * artwork, then the display icon. Some apps fill only one of them —
+         * with radio streams `METADATA_KEY_ALBUM_ART` is regularly missing.
          *
-         * Nur **Bitmap**-Schlüssel: die `*_URI`-Varianten gäbe es auch, sie
-         * verlangen aber einen zweiten Weg (Content-Resolver, fremder
-         * ContentProvider) für ein Bild, das die Session meist schon mitliefert.
+         * Only **Bitmap** keys: the `*_URI` variants exist too, but they
+         * demand a second route (ContentResolver, a foreign ContentProvider)
+         * for an image the session usually ships along anyway.
          */
         val ART_KEYS = arrayOf(
             MediaMetadata.METADATA_KEY_ALBUM_ART,
@@ -306,30 +306,31 @@ class NowPlaying(context: Context) {
 }
 
 /**
- * Was gerade läuft — die Zeile **und** alles, was man zum Anspringen braucht.
+ * What is playing right now — the line **and** everything needed to jump there.
  *
- * Drei Dinge kommen hier zusammen: [info] (Titel, Interpret, Zustand — rein und
- * ohne Android-Typen, deshalb prüfbar), [packageName] (welche App die Session
- * hält) und [activity] — der „Jetzt läuft“-Bildschirm der fremden App als
- * [PendingIntent]: der Weg, den die Session **selbst** für „bring mich nach
- * vorne“ anbietet. Dazu [art], das Cover in Symbolgröße.
+ * Three things come together here: [info] (title, artist, state — pure and
+ * without Android types, hence testable), [packageName] (which app holds the
+ * session) and [activity] — the foreign app's "now playing" screen as a
+ * [PendingIntent]: the route the session **itself** offers for "bring me
+ * forward". Plus [art], the cover at icon size.
  *
- * Warum das nicht in [NowPlayingInfo] steht: dort steht Text. `PendingIntent` und
- * `Bitmap` sind Android-Typen — sie würden die reine Zeilen-Regel
- * ([NowPlayingText]) ohne Gerät unprüfbar machen.
+ * Why this doesn't live in [NowPlayingInfo]: that one holds text.
+ * `PendingIntent` and `Bitmap` are Android types — they would make the pure
+ * line rule ([NowPlayingText]) untestable without a device.
  */
 class NowPlayingTrack(
     val info: NowPlayingInfo,
-    /** Paket der Session — `""`, wenn das System keines nennt. */
+    /** The session's package — `""` when the system names none. */
     val packageName: String,
-    /** `null`, wenn die App keinen „Jetzt läuft“-Bildschirm anbietet. */
+    /** `null` when the app offers no "now playing" screen. */
     val activity: PendingIntent?,
-    /** Cover in Symbolgröße oder `null`. */
+    /** The cover at icon size, or `null`. */
     val art: Bitmap?,
     /**
-     * `true`, wenn die App **beendet** hat (Session steht auf `STOPPED`/`ERROR`).
-     * Dann darf ihre Zeile verschwinden. „Keine Session“ heißt dagegen nur „jetzt
-     * nichts zu sagen“ und lässt sie stehen — siehe [NowPlayingBoard].
+     * `true` when the app has **ended** (the session sits at `STOPPED`/`ERROR`).
+     * Then its line may disappear. "No session", by contrast, only means
+     * "nothing to say right now" and leaves the line standing — see
+     * [NowPlayingBoard].
      */
     val ended: Boolean = false,
 )
